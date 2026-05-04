@@ -74,7 +74,13 @@ fn test_decode_rejects_invalid_base64() {
         .decode("not base64!")
         .expect_err("invalid base64 should fail");
 
-    assert!(matches!(error, CodecError::InvalidBase64 { .. }));
+    assert!(matches!(
+        error,
+        CodecError::InvalidInput {
+            codec: "base64",
+            ..
+        }
+    ));
 }
 
 #[test]

@@ -11,6 +11,8 @@
 
 use qubit_codec::{
     CodecError,
+    Decoder,
+    Encoder,
     PercentCodec,
 };
 
@@ -38,7 +40,11 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("truncated escape should fail");
     assert!(matches!(
         short,
-        CodecError::InvalidPercentEscape { index: 3 }
+        CodecError::InvalidEscape {
+            index: 3,
+            escape: _,
+            reason: _
+        }
     ));
 
     let bad_hex = PercentCodec::new()
@@ -46,11 +52,37 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("bad hex escape should fail");
     assert!(matches!(
         bad_hex,
-        CodecError::InvalidPercentEscape { index: 0 }
+        CodecError::InvalidEscape {
+            index: 0,
+            escape: _,
+            reason: _
+        }
+    ));
+
+    let bad_low_hex = PercentCodec::new()
+        .decode("%0z")
+        .expect_err("bad low hex digit should fail");
+    assert!(matches!(
+        bad_low_hex,
+        CodecError::InvalidEscape {
+            index: 0,
+            escape: _,
+            reason: _
+        }
     ));
 
     let bad_utf8 = PercentCodec::new()
         .decode("%FF")
         .expect_err("invalid utf-8 should fail");
     assert!(matches!(bad_utf8, CodecError::InvalidUtf8 { .. }));
+}
+
+#[test]
+fn test_percent_codec_default_and_trait_methods() {
+    let codec = PercentCodec;
+    let encoded = Encoder::<str>::encode(&codec, "a b").expect("percent encode should succeed");
+    let decoded = Decoder::<str>::decode(&codec, &encoded).expect("percent decode should succeed");
+
+    assert_eq!("a%20b", encoded);
+    assert_eq!("a b", decoded);
 }

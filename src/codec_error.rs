@@ -26,35 +26,57 @@ pub enum CodecError {
         prefix: String,
     },
 
-    /// Hex input contained an odd number of digits.
-    #[error("hex input contains an odd number of digits: {digits}")]
-    OddHexLength {
-        /// Number of hex digits seen after normalization.
-        digits: usize,
-    },
-
-    /// Hex input contained a non-hexadecimal digit.
-    #[error("invalid hex digit '{character}' at index {index}")]
-    InvalidHexDigit {
-        /// Character index in the original input.
+    /// Input contained a digit that is invalid for the requested radix.
+    #[error("invalid radix-{radix} digit '{character}' at index {index}")]
+    InvalidDigit {
+        /// Numeric radix expected by the codec.
+        radix: u32,
+        /// Character byte index in the original input.
         index: usize,
         /// Invalid character.
         character: char,
     },
 
-    /// Base64 input was malformed.
-    #[error("invalid base64 input: {source}")]
-    InvalidBase64 {
-        /// Underlying Base64 decoder error.
-        #[from]
-        source: base64::DecodeError,
+    /// Input length does not satisfy a codec requirement.
+    #[error("invalid length for {context}: expected {expected}, got {actual}")]
+    InvalidLength {
+        /// Human-readable input part whose length was invalid.
+        context: &'static str,
+        /// Human-readable length requirement.
+        expected: String,
+        /// Actual length observed by the codec.
+        actual: usize,
     },
 
-    /// Percent input contained a malformed `%XX` escape.
-    #[error("invalid percent escape at index {index}")]
-    InvalidPercentEscape {
-        /// Byte index of the `%` marker in the input.
+    /// Input contained a malformed or unsupported escape sequence.
+    #[error("invalid escape {escape:?} at index {index}: {reason}")]
+    InvalidEscape {
+        /// Byte index of the escape marker in the original input.
         index: usize,
+        /// Escape sequence fragment that caused the error.
+        escape: String,
+        /// Human-readable reason the escape was rejected.
+        reason: String,
+    },
+
+    /// Input contained a character that cannot appear in that context.
+    #[error("invalid character '{character}' at index {index}: {reason}")]
+    InvalidCharacter {
+        /// Character byte index in the original input.
+        index: usize,
+        /// Invalid character.
+        character: char,
+        /// Human-readable reason the character was rejected.
+        reason: String,
+    },
+
+    /// Input was rejected by a codec-specific validator.
+    #[error("invalid {codec} input: {reason}")]
+    InvalidInput {
+        /// Stable codec name, such as `base64`.
+        codec: &'static str,
+        /// Human-readable reason reported by the codec.
+        reason: String,
     },
 
     /// Decoded bytes were not valid UTF-8.

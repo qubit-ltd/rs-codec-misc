@@ -18,6 +18,7 @@ use qubit_codec::{
 fn test_production_code_does_not_use_panic_helpers() {
     let sources = [
         include_str!("../src/base64_codec.rs"),
+        include_str!("../src/c_string_literal_codec.rs"),
         include_str!("../src/codec.rs"),
         include_str!("../src/codec_error.rs"),
         include_str!("../src/decoder.rs"),
@@ -200,14 +201,22 @@ fn test_decode_reports_precise_hex_errors() {
     let odd = HexCodec::new()
         .decode("abc")
         .expect_err("odd number of digits should fail");
-    assert!(matches!(odd, CodecError::OddHexLength { digits: 3 }));
+    assert!(matches!(
+        odd,
+        CodecError::InvalidLength {
+            context: "hex digits",
+            actual: 3,
+            ..
+        }
+    ));
 
     let invalid = HexCodec::new()
         .decode("12xz")
         .expect_err("invalid digit should fail");
     assert!(matches!(
         invalid,
-        CodecError::InvalidHexDigit {
+        CodecError::InvalidDigit {
+            radix: 16,
             index: 2,
             character: 'x'
         }
@@ -234,7 +243,8 @@ fn test_decode_reports_precise_hex_errors() {
         .expect_err("invalid digit after prefix should fail");
     assert!(matches!(
         invalid_after_prefix,
-        CodecError::InvalidHexDigit {
+        CodecError::InvalidDigit {
+            radix: 16,
             index: 3,
             character: 'g'
         }
@@ -246,7 +256,8 @@ fn test_decode_reports_precise_hex_errors() {
         .expect_err("invalid digit after byte prefix should fail");
     assert!(matches!(
         invalid_after_byte_prefix,
-        CodecError::InvalidHexDigit {
+        CodecError::InvalidDigit {
+            radix: 16,
             index: 3,
             character: 'g'
         }

@@ -20,6 +20,7 @@ This crate focuses on textual encodings with clear wire-format semantics:
 
 - hexadecimal byte strings
 - Base64 byte strings
+- C string literal byte fragments
 - percent-encoded UTF-8 text
 - `application/x-www-form-urlencoded` UTF-8 text fragments
 
@@ -63,7 +64,16 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **Standard Alphabet**: padded and no-padding standard Base64.
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
-- **Typed Errors**: malformed input is reported as `CodecError::InvalidBase64`.
+- **Typed Errors**: malformed input is reported as `CodecError::InvalidInput`.
+
+### 🔤 **C String Literal Bytes**
+
+- **Mixed Text and Escapes**: decodes fragments such as `PK\003\004` and
+  `\xd0\xcf`.
+- **C Escape Support**: handles simple, octal, hexadecimal, and universal byte
+  escapes.
+- **Byte-Oriented Output**: decodes directly to raw bytes without requiring
+  UTF-8.
 
 ### 🌐 **Percent-Encoding**
 
@@ -95,7 +105,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-codec = "0.2.0"
+qubit-codec = "0.3.0"
 ```
 
 ## Quick Start
@@ -153,6 +163,24 @@ fn main() {
         .decode("-__v")
         .expect("URL-safe Base64 text should decode");
     assert_eq!(vec![251, 255, 239], decoded);
+}
+```
+
+### C String Literal Bytes
+
+```rust
+use qubit_codec::CStringLiteralCodec;
+
+fn main() {
+    let codec = CStringLiteralCodec::new();
+
+    let decoded = codec
+        .decode(r"PK\003\004")
+        .expect("C string literal should decode");
+    assert_eq!(b"PK\x03\x04".to_vec(), decoded);
+
+    let encoded = codec.encode(&[0xd0, 0xcf, 0x11, 0xe0]);
+    assert_eq!(r"\xD0\xCF\x11\xE0", encoded);
 }
 ```
 
@@ -256,6 +284,14 @@ fn main() {
 | `encode(bytes)` | Configured | Configured | Encode bytes into Base64 text |
 | `decode(text)` | Configured | Configured | Decode Base64 text into bytes |
 
+### `CStringLiteralCodec` Operations
+
+| Method | Description |
+|--------|-------------|
+| `new()` | Create a C string literal byte codec |
+| `encode(bytes)` | Encode bytes into a C string literal fragment |
+| `decode(text)` | Decode a C string literal fragment into bytes |
+
 ### Text Codec Operations
 
 | Type | Method | Description |
@@ -275,10 +311,11 @@ Bundled decoders return `CodecResult<T>`, an alias for
 | Error | Meaning |
 |-------|---------|
 | `MissingPrefix` | A configured whole or per-byte hex prefix was required but missing |
-| `OddHexLength` | Hex input contained an odd number of digits after normalization |
-| `InvalidHexDigit` | Hex input contained a non-hexadecimal character |
-| `InvalidBase64` | Base64 input was malformed |
-| `InvalidPercentEscape` | Percent input contained a malformed `%XX` escape |
+| `InvalidDigit` | Input contained a digit that is invalid for the requested radix |
+| `InvalidLength` | Input length does not satisfy a codec requirement |
+| `InvalidEscape` | Input contained a malformed or unsupported escape sequence |
+| `InvalidCharacter` | Input contained a character that cannot appear in that context |
+| `InvalidInput` | Input was rejected by a codec-specific validator |
 | `InvalidUtf8` | Decoded bytes were not valid UTF-8 |
 
 ## Testing & Code Coverage

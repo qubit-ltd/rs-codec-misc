@@ -212,9 +212,7 @@ impl HexCodec {
     pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> CodecResult<()> {
         let digits = self.normalized_digits(text)?;
         if digits.len() % 2 != 0 {
-            return Err(CodecError::OddHexLength {
-                digits: digits.len(),
-            });
+            return Err(invalid_hex_length(digits.len()));
         }
         output.reserve(digits.len() / 2);
         for pair in digits.chunks_exact(2) {
@@ -225,14 +223,8 @@ impl HexCodec {
             let Some(&(low_index, low_char)) = pair.next() else {
                 continue;
             };
-            let high = hex_value(high_char).ok_or(CodecError::InvalidHexDigit {
-                index: high_index,
-                character: high_char,
-            })?;
-            let low = hex_value(low_char).ok_or(CodecError::InvalidHexDigit {
-                index: low_index,
-                character: low_char,
-            })?;
+            let high = hex_value(high_char).ok_or(invalid_hex_digit(high_index, high_char))?;
+            let low = hex_value(low_char).ok_or(invalid_hex_digit(low_index, low_char))?;
             output.push((high << 4) | low);
         }
         Ok(())
@@ -247,7 +239,7 @@ impl HexCodec {
     /// Hex digits paired with their original character indexes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidHexDigit`] for unsupported characters.
+    /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
     fn normalized_digits(&self, text: &str) -> CodecResult<Vec<(usize, char)>> {
         let start_index = self.consume_prefix(text)?;
         if let Some(byte_prefix) = self
@@ -299,7 +291,7 @@ impl HexCodec {
     /// Hex digits paired with their original character indexes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidHexDigit`] for unsupported characters.
+    /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
     fn normalized_unprefixed_digits(
         &self,
         text: &str,
@@ -332,10 +324,7 @@ impl HexCodec {
                 index += ch.len_utf8();
                 continue;
             }
-            return Err(CodecError::InvalidHexDigit {
-                index,
-                character: ch,
-            });
+            return Err(invalid_hex_digit(index, ch));
         }
         Ok(digits)
     }
@@ -352,7 +341,7 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`CodecError::MissingPrefix`] when a byte prefix is missing, or
-    /// [`CodecError::InvalidHexDigit`] for unsupported characters.
+    /// [`CodecError::InvalidDigit`] for unsupported characters.
     fn normalized_byte_prefixed_digits(
         &self,
         text: &str,
@@ -397,10 +386,7 @@ impl HexCodec {
                     digit_count += 1;
                     continue;
                 }
-                return Err(CodecError::InvalidHexDigit {
-                    index,
-                    character: ch,
-                });
+                return Err(invalid_hex_digit(index, ch));
             }
         }
         Ok(digits)
@@ -521,6 +507,37 @@ fn hex_value(ch: char) -> Option<u8> {
         'a'..='f' => Some(ch as u8 - b'a' + 10),
         'A'..='F' => Some(ch as u8 - b'A' + 10),
         _ => None,
+    }
+}
+
+/// Builds an invalid hexadecimal digit error.
+///
+/// # Parameters
+/// - `index`: Byte index of the invalid character in the original input.
+/// - `character`: Invalid character.
+///
+/// # Returns
+/// A radix-16 digit error.
+fn invalid_hex_digit(index: usize, character: char) -> CodecError {
+    CodecError::InvalidDigit {
+        radix: 16,
+        index,
+        character,
+    }
+}
+
+/// Builds an invalid hexadecimal length error.
+///
+/// # Parameters
+/// - `actual`: Number of normalized hexadecimal digits.
+///
+/// # Returns
+/// An invalid length error describing the even-digit requirement.
+fn invalid_hex_length(actual: usize) -> CodecError {
+    CodecError::InvalidLength {
+        context: "hex digits",
+        expected: "an even number of digits".to_owned(),
+        actual,
     }
 }
 

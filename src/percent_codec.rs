@@ -110,7 +110,7 @@ pub(crate) fn percent_encode_bytes(bytes: &[u8], space_as_plus: bool) -> String 
 /// Decoded bytes.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidPercentEscape`] for malformed escapes.
+/// Returns [`CodecError::InvalidEscape`] for malformed escapes.
 pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResult<Vec<u8>> {
     let bytes = text.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
@@ -121,12 +121,12 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResu
                 let (Some(&high_byte), Some(&low_byte)) =
                     (bytes.get(index + 1), bytes.get(index + 2))
                 else {
-                    return Err(CodecError::InvalidPercentEscape { index });
+                    return Err(invalid_percent_escape(index));
                 };
-                let high = percent_hex_value(high_byte)
-                    .ok_or(CodecError::InvalidPercentEscape { index })?;
-                let low = percent_hex_value(low_byte)
-                    .ok_or(CodecError::InvalidPercentEscape { index })?;
+                let high =
+                    percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(index))?;
+                let low =
+                    percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(index))?;
                 output.push((high << 4) | low);
                 index += 3;
             }
@@ -141,6 +141,21 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResu
         }
     }
     Ok(output)
+}
+
+/// Builds a malformed percent escape error.
+///
+/// # Parameters
+/// - `index`: Byte index of the `%` marker in the original input.
+///
+/// # Returns
+/// An invalid escape error for a `%XX` sequence.
+fn invalid_percent_escape(index: usize) -> CodecError {
+    CodecError::InvalidEscape {
+        index,
+        escape: "%".to_owned(),
+        reason: "expected two hexadecimal digits".to_owned(),
+    }
 }
 
 /// Tests whether a byte may be left unescaped.
