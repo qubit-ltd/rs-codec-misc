@@ -1,0 +1,42 @@
+[package]
+name = "qubit-codec"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+autotests = false
+authors = ["Haixing Hu <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/qubit-ltd/rs-codec"
+description = "Reusable byte and text codecs for Rust applications"
+homepage = "https://github.com/qubit-ltd/rs-codec"
+documentation = "https://docs.rs/qubit-codec"
+readme = "README.md"
+keywords = ["codec", "hex", "base64", "percent", "qubit"]
+categories = ["encoding", "parser-implementations"]
+exclude = [
+    "coverage.sh",
+    "COVERAGE.md",
+    "COVERAGE.zh_CN.md",
+    ".circleci/*",
+    "ci-check.sh",
+    ".llvm-cov.toml",
+    ".cargo-audit.toml.example",
+]
+
+[dependencies]
+base64 = "0.22"
+thiserror = "2.0"
+
+[[test]]
+name = "tests"
+path = "tests/mod.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
+lto = true
+codegen-units = 1
