@@ -21,12 +21,16 @@ use crate::{
 pub struct HexCodec {
     /// Whether to use uppercase hexadecimal digits.
     uppercase: bool,
-    /// The prefix to use before each encoded byte.
+    /// The prefix to use before the whole encoded string.
     prefix: Option<String>,
+    /// The prefix to use before each encoded byte.
+    byte_prefix: Option<String>,
     /// The separator to use between bytes in the encoded string.
     separator: Option<String>,
     /// Whether to ignore ASCII whitespace while decoding.
     ignore_ascii_whitespace: bool,
+    /// Whether to ignore ASCII case when matching configured prefixes.
+    ignore_prefix_case: bool,
 }
 
 impl HexCodec {
@@ -38,8 +42,10 @@ impl HexCodec {
         Self {
             uppercase: false,
             prefix: None,
+            byte_prefix: None,
             separator: None,
             ignore_ascii_whitespace: false,
+            ignore_prefix_case: false,
         }
     }
 
@@ -63,22 +69,35 @@ impl HexCodec {
         self
     }
 
-    /// Sets a per-byte prefix.
+    /// Sets a whole-output prefix.
     ///
-    /// The prefix is written before every encoded byte and required before
-    /// every decoded byte. For example, using prefix `0x` and separator ` `
-    /// encodes bytes as `0x1F 0x8B`.
-    ///
-    /// This is not a whole-output prefix: `[0x1F, 0x8B]` is encoded as
-    /// `0x1F 0x8B`, not `0x1F 8B`.
+    /// The prefix is written once before the encoded bytes and required once
+    /// before decoded input. For example, using prefix `0x` encodes bytes as
+    /// `0x1f8b`.
     ///
     /// # Parameters
-    /// - `prefix`: Prefix text such as `0x`.
+    /// - `prefix`: Whole-output prefix text such as `0x`.
     ///
     /// # Returns
     /// The updated codec.
     pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.prefix = Some(prefix.into());
+        self
+    }
+
+    /// Sets a per-byte prefix.
+    ///
+    /// The prefix is written before every encoded byte and required before
+    /// every decoded byte. For example, using byte prefix `0x` and separator
+    /// ` ` encodes bytes as `0x1f 0x8b`.
+    ///
+    /// # Parameters
+    /// - `prefix`: Per-byte prefix text such as `0x`.
+    ///
+    /// # Returns
+    /// The updated codec.
+    pub fn with_byte_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.byte_prefix = Some(prefix.into());
         self
     }
 
@@ -106,6 +125,21 @@ impl HexCodec {
         self
     }
 
+    /// Sets whether ASCII case is ignored when decoding configured prefixes.
+    ///
+    /// This option affects whole-output prefixes and per-byte prefixes during
+    /// decoding only. Encoding writes prefixes exactly as configured.
+    ///
+    /// # Parameters
+    /// - `ignore`: Whether to ignore ASCII case while matching prefixes.
+    ///
+    /// # Returns
+    /// The updated codec.
+    pub fn with_ignore_prefix_case(mut self, ignore: bool) -> Self {
+        self.ignore_prefix_case = ignore;
+        self
+    }
+
     /// Encodes bytes into a hexadecimal string.
     ///
     /// # Parameters
@@ -116,10 +150,13 @@ impl HexCodec {
     pub fn encode(&self, bytes: &[u8]) -> String {
         let separator_len = self.separator.as_ref().map_or(0, String::len);
         let prefix_len = self.prefix.as_ref().map_or(0, String::len);
-        let capacity = bytes
-            .len()
-            .saturating_mul(prefix_len.saturating_add(2))
-            .saturating_add(bytes.len().saturating_sub(1).saturating_mul(separator_len));
+        let byte_prefix_len = self.byte_prefix.as_ref().map_or(0, String::len);
+        let capacity = prefix_len.saturating_add(
+            bytes
+                .len()
+                .saturating_mul(byte_prefix_len.saturating_add(2))
+                .saturating_add(bytes.len().saturating_sub(1).saturating_mul(separator_len)),
+        );
         let mut output = String::with_capacity(capacity);
         self.encode_into(bytes, &mut output);
         output
@@ -131,14 +168,17 @@ impl HexCodec {
     /// - `bytes`: Bytes to encode.
     /// - `output`: Destination string.
     pub fn encode_into(&self, bytes: &[u8], output: &mut String) {
+        if let Some(prefix) = &self.prefix {
+            output.push_str(prefix);
+        }
         for (index, byte) in bytes.iter().enumerate() {
             if index > 0
                 && let Some(separator) = &self.separator
             {
                 output.push_str(separator);
             }
-            if let Some(prefix) = &self.prefix {
-                output.push_str(prefix);
+            if let Some(byte_prefix) = &self.byte_prefix {
+                output.push_str(byte_prefix);
             }
             push_hex_byte(*byte, self.uppercase, output);
         }
@@ -153,7 +193,7 @@ impl HexCodec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`CodecError`] when a configured per-byte prefix is missing,
+    /// Returns [`CodecError`] when a configured whole or per-byte prefix is missing,
     /// when the normalized digit count is odd, or when a non-hex digit is found.
     pub fn decode(&self, text: &str) -> CodecResult<Vec<u8>> {
         let mut output = Vec::new();
@@ -209,10 +249,45 @@ impl HexCodec {
     /// # Errors
     /// Returns [`CodecError::InvalidHexDigit`] for unsupported characters.
     fn normalized_digits(&self, text: &str) -> CodecResult<Vec<(usize, char)>> {
-        if let Some(prefix) = self.prefix.as_deref().filter(|prefix| !prefix.is_empty()) {
-            return self.normalized_prefixed_digits(text, prefix);
+        let start_index = self.consume_prefix(text)?;
+        if let Some(byte_prefix) = self
+            .byte_prefix
+            .as_deref()
+            .filter(|prefix| !prefix.is_empty())
+        {
+            return self.normalized_byte_prefixed_digits(text, byte_prefix, start_index);
         }
-        self.normalized_unprefixed_digits(text)
+        self.normalized_unprefixed_digits(text, start_index)
+    }
+
+    /// Consumes the configured whole-output prefix.
+    ///
+    /// # Parameters
+    /// - `text`: Text to decode.
+    ///
+    /// # Returns
+    /// Byte index where byte parsing should start.
+    ///
+    /// # Errors
+    /// Returns [`CodecError::MissingPrefix`] when a non-empty whole-output
+    /// prefix is configured but absent.
+    fn consume_prefix(&self, text: &str) -> CodecResult<usize> {
+        let Some(prefix) = self.prefix.as_deref().filter(|prefix| !prefix.is_empty()) else {
+            return Ok(0);
+        };
+        let index = self.skip_ascii_whitespace(text, 0);
+        let Some(rest) = text.get(index..) else {
+            return Err(CodecError::MissingPrefix {
+                prefix: prefix.to_owned(),
+            });
+        };
+        if self.starts_with_prefix(rest, prefix) {
+            Ok(index + prefix.len())
+        } else {
+            Err(CodecError::MissingPrefix {
+                prefix: prefix.to_owned(),
+            })
+        }
     }
 
     /// Normalizes unprefixed input characters into hex digits.
@@ -225,13 +300,16 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`CodecError::InvalidHexDigit`] for unsupported characters.
-    fn normalized_unprefixed_digits(&self, text: &str) -> CodecResult<Vec<(usize, char)>> {
+    fn normalized_unprefixed_digits(
+        &self,
+        text: &str,
+        mut index: usize,
+    ) -> CodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
         let separator = self
             .separator
             .as_deref()
             .filter(|separator| !separator.is_empty());
-        let mut index = 0;
         while index < text.len() {
             let Some(rest) = text.get(index..) else {
                 break;
@@ -262,11 +340,12 @@ impl HexCodec {
         Ok(digits)
     }
 
-    /// Normalizes prefixed input characters into hex digits.
+    /// Normalizes byte-prefixed input characters into hex digits.
     ///
     /// # Parameters
     /// - `text`: Text to decode.
     /// - `prefix`: Required prefix before each byte.
+    /// - `index`: Byte index where parsing should start.
     ///
     /// # Returns
     /// Hex digits paired with their original character indexes.
@@ -274,17 +353,17 @@ impl HexCodec {
     /// # Errors
     /// Returns [`CodecError::MissingPrefix`] when a byte prefix is missing, or
     /// [`CodecError::InvalidHexDigit`] for unsupported characters.
-    fn normalized_prefixed_digits(
+    fn normalized_byte_prefixed_digits(
         &self,
         text: &str,
         prefix: &str,
+        mut index: usize,
     ) -> CodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
         let separator = self
             .separator
             .as_deref()
             .filter(|separator| !separator.is_empty());
-        let mut index = 0;
         while index < text.len() {
             index = self.skip_ignored(text, index, separator);
             if index >= text.len() {
@@ -293,7 +372,7 @@ impl HexCodec {
             let Some(rest) = text.get(index..) else {
                 break;
             };
-            if !rest.starts_with(prefix) {
+            if !self.starts_with_prefix(rest, prefix) {
                 return Err(CodecError::MissingPrefix {
                     prefix: prefix.to_owned(),
                 });
@@ -356,6 +435,49 @@ impl HexCodec {
             }
             return index;
         }
+    }
+
+    /// Skips ignored leading ASCII whitespace.
+    ///
+    /// # Parameters
+    /// - `text`: Text being decoded.
+    /// - `index`: Current byte index.
+    ///
+    /// # Returns
+    /// The next byte index after ignored ASCII whitespace.
+    fn skip_ascii_whitespace(&self, text: &str, mut index: usize) -> usize {
+        while self.ignore_ascii_whitespace && index < text.len() {
+            let Some(rest) = text.get(index..) else {
+                return index;
+            };
+            let Some(ch) = rest.chars().next() else {
+                return index;
+            };
+            if !ch.is_ascii_whitespace() {
+                return index;
+            }
+            index += ch.len_utf8();
+        }
+        index
+    }
+
+    /// Tests whether `text` starts with a configured prefix.
+    ///
+    /// # Parameters
+    /// - `text`: Text slice to inspect.
+    /// - `prefix`: Configured prefix.
+    ///
+    /// # Returns
+    /// `true` when `text` starts with `prefix`, honoring the configured
+    /// ASCII case sensitivity for decoding prefixes.
+    fn starts_with_prefix(&self, text: &str, prefix: &str) -> bool {
+        if !self.ignore_prefix_case {
+            return text.starts_with(prefix);
+        }
+        let Some(candidate) = text.get(..prefix.len()) else {
+            return false;
+        };
+        candidate.eq_ignore_ascii_case(prefix)
     }
 }
 

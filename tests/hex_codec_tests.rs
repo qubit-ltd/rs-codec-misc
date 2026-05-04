@@ -68,8 +68,19 @@ fn test_encode_lowercase_contiguous_hex_by_default() {
 }
 
 #[test]
-fn test_encode_uppercase_with_prefix_and_separator() {
+fn test_encode_uppercase_with_whole_prefix_and_separator() {
     let codec = HexCodec::upper().with_prefix("0x").with_separator(" ");
+
+    assert_eq!("0x1F 8B 00 FF", codec.encode(&[0x1f, 0x8b, 0x00, 0xff]));
+    assert_eq!(
+        "0x01 23 45 67 89 AB CD EF",
+        codec.encode(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])
+    );
+}
+
+#[test]
+fn test_encode_uppercase_with_byte_prefix_and_separator() {
+    let codec = HexCodec::upper().with_byte_prefix("0x").with_separator(" ");
 
     assert_eq!(
         "0x1F 0x8B 0x00 0xFF",
@@ -79,6 +90,13 @@ fn test_encode_uppercase_with_prefix_and_separator() {
         "0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0xEF",
         codec.encode(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])
     );
+}
+
+#[test]
+fn test_encode_combines_whole_prefix_and_byte_prefix() {
+    let codec = HexCodec::new().with_prefix("#").with_byte_prefix("\\x");
+
+    assert_eq!("#\\x1f\\x8b", codec.encode(&[0x1f, 0x8b]));
 }
 
 #[test]
@@ -108,8 +126,8 @@ fn test_decode_plain_prefixed_and_separated_hex() {
         vec![0x1f, 0x8b],
         HexCodec::new()
             .with_prefix("0x")
-            .decode("0x1f0x8b")
-            .expect("prefixed contiguous hex should decode")
+            .decode("0x1f8b")
+            .expect("whole-prefixed contiguous hex should decode")
     );
 
     assert_eq!(
@@ -117,18 +135,18 @@ fn test_decode_plain_prefixed_and_separated_hex() {
         HexCodec::new()
             .with_prefix("0x")
             .with_separator(" ")
-            .decode("0x1f 0x8b")
-            .expect("prefixed separated hex should decode")
+            .decode("0x1f 8b")
+            .expect("whole-prefixed separated hex should decode")
     );
 
     assert_eq!(
         vec![0x1f, 0x8b],
         HexCodec::new()
-            .with_prefix("0x")
+            .with_byte_prefix("0x")
             .with_separator(" ")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1 \nF 0x8B ")
-            .expect("prefixed hex should tolerate configured whitespace")
+            .expect("byte-prefixed hex should tolerate configured whitespace")
     );
 
     assert_eq!(
@@ -138,6 +156,42 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_ignored_ascii_whitespace(true)
             .decode("1f: 8B:\n00")
             .expect("separated hex should decode")
+    );
+
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        HexCodec::new()
+            .with_prefix("#")
+            .with_byte_prefix("\\x")
+            .decode("#\\x1f\\x8b")
+            .expect("whole prefix and byte prefix should decode together")
+    );
+
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        HexCodec::new()
+            .with_prefix("0x")
+            .with_ignore_prefix_case(true)
+            .decode("0X1f8b")
+            .expect("whole prefix should optionally ignore ASCII case")
+    );
+
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        HexCodec::new()
+            .with_byte_prefix("0x")
+            .with_ignore_prefix_case(true)
+            .decode("0X1f0X8b")
+            .expect("byte prefix should optionally ignore ASCII case")
+    );
+
+    assert_eq!(
+        vec![0x1f],
+        HexCodec::new()
+            .with_prefix("0x")
+            .with_ignored_ascii_whitespace(true)
+            .decode(" \t0x1f")
+            .expect("whole prefix should tolerate configured leading whitespace")
     );
 }
 
@@ -166,7 +220,7 @@ fn test_decode_reports_precise_hex_errors() {
     assert!(matches!(missing_prefix, CodecError::MissingPrefix { .. }));
 
     let missing_second_prefix = HexCodec::new()
-        .with_prefix("0x")
+        .with_byte_prefix("0x")
         .decode("0x1f8b")
         .expect_err("each byte should require its own prefix");
     assert!(matches!(
@@ -185,4 +239,23 @@ fn test_decode_reports_precise_hex_errors() {
             character: 'g'
         }
     ));
+
+    let invalid_after_byte_prefix = HexCodec::new()
+        .with_byte_prefix("0x")
+        .decode("0x1g")
+        .expect_err("invalid digit after byte prefix should fail");
+    assert!(matches!(
+        invalid_after_byte_prefix,
+        CodecError::InvalidHexDigit {
+            index: 3,
+            character: 'g'
+        }
+    ));
+
+    let too_short_prefix = HexCodec::new()
+        .with_prefix("0x")
+        .with_ignore_prefix_case(true)
+        .decode("0")
+        .expect_err("short input should not match prefix");
+    assert!(matches!(too_short_prefix, CodecError::MissingPrefix { .. }));
 }
