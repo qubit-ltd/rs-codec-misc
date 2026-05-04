@@ -16,8 +16,6 @@ use crate::{
     Encoder,
 };
 
-const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
-
 /// Encodes and decodes percent-encoded UTF-8 text.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PercentCodec;
@@ -95,8 +93,8 @@ pub(crate) fn percent_encode_bytes(bytes: &[u8], space_as_plus: bool) -> String 
             output.push(*byte as char);
         } else {
             output.push('%');
-            output.push(HEX_DIGITS[(byte >> 4) as usize] as char);
-            output.push(HEX_DIGITS[(byte & 0x0f) as usize] as char);
+            output.push(percent_hex_digit(byte >> 4));
+            output.push(percent_hex_digit(byte & 0x0f));
         }
     }
     output
@@ -117,15 +115,17 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResu
     let bytes = text.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
     let mut index = 0;
-    while index < bytes.len() {
-        match bytes[index] {
+    while let Some(&byte) = bytes.get(index) {
+        match byte {
             b'%' => {
-                if index + 2 >= bytes.len() {
+                let (Some(&high_byte), Some(&low_byte)) =
+                    (bytes.get(index + 1), bytes.get(index + 2))
+                else {
                     return Err(CodecError::InvalidPercentEscape { index });
-                }
-                let high = percent_hex_value(bytes[index + 1])
+                };
+                let high = percent_hex_value(high_byte)
                     .ok_or(CodecError::InvalidPercentEscape { index })?;
-                let low = percent_hex_value(bytes[index + 2])
+                let low = percent_hex_value(low_byte)
                     .ok_or(CodecError::InvalidPercentEscape { index })?;
                 output.push((high << 4) | low);
                 index += 3;
@@ -170,5 +170,33 @@ fn percent_hex_value(byte: u8) -> Option<u8> {
         b'a'..=b'f' => Some(byte - b'a' + 10),
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
+    }
+}
+
+/// Converts one nibble to an uppercase hexadecimal digit.
+///
+/// # Parameters
+/// - `value`: Nibble value.
+///
+/// # Returns
+/// Uppercase hexadecimal digit. Values above `0x0f` are masked to their low nibble.
+fn percent_hex_digit(value: u8) -> char {
+    match value & 0x0f {
+        0x0 => '0',
+        0x1 => '1',
+        0x2 => '2',
+        0x3 => '3',
+        0x4 => '4',
+        0x5 => '5',
+        0x6 => '6',
+        0x7 => '7',
+        0x8 => '8',
+        0x9 => '9',
+        0x0a => 'A',
+        0x0b => 'B',
+        0x0c => 'C',
+        0x0d => 'D',
+        0x0e => 'E',
+        _ => 'F',
     }
 }

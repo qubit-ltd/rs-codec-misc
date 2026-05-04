@@ -19,6 +19,7 @@ fn test_percent_codec_encodes_utf8_and_leaves_unreserved_ascii() {
     let codec = PercentCodec::new();
 
     assert_eq!("a-z_A.Z~0%201%2F%E4%B8%AD", codec.encode("a-z_A.Z~0 1/中"));
+    assert_eq!("%01%09%1C", codec.encode("\u{0001}\t\u{001c}"));
 }
 
 #[test]
