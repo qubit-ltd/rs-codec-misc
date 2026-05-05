@@ -1,2 +1,40 @@
-#[path = "trait_tests.rs"]
-mod trait_tests;
+/*******************************************************************************
+ *
+ *    Copyright (c) 2026 Haixing Hu.
+ *
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
+ *
+ ******************************************************************************/
+//! Tests for the decoder trait contract.
+
+use qubit_codec::{
+    Base64Codec,
+    CodecError,
+    Decoder,
+    HexCodec,
+};
+
+#[test]
+fn test_decoder_trait_dispatches_to_concrete_hex_decoder() {
+    let codec = HexCodec::new().with_prefix("0x");
+
+    let decoded = Decoder::<str>::decode(&codec, "0x616263").expect("hex should decode");
+
+    assert_eq!(b"abc".to_vec(), decoded);
+}
+
+#[test]
+fn test_decoder_trait_preserves_concrete_error_type() {
+    let error = Decoder::<str>::decode(&Base64Codec::standard(), "@@@")
+        .expect_err("invalid base64 should fail");
+
+    assert!(matches!(
+        error,
+        CodecError::InvalidInput {
+            codec: "base64",
+            ..
+        }
+    ));
+}
