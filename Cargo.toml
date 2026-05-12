@@ -14,11 +14,12 @@ readme = "README.md"
 keywords = ["codec", "hex", "base64", "percent", "qubit"]
 categories = ["encoding", "parser-implementations"]
 exclude = [
-    "coverage.sh",
-    "COVERAGE.md",
-    "COVERAGE.zh_CN.md",
-    ".circleci/*",
+    "align-ci.sh",
     "ci-check.sh",
+    "coverage.sh",
+    "style-check.sh",
+    "update-submodule.sh",
+    ".github/*",
     ".llvm-cov.toml",
     ".cargo-audit.toml.example",
 ]
