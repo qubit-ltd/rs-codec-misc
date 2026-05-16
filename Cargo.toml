@@ -1,6 +1,6 @@
 [package]
 name = "qubit-codec"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2024"
 rust-version = "1.94"
 autotests = false
@@ -13,15 +13,15 @@ documentation = "https://docs.rs/qubit-codec"
 readme = "README.md"
 keywords = ["codec", "hex", "base64", "percent", "qubit"]
 categories = ["encoding", "parser-implementations"]
-exclude = [
-    "align-ci.sh",
-    "ci-check.sh",
-    "coverage.sh",
-    "style-check.sh",
-    "update-submodule.sh",
-    ".github/*",
-    ".llvm-cov.toml",
-    ".cargo-audit.toml.example",
+include = [
+    "/Cargo.toml",
+    "/LICENSE",
+    "/README.md",
+    "/README.zh_CN.md",
+    "/doc/**/user_guide*.md",
+    "/examples/**",
+    "/src/**",
+    "/tests/**",
 ]
 
 [dependencies]
