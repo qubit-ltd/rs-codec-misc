@@ -22,15 +22,10 @@ fn test_decode_decimal_octal_and_hex_literals() {
     assert_eq!(0, codec.decode("0").expect("zero should decode"));
     assert_eq!(123, codec.decode("123").expect("decimal should decode"));
     assert_eq!(83, codec.decode("0123").expect("octal should decode"));
+    assert_eq!(0xbeef_c0de, codec.decode("0xBEEFC0DE").expect("hex should decode"));
     assert_eq!(
         0xbeef_c0de,
-        codec.decode("0xBEEFC0DE").expect("hex should decode")
-    );
-    assert_eq!(
-        0xbeef_c0de,
-        codec
-            .decode("0Xbeefc0de")
-            .expect("uppercase prefix should decode")
+        codec.decode("0Xbeefc0de").expect("uppercase prefix should decode")
     );
 }
 
@@ -38,12 +33,7 @@ fn test_decode_decimal_octal_and_hex_literals() {
 fn test_decode_trims_surrounding_ascii_and_unicode_whitespace() {
     let codec = CIntegerLiteralCodec::new();
 
-    assert_eq!(
-        42,
-        codec
-            .decode(" \t42\n")
-            .expect("ASCII whitespace should trim")
-    );
+    assert_eq!(42, codec.decode(" \t42\n").expect("ASCII whitespace should trim"));
     assert_eq!(
         42,
         codec
@@ -130,8 +120,7 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
 #[test]
 fn test_c_integer_literal_codec_can_be_used_through_decoder_trait() {
     let codec = CIntegerLiteralCodec::new();
-    let decoded = Decoder::<str>::decode(&codec, "0x2a")
-        .expect("C integer literal should decode through trait");
+    let decoded = Decoder::<str>::decode(&codec, "0x2a").expect("C integer literal should decode through trait");
 
     assert_eq!(42, decoded);
 }

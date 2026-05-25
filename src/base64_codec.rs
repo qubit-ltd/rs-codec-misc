@@ -98,12 +98,10 @@ impl Base64Codec {
     /// # Errors
     /// Returns [`CodecError::InvalidInput`] when `text` is malformed.
     pub fn decode(&self, text: &str) -> CodecResult<Vec<u8>> {
-        self.engine()
-            .decode(text)
-            .map_err(|source| CodecError::InvalidInput {
-                codec: "base64",
-                reason: source.to_string(),
-            })
+        self.engine().decode(text).map_err(|source| CodecError::InvalidInput {
+            codec: "base64",
+            reason: source.to_string(),
+        })
     }
 
     /// Selects the concrete Base64 engine.

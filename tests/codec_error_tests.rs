@@ -86,9 +86,7 @@ fn test_codec_error_wraps_utf8_source_error() {
 #[test]
 fn test_codec_result_alias_uses_codec_error() {
     fn decode_stub() -> CodecResult<()> {
-        Err(CodecError::MissingPrefix {
-            prefix: "#".to_owned(),
-        })
+        Err(CodecError::MissingPrefix { prefix: "#".to_owned() })
     }
 
     let error = decode_stub().expect_err("stub should return codec error");

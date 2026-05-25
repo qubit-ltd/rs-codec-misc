@@ -108,20 +108,11 @@ impl Decoder<str> for CStringLiteralCodec {
 /// # Errors
 /// Returns [`CodecError`] when the escape marker is trailing or the escape
 /// sequence is malformed.
-fn decode_escape(
-    text: &str,
-    chars: &[(usize, char)],
-    position: &mut usize,
-    output: &mut Vec<u8>,
-) -> CodecResult<()> {
+fn decode_escape(text: &str, chars: &[(usize, char)], position: &mut usize, output: &mut Vec<u8>) -> CodecResult<()> {
     let marker_index = chars[*position].0;
     *position += 1;
     let Some(&(_, escape)) = chars.get(*position) else {
-        return Err(invalid_escape(
-            marker_index,
-            "\\",
-            "incomplete escape sequence",
-        ));
+        return Err(invalid_escape(marker_index, "\\", "incomplete escape sequence"));
     };
     match escape {
         ' ' => push_simple_escape(position, output, b' '),
@@ -190,11 +181,7 @@ fn push_simple_escape(position: &mut usize, output: &mut Vec<u8>, byte: u8) {
 /// # Errors
 /// Returns [`CodecError::InvalidEscape`] when no hexadecimal digit follows
 /// `\x`.
-fn parse_variable_hex_escape(
-    chars: &[(usize, char)],
-    position: &mut usize,
-    marker_index: usize,
-) -> CodecResult<u8> {
+fn parse_variable_hex_escape(chars: &[(usize, char)], position: &mut usize, marker_index: usize) -> CodecResult<u8> {
     let mut value = 0u8;
     let mut digit_count = 0;
     while digit_count < 2 {

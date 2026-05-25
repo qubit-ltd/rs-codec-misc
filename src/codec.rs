@@ -15,10 +15,7 @@ use crate::{
 };
 
 /// Combines an [`Encoder`] and a [`Decoder`] into a bidirectional codec.
-pub trait Codec<EncodeInput: ?Sized, DecodeInput: ?Sized>:
-    Encoder<EncodeInput> + Decoder<DecodeInput>
-{
-}
+pub trait Codec<EncodeInput: ?Sized, DecodeInput: ?Sized>: Encoder<EncodeInput> + Decoder<DecodeInput> {}
 
 impl<T, EncodeInput: ?Sized, DecodeInput: ?Sized> Codec<EncodeInput, DecodeInput> for T where
     T: Encoder<EncodeInput> + Decoder<DecodeInput>

@@ -37,9 +37,7 @@ fn test_url_safe_base64_roundtrip_without_padding() {
     assert_eq!("-__uAA", encoded);
     assert_eq!(
         bytes.to_vec(),
-        codec
-            .decode(&encoded)
-            .expect("url-safe base64 should decode")
+        codec.decode(&encoded).expect("url-safe base64 should decode")
     );
 }
 
@@ -74,13 +72,7 @@ fn test_decode_rejects_invalid_base64() {
         .decode("not base64!")
         .expect_err("invalid base64 should fail");
 
-    assert!(matches!(
-        error,
-        CodecError::InvalidInput {
-            codec: "base64",
-            ..
-        }
-    ));
+    assert!(matches!(error, CodecError::InvalidInput { codec: "base64", .. }));
 }
 
 #[test]

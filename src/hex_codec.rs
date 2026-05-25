@@ -242,11 +242,7 @@ impl HexCodec {
     /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
     fn normalized_digits(&self, text: &str) -> CodecResult<Vec<(usize, char)>> {
         let start_index = self.consume_prefix(text)?;
-        if let Some(byte_prefix) = self
-            .byte_prefix
-            .as_deref()
-            .filter(|prefix| !prefix.is_empty())
-        {
+        if let Some(byte_prefix) = self.byte_prefix.as_deref().filter(|prefix| !prefix.is_empty()) {
             return self.normalized_byte_prefixed_digits(text, byte_prefix, start_index);
         }
         self.normalized_unprefixed_digits(text, start_index)
@@ -292,16 +288,9 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
-    fn normalized_unprefixed_digits(
-        &self,
-        text: &str,
-        mut index: usize,
-    ) -> CodecResult<Vec<(usize, char)>> {
+    fn normalized_unprefixed_digits(&self, text: &str, mut index: usize) -> CodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
-        let separator = self
-            .separator
-            .as_deref()
-            .filter(|separator| !separator.is_empty());
+        let separator = self.separator.as_deref().filter(|separator| !separator.is_empty());
         while index < text.len() {
             let Some(rest) = text.get(index..) else {
                 break;
@@ -349,10 +338,7 @@ impl HexCodec {
         mut index: usize,
     ) -> CodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
-        let separator = self
-            .separator
-            .as_deref()
-            .filter(|separator| !separator.is_empty());
+        let separator = self.separator.as_deref().filter(|separator| !separator.is_empty());
         while index < text.len() {
             index = self.skip_ignored(text, index, separator);
             if index >= text.len() {

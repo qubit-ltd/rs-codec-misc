@@ -118,15 +118,11 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResu
     while let Some(&byte) = bytes.get(index) {
         match byte {
             b'%' => {
-                let (Some(&high_byte), Some(&low_byte)) =
-                    (bytes.get(index + 1), bytes.get(index + 2))
-                else {
+                let (Some(&high_byte), Some(&low_byte)) = (bytes.get(index + 1), bytes.get(index + 2)) else {
                     return Err(invalid_percent_escape(index));
                 };
-                let high =
-                    percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(index))?;
-                let low =
-                    percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(index))?;
+                let high = percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(index))?;
+                let low = percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(index))?;
                 output.push((high << 4) | low);
                 index += 3;
             }
