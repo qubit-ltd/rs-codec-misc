@@ -51,9 +51,8 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix).map_err(|error| {
-            invalid_c_integer_input(&format!("integer literal is out of range: {error}"))
-        })
+        u64::from_str_radix(components.digits, components.radix)
+            .map_err(|error| invalid_c_integer_input(&format!("integer literal is out of range: {error}")))
     }
 }
 
@@ -89,10 +88,7 @@ impl<'a> LiteralComponents<'a> {
     /// Returns [`CodecError::InvalidInput`] when a radix prefix is present without
     /// any digits after it.
     fn parse(trimmed: &'a str, trim_offset: usize) -> CodecResult<Self> {
-        if let Some(digits) = trimmed
-            .strip_prefix("0x")
-            .or_else(|| trimmed.strip_prefix("0X"))
-        {
+        if let Some(digits) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
             if digits.is_empty() {
                 return Err(invalid_c_integer_input(
                     "hexadecimal literal requires at least one digit",

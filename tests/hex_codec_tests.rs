@@ -84,10 +84,7 @@ fn test_encode_uppercase_with_whole_prefix_and_separator() {
 fn test_encode_uppercase_with_byte_prefix_and_separator() {
     let codec = HexCodec::upper().with_byte_prefix("0x").with_separator(" ");
 
-    assert_eq!(
-        "0x1F 0x8B 0x00 0xFF",
-        codec.encode(&[0x1f, 0x8b, 0x00, 0xff])
-    );
+    assert_eq!("0x1F 0x8B 0x00 0xFF", codec.encode(&[0x1f, 0x8b, 0x00, 0xff]));
     assert_eq!(
         "0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0xEF",
         codec.encode(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])
@@ -119,9 +116,7 @@ fn test_encode_and_decode_into_existing_buffers() {
 fn test_decode_plain_prefixed_and_separated_hex() {
     assert_eq!(
         vec![0x1f, 0x8b, 0x00, 0xff],
-        HexCodec::new()
-            .decode("1f8B00ff")
-            .expect("plain hex should decode")
+        HexCodec::new().decode("1f8B00ff").expect("plain hex should decode")
     );
 
     assert_eq!(
@@ -211,9 +206,7 @@ fn test_decode_reports_precise_hex_errors() {
         }
     ));
 
-    let invalid = HexCodec::new()
-        .decode("12xz")
-        .expect_err("invalid digit should fail");
+    let invalid = HexCodec::new().decode("12xz").expect_err("invalid digit should fail");
     assert!(matches!(
         invalid,
         CodecError::InvalidDigit {
@@ -233,10 +226,7 @@ fn test_decode_reports_precise_hex_errors() {
         .with_byte_prefix("0x")
         .decode("0x1f8b")
         .expect_err("each byte should require its own prefix");
-    assert!(matches!(
-        missing_second_prefix,
-        CodecError::MissingPrefix { .. }
-    ));
+    assert!(matches!(missing_second_prefix, CodecError::MissingPrefix { .. }));
 
     let invalid_after_prefix = HexCodec::new()
         .with_prefix("0x")

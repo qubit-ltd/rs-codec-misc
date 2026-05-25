@@ -27,14 +27,7 @@ fn test_decoder_trait_dispatches_to_concrete_hex_decoder() {
 
 #[test]
 fn test_decoder_trait_preserves_concrete_error_type() {
-    let error = Decoder::<str>::decode(&Base64Codec::standard(), "@@@")
-        .expect_err("invalid base64 should fail");
+    let error = Decoder::<str>::decode(&Base64Codec::standard(), "@@@").expect_err("invalid base64 should fail");
 
-    assert!(matches!(
-        error,
-        CodecError::InvalidInput {
-            codec: "base64",
-            ..
-        }
-    ));
+    assert!(matches!(error, CodecError::InvalidInput { codec: "base64", .. }));
 }
