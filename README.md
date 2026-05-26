@@ -1,4 +1,4 @@
-# Qubit Codec
+# Qubit Misc Codec
 
 [![Rust CI](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-codec-misc/coverage-badge.json)](https://qubit-ltd.github.io/rs-codec-misc/coverage/)
@@ -11,10 +11,10 @@ Reusable byte and text codecs for Rust applications.
 
 ## Overview
 
-Qubit Codec provides small, explicit codecs for stable byte and text encodings
-commonly needed across Qubit Rust crates and applications. Its API stays
-lightweight, typed, and idiomatic, with direct concrete methods for common use
-cases and traits for generic boundaries.
+Qubit Misc Codec provides small, explicit codecs for stable byte and text
+encodings commonly needed across Qubit Rust crates and applications. Its API
+stays lightweight, typed, and idiomatic, with direct concrete methods for common
+use cases and traits for generic boundaries.
 
 This crate focuses on textual encodings with clear wire-format semantics:
 
@@ -349,6 +349,12 @@ Bundled decoders return `MiscCodecResult<T>`, an alias for
 | `InvalidCharacter` | Input contained a character that cannot appear in that context |
 | `InvalidInput` | Input was rejected by a codec-specific validator |
 | `InvalidUtf8` | Decoded bytes were not valid UTF-8 |
+
+## Performance Considerations
+
+Codec implementations operate on borrowed byte slices or strings and return
+owned output only when the target format requires it. Configuration is stored in
+small value types, and generic trait use does not require dynamic dispatch.
 
 ## Testing & Code Coverage
 
