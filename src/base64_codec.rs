@@ -25,6 +25,10 @@ use crate::{
 };
 
 /// Encodes and decodes Base64 byte strings.
+///
+/// This facade intentionally remains a whole-value codec backed by the
+/// `base64` crate. Final partial quantum handling and optional `=` padding are
+/// facade/coder responsibilities, not part of the low-level quantum codec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Base64Codec {
     url_safe: bool,

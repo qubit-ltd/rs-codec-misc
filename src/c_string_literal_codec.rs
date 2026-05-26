@@ -10,6 +10,7 @@
 //! C string literal byte codec.
 
 use crate::{
+    Codec,
     Decoder,
     Encoder,
     MiscCodecError,
@@ -21,6 +22,10 @@ use crate::{
 /// This codec is intended for textual formats that embed byte sequences with C
 /// escapes, such as `PK\003\004` or `\xd0\xcf`. It decodes into raw bytes and
 /// does not require surrounding quotes.
+///
+/// Its low-level [`Codec<u8, u8>`] implementation handles one raw byte or one C
+/// escape fragment. Whole-fragment iteration remains part of the owned
+/// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CStringLiteralCodec;
 
@@ -94,6 +99,31 @@ impl Decoder<str> for CStringLiteralCodec {
     /// Decodes a C string literal fragment into bytes.
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         CStringLiteralCodec::decode(self, input)
+    }
+}
+
+unsafe impl Codec<u8, u8> for CStringLiteralCodec {
+    type DecodeError = MiscCodecError;
+    type EncodeError = MiscCodecError;
+
+    /// Returns the shortest representation length for one byte.
+    fn min_units_per_value(&self) -> usize {
+        1
+    }
+
+    /// Returns the longest supported universal escape length for one byte.
+    fn max_units_per_value(&self) -> usize {
+        10
+    }
+
+    /// Decodes one raw byte or one C escape fragment.
+    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        decode_c_string_literal_byte(input, index)
+    }
+
+    /// Encodes one byte as a raw byte or C escape fragment.
+    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        Ok(write_encoded_byte(value, output, index))
     }
 }
 
@@ -353,6 +383,245 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
             output.push(uppercase_hex_digit(byte & 0x0f));
         }
     }
+}
+
+/// Decodes one byte-oriented C string literal fragment from `input`.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `index`: Start index in `input`.
+///
+/// # Returns
+/// Decoded byte and consumed unit count.
+///
+/// # Errors
+/// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
+fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(u8, usize)> {
+    let byte = input[index];
+    if byte != b'\\' {
+        validate_source_byte(index, byte)?;
+        return Ok((byte, 1));
+    }
+    let Some(&escape) = input.get(index + 1) else {
+        return Err(invalid_escape(index, "\\", "incomplete escape sequence"));
+    };
+    match escape {
+        b' ' => Ok((b' ', 2)),
+        b'\'' => Ok((b'\'', 2)),
+        b'"' => Ok((b'"', 2)),
+        b'?' => Ok((b'?', 2)),
+        b'\\' => Ok((b'\\', 2)),
+        b'a' => Ok((0x07, 2)),
+        b'b' => Ok((0x08, 2)),
+        b'f' => Ok((0x0c, 2)),
+        b'n' => Ok((b'\n', 2)),
+        b'r' => Ok((b'\r', 2)),
+        b't' => Ok((b'\t', 2)),
+        b'v' => Ok((0x0b, 2)),
+        b'x' | b'X' => parse_variable_hex_escape_units(input, index),
+        b'u' => parse_fixed_hex_escape_units(input, index, 4),
+        b'U' => parse_fixed_hex_escape_units(input, index, 8),
+        b'0'..=b'7' => Ok(parse_octal_escape_units(input, index)),
+        _ => Err(invalid_escape(
+            index,
+            &escape_fragment(input, index, index + 2),
+            "unsupported escape sequence",
+        )),
+    }
+}
+
+/// Validates a raw source byte.
+///
+/// # Parameters
+/// - `index`: Byte index in the encoded input.
+/// - `byte`: Raw source byte.
+///
+/// # Errors
+/// Returns [`MiscCodecError::InvalidCharacter`] when the byte is not allowed as
+/// a raw C string source byte.
+fn validate_source_byte(index: usize, byte: u8) -> MiscCodecResult<()> {
+    if matches!(byte, b'\t' | b'\n' | 0x0b | 0x0c | b' '..=b'~') {
+        return Ok(());
+    }
+    Err(MiscCodecError::InvalidCharacter {
+        index,
+        character: char::from(byte),
+        reason: "raw source byte must be printable ASCII or allowed whitespace".to_owned(),
+    })
+}
+
+/// Parses a byte-oriented `\x` escape from `input`.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `marker_index`: Byte index of the escape marker.
+///
+/// # Returns
+/// Decoded byte and consumed unit count.
+///
+/// # Errors
+/// Returns [`MiscCodecError::InvalidEscape`] when no hexadecimal digit follows
+/// `\x`.
+fn parse_variable_hex_escape_units(input: &[u8], marker_index: usize) -> MiscCodecResult<(u8, usize)> {
+    let mut value = 0u8;
+    let mut digit_count = 0usize;
+    let mut index = marker_index + 2;
+    while digit_count < 2 {
+        let Some(&byte) = input.get(index) else {
+            break;
+        };
+        let Some(digit) = hex_value(char::from(byte)) else {
+            break;
+        };
+        value = (value << 4) | digit;
+        index += 1;
+        digit_count += 1;
+    }
+    if digit_count == 0 {
+        return Err(invalid_escape(
+            marker_index,
+            "\\x",
+            "expected at least one hexadecimal digit",
+        ));
+    }
+    Ok((value, 2 + digit_count))
+}
+
+/// Parses a fixed-width universal byte escape from `input`.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `marker_index`: Byte index of the escape marker.
+/// - `digits`: Required hexadecimal digit count.
+///
+/// # Returns
+/// Decoded byte and consumed unit count.
+///
+/// # Errors
+/// Returns [`MiscCodecError::InvalidEscape`] when the escape is incomplete or
+/// larger than one byte, or [`MiscCodecError::InvalidDigit`] when a required
+/// digit is not hexadecimal.
+fn parse_fixed_hex_escape_units(input: &[u8], marker_index: usize, digits: usize) -> MiscCodecResult<(u8, usize)> {
+    let mut value = 0u32;
+    let mut index = marker_index + 2;
+    for _ in 0..digits {
+        let Some(&byte) = input.get(index) else {
+            return Err(invalid_escape(
+                marker_index,
+                &escape_fragment(input, marker_index, input.len()),
+                "incomplete universal character escape",
+            ));
+        };
+        let Some(digit) = hex_value(char::from(byte)) else {
+            return Err(MiscCodecError::InvalidDigit {
+                radix: 16,
+                index,
+                character: char::from(byte),
+            });
+        };
+        value = (value << 4) | u32::from(digit);
+        index += 1;
+    }
+    if value > u32::from(u8::MAX) {
+        return Err(invalid_escape(
+            marker_index,
+            &escape_fragment(input, marker_index, index),
+            "universal character value must fit in one byte",
+        ));
+    }
+    Ok((value as u8, 2 + digits))
+}
+
+/// Parses an octal byte escape from `input`.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `marker_index`: Byte index of the escape marker.
+///
+/// # Returns
+/// Decoded byte and consumed unit count. Values above `0o377` are truncated to
+/// their low byte to match the owned decoder.
+fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
+    let mut value = 0u16;
+    let mut digit_count = 0usize;
+    let mut index = marker_index + 1;
+    while digit_count < 3 {
+        let Some(&byte) = input.get(index) else {
+            break;
+        };
+        let Some(digit) = octal_value(char::from(byte)) else {
+            break;
+        };
+        value = (value << 3) | u16::from(digit);
+        index += 1;
+        digit_count += 1;
+    }
+    (value as u8, 1 + digit_count)
+}
+
+/// Encodes one byte into `output`.
+///
+/// # Parameters
+/// - `byte`: Byte to encode.
+/// - `output`: Destination unit buffer.
+/// - `index`: Start index in `output`.
+///
+/// # Returns
+/// Number of units written.
+fn write_encoded_byte(byte: u8, output: &mut [u8], index: usize) -> usize {
+    match byte {
+        b'\'' => write_ascii_escape(output, index, b'\''),
+        b'"' => write_ascii_escape(output, index, b'"'),
+        b'?' => write_ascii_escape(output, index, b'?'),
+        b'\\' => write_ascii_escape(output, index, b'\\'),
+        0x07 => write_ascii_escape(output, index, b'a'),
+        0x08 => write_ascii_escape(output, index, b'b'),
+        0x0c => write_ascii_escape(output, index, b'f'),
+        b'\n' => write_ascii_escape(output, index, b'n'),
+        b'\r' => write_ascii_escape(output, index, b'r'),
+        b'\t' => write_ascii_escape(output, index, b't'),
+        0x0b => write_ascii_escape(output, index, b'v'),
+        b' '..=b'~' => {
+            output[index] = byte;
+            1
+        }
+        _ => {
+            output[index] = b'\\';
+            output[index + 1] = b'x';
+            output[index + 2] = uppercase_hex_digit(byte >> 4) as u8;
+            output[index + 3] = uppercase_hex_digit(byte & 0x0f) as u8;
+            4
+        }
+    }
+}
+
+/// Writes a two-unit backslash escape.
+///
+/// # Parameters
+/// - `output`: Destination unit buffer.
+/// - `index`: Start index in `output`.
+/// - `escape`: ASCII escape letter after the backslash.
+///
+/// # Returns
+/// Number of units written.
+fn write_ascii_escape(output: &mut [u8], index: usize, escape: u8) -> usize {
+    output[index] = b'\\';
+    output[index + 1] = escape;
+    2
+}
+
+/// Builds an ASCII-ish escape fragment from encoded units.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `start`: Start index.
+/// - `end`: Exclusive end index.
+///
+/// # Returns
+/// String fragment used in diagnostics.
+fn escape_fragment(input: &[u8], start: usize, end: usize) -> String {
+    let bounded_end = end.min(input.len());
+    input[start..bounded_end].iter().map(|byte| char::from(*byte)).collect()
 }
 
 /// Converts one hexadecimal character to its nibble value.

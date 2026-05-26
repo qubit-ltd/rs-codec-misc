@@ -19,6 +19,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod base64_codec;
+mod base64_quantum_codec;
 mod c_integer_literal_codec;
 mod c_string_literal_codec;
 mod form_urlencoded_codec;
@@ -27,6 +28,7 @@ mod misc_codec_error;
 mod percent_codec;
 
 pub use base64_codec::Base64Codec;
+pub use base64_quantum_codec::Base64QuantumCodec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;

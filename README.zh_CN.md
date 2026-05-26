@@ -29,7 +29,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **语义明确**：每个 codec 都说明字母表、分隔符、填充和解码规则。
 - **API 表面小**：优先提供直接的 `encode` 和 `decode` 方法，泛型场景再使用 trait。
 - **无隐藏 Panic**：畸形输入返回 `MiscCodecError`，不直接 panic。
-- **Trait 可组合**：`Encoder`、`Decoder` 和 `Codec` 支持可复用边界，不强制动态分发。
+- **Trait 分层**：`Codec` 面向低层单值或 quantum 转换，`Encoder` 和 `Decoder`
+  仍是 owned whole-value convenience trait。
 - **实现可复用**：常用编码集中在一个 crate，避免下游重复实现。
 - **依赖最少化**：只在确有价值时依赖维护良好的第三方 crate。
 
@@ -50,6 +51,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 - **标准字母表**：支持带 padding 和无 padding 的标准 Base64。
 - **URL 安全字母表**：支持带 padding 和无 padding 的 URL-safe Base64。
+- **Quantum Core**：`Base64QuantumCodec` 处理完整的三字节到四 unit Base64
+  quantum；final padding 留在 facade/coder 层。
 - **类型化错误**：畸形输入返回 `MiscCodecError::InvalidInput`。
 
 ### 🔤 **C 字符串字面量字节**
@@ -63,6 +66,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **进制识别**：解码十进制、八进制和 `0x`/`0X` 十六进制整数字面量。
 - **无符号输出**：将非负整数字面量片段解析为 `u64`。
 - **精确错误**：非法数字会携带原始输入中的字节位置。
+- **Whole-token decoder**：仍作为 `Decoder<str>` convenience codec，因为整数字面量的
+  编码策略和 token 边界尚不属于当前低层单值抽象。
 
 ### 🌐 **Percent-Encoding**
 
@@ -81,7 +86,7 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 - **`Encoder<Input>`**：将借用输入编码为关联输出类型。
 - **`Decoder<Input>`**：将借用输入解码为关联输出类型。
-- **`Codec<EncodeInput, DecodeInput>`**：组合 encoder 和 decoder trait。
+- **`Codec<Value, Unit>`**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
 - **`MiscCodecError` / `MiscCodecResult`**：内置 codec 的公共错误与结果类型。
 
 ## 安装
@@ -255,7 +260,10 @@ fn main() {
 |-------|------|------|
 | `Encoder<Input>` | `encode(&Input)` | 将借用输入编码为关联输出类型 |
 | `Decoder<Input>` | `decode(&Input)` | 将借用输入解码为关联输出类型 |
-| `Codec<EncodeInput, DecodeInput>` | - | `Encoder` 与 `Decoder` 的组合 trait |
+| `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
+
+低层 `Codec` 实现刻意排除 facade 关注点：十六进制 prefix/separator、UTF-8
+`String` 校验和 Base64 final padding 都由 whole-value helper 或后续 coder 层处理。
 
 ### `HexCodec` 操作
 
@@ -285,6 +293,14 @@ fn main() {
 | `encode(bytes)` | 已配置 | 已配置 | 将字节编码为 Base64 文本 |
 | `decode(text)` | 已配置 | 已配置 | 将 Base64 文本解码为字节 |
 
+### `Base64QuantumCodec` 操作
+
+| 方法 | 字母表 | Units | 描述 |
+|------|--------|-------|------|
+| `standard()` | 标准 | 4 | 创建标准 Base64 quantum codec |
+| `url_safe()` | URL-safe | 4 | 创建 URL-safe Base64 quantum codec |
+| `Codec<[u8; 3], u8>` | 已配置 | 4 | 编码或解码一个完整 Base64 quantum，不处理 padding finalization |
+
 ### `CStringLiteralCodec` 操作
 
 | 方法 | 描述 |
@@ -299,6 +315,9 @@ fn main() {
 |------|------|
 | `new()` | 创建 C 整数字面量解码器 |
 | `decode(text)` | 将非负 C 整数字面量片段解码为 `u64` |
+
+`CIntegerLiteralCodec` 刻意保留为 whole-token decoder，暂不实现 `Codec<u64, u8>`。
+原因是这会提前承诺 token 边界和 encode 格式策略，而这些策略应位于单值 core 之上。
 
 ### 文本 Codec 操作
 

@@ -36,8 +36,9 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   traits available for generic call sites.
 - **No Hidden Panics**: malformed input is reported as `MiscCodecError` instead of
   panicking.
-- **Composable Traits**: `Encoder`, `Decoder`, and `Codec` support reusable
-  boundaries without forcing dynamic dispatch.
+- **Layered Traits**: `Codec` covers low-level single-value or quantum
+  conversion, while `Encoder` and `Decoder` remain owned whole-value
+  convenience traits.
 - **Reusable Implementations**: common encodings live in one crate instead of
   being reimplemented by downstream crates.
 - **Minimal Dependencies**: rely on well-maintained crates only where they add
@@ -65,6 +66,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **Standard Alphabet**: padded and no-padding standard Base64.
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
+- **Quantum Core**: `Base64QuantumCodec` handles complete three-byte to
+  four-unit Base64 quanta; final padding stays in the facade/coder layer.
 - **Typed Errors**: malformed input is reported as `MiscCodecError::InvalidInput`.
 
 ### 🔤 **C String Literal Bytes**
@@ -82,6 +85,9 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   integer literals.
 - **Unsigned Output**: returns `u64` for non-negative integer literal fragments.
 - **Precise Errors**: reports invalid digits with their original input index.
+- **Whole-Token Decoder**: remains a `Decoder<str>` convenience codec because
+  integer literal encoding strategy and token boundaries are not part of the
+  single-value core abstraction yet.
 
 ### 🌐 **Percent-Encoding**
 
@@ -103,7 +109,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **`Encoder<Input>`**: encodes borrowed input into an associated output type.
 - **`Decoder<Input>`**: decodes borrowed input into an associated output type.
-- **`Codec<EncodeInput, DecodeInput>`**: combines encoder and decoder traits.
+- **`Codec<Value, Unit>`**: low-level unsafe trait for one value or one codec
+  quantum over caller-provided unit buffers.
 - **`MiscCodecError` / `MiscCodecResult`**: common error and result types for bundled
   codecs.
 
@@ -279,7 +286,11 @@ fn main() {
 |-------|--------|-------------|
 | `Encoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
 | `Decoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
-| `Codec<EncodeInput, DecodeInput>` | - | Marker-style combination of `Encoder` and `Decoder` |
+| `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
+
+The low-level `Codec` implementations intentionally exclude facade concerns:
+hex prefix/separator handling, UTF-8 `String` validation, and Base64 final
+padding are handled by whole-value helpers or future coder layers.
 
 ### `HexCodec` Operations
 
@@ -309,6 +320,14 @@ fn main() {
 | `encode(bytes)` | Configured | Configured | Encode bytes into Base64 text |
 | `decode(text)` | Configured | Configured | Decode Base64 text into bytes |
 
+### `Base64QuantumCodec` Operations
+
+| Method | Alphabet | Units | Description |
+|--------|----------|-------|-------------|
+| `standard()` | Standard | 4 | Create a standard Base64 quantum codec |
+| `url_safe()` | URL-safe | 4 | Create a URL-safe Base64 quantum codec |
+| `Codec<[u8; 3], u8>` | Configured | 4 | Encode or decode one complete Base64 quantum without padding finalization |
+
 ### `CStringLiteralCodec` Operations
 
 | Method | Description |
@@ -323,6 +342,10 @@ fn main() {
 |--------|-------------|
 | `new()` | Create a C integer literal decoder |
 | `decode(text)` | Decode a non-negative C integer literal fragment into `u64` |
+
+`CIntegerLiteralCodec` intentionally remains a whole-token decoder. It does not
+implement `Codec<u64, u8>` yet because that would require committing to token
+boundary and encode-format policy that belongs above the single-value core.
 
 ### Text Codec Operations
 

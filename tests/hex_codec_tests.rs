@@ -18,6 +18,7 @@ use qubit_codec_misc::{
 fn test_production_code_does_not_use_panic_helpers() {
     let sources = [
         include_str!("../src/base64_codec.rs"),
+        include_str!("../src/base64_quantum_codec.rs"),
         include_str!("../src/c_integer_literal_codec.rs"),
         include_str!("../src/c_string_literal_codec.rs"),
         include_str!("../src/form_urlencoded_codec.rs"),
