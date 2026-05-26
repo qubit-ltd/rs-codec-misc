@@ -10,6 +10,7 @@
 //! Hexadecimal byte codec.
 
 use crate::{
+    Codec,
     Decoder,
     Encoder,
     MiscCodecError,
@@ -17,6 +18,11 @@ use crate::{
 };
 
 /// Encodes and decodes hexadecimal byte strings.
+///
+/// Its low-level [`Codec<u8, u8>`] implementation handles exactly one byte as
+/// two ASCII hexadecimal units. Whole-string prefix, per-byte prefix,
+/// separator, and whitespace handling remain part of the owned
+/// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexCodec {
     /// Whether to use uppercase hexadecimal digits.
@@ -477,6 +483,37 @@ impl Decoder<str> for HexCodec {
     /// Decodes hexadecimal text into bytes.
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         HexCodec::decode(self, input)
+    }
+}
+
+unsafe impl Codec<u8, u8> for HexCodec {
+    type DecodeError = MiscCodecError;
+    type EncodeError = MiscCodecError;
+
+    /// Returns the two hexadecimal digits needed for one byte.
+    fn min_units_per_value(&self) -> usize {
+        2
+    }
+
+    /// Returns the two hexadecimal digits needed for one byte.
+    fn max_units_per_value(&self) -> usize {
+        2
+    }
+
+    /// Decodes one byte from two ASCII hexadecimal digits.
+    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        let high_char = char::from(input[index]);
+        let low_char = char::from(input[index + 1]);
+        let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
+        let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
+        Ok(((high << 4) | low, 2))
+    }
+
+    /// Encodes one byte as two ASCII hexadecimal digits.
+    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        output[index] = hex_digit(value >> 4, self.uppercase) as u8;
+        output[index + 1] = hex_digit(value & 0x0f, self.uppercase) as u8;
+        Ok(2)
     }
 }
 

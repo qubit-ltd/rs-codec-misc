@@ -10,6 +10,7 @@
 //! Percent text codec.
 
 use crate::{
+    Codec,
     Decoder,
     Encoder,
     MiscCodecError,
@@ -17,6 +18,10 @@ use crate::{
 };
 
 /// Encodes and decodes percent-encoded UTF-8 text.
+///
+/// Its low-level [`Codec<u8, u8>`] implementation converts one byte to either
+/// one unreserved ASCII unit or a `%XX` escape. UTF-8 validation remains part of
+/// the owned [`decode`](Self::decode) helper.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PercentCodec;
 
@@ -76,6 +81,31 @@ impl Decoder<str> for PercentCodec {
     }
 }
 
+unsafe impl Codec<u8, u8> for PercentCodec {
+    type DecodeError = MiscCodecError;
+    type EncodeError = MiscCodecError;
+
+    /// Returns the shortest representation length for one byte.
+    fn min_units_per_value(&self) -> usize {
+        1
+    }
+
+    /// Returns the longest `%XX` representation length for one byte.
+    fn max_units_per_value(&self) -> usize {
+        3
+    }
+
+    /// Decodes one raw byte or `%XX` escape.
+    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        percent_decode_byte(input, index, false)
+    }
+
+    /// Encodes one byte using percent encoding.
+    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        Ok(percent_encode_byte(value, output, index, false))
+    }
+}
+
 /// Percent-encodes UTF-8 bytes.
 ///
 /// # Parameters
@@ -115,28 +145,64 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> MiscCodec
     let bytes = text.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
     let mut index = 0;
-    while let Some(&byte) = bytes.get(index) {
-        match byte {
-            b'%' => {
-                let (Some(&high_byte), Some(&low_byte)) = (bytes.get(index + 1), bytes.get(index + 2)) else {
-                    return Err(invalid_percent_escape(index));
-                };
-                let high = percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(index))?;
-                let low = percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(index))?;
-                output.push((high << 4) | low);
-                index += 3;
-            }
-            b'+' if plus_as_space => {
-                output.push(b' ');
-                index += 1;
-            }
-            byte => {
-                output.push(byte);
-                index += 1;
-            }
-        }
+    while index < bytes.len() {
+        let (decoded, consumed) = percent_decode_byte(bytes, index, plus_as_space)?;
+        output.push(decoded);
+        index += consumed;
     }
     Ok(output)
+}
+
+/// Percent-encodes one byte into `output`.
+///
+/// # Parameters
+/// - `byte`: Byte to encode.
+/// - `output`: Destination unit buffer.
+/// - `index`: Start index in `output`.
+/// - `space_as_plus`: Whether spaces should be encoded as `+`.
+///
+/// # Returns
+/// Number of units written.
+pub(crate) fn percent_encode_byte(byte: u8, output: &mut [u8], index: usize, space_as_plus: bool) -> usize {
+    if byte == b' ' && space_as_plus {
+        output[index] = b'+';
+        return 1;
+    }
+    if is_unreserved(byte) {
+        output[index] = byte;
+        return 1;
+    }
+    output[index] = b'%';
+    output[index + 1] = percent_hex_digit(byte >> 4) as u8;
+    output[index + 2] = percent_hex_digit(byte & 0x0f) as u8;
+    3
+}
+
+/// Decodes one raw byte or `%XX` escape from `input`.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `index`: Start index in `input`.
+/// - `plus_as_space`: Whether `+` should decode to a space byte.
+///
+/// # Returns
+/// Decoded byte and the number of consumed units.
+///
+/// # Errors
+/// Returns [`MiscCodecError::InvalidEscape`] for malformed `%XX` escapes.
+pub(crate) fn percent_decode_byte(input: &[u8], index: usize, plus_as_space: bool) -> MiscCodecResult<(u8, usize)> {
+    match input[index] {
+        b'%' => {
+            let (Some(&high_byte), Some(&low_byte)) = (input.get(index + 1), input.get(index + 2)) else {
+                return Err(invalid_percent_escape(index));
+            };
+            let high = percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(index))?;
+            let low = percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(index))?;
+            Ok(((high << 4) | low, 3))
+        }
+        b'+' if plus_as_space => Ok((b' ', 1)),
+        byte => Ok((byte, 1)),
+    }
 }
 
 /// Builds a malformed percent escape error.

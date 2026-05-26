@@ -10,10 +10,13 @@
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
+    percent_decode_byte,
     percent_decode_bytes,
+    percent_encode_byte,
     percent_encode_bytes,
 };
 use crate::{
+    Codec,
     Decoder,
     Encoder,
     MiscCodecError,
@@ -21,6 +24,10 @@ use crate::{
 };
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
+///
+/// Its low-level [`Codec<u8, u8>`] implementation converts one byte at a time,
+/// including the form-specific space and `+` mapping. UTF-8 validation remains
+/// part of the owned [`decode`](Self::decode) helper.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FormUrlencodedCodec;
 
@@ -77,5 +84,30 @@ impl Decoder<str> for FormUrlencodedCodec {
     /// Decodes form-url-encoded text.
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         FormUrlencodedCodec::decode(self, input)
+    }
+}
+
+unsafe impl Codec<u8, u8> for FormUrlencodedCodec {
+    type DecodeError = MiscCodecError;
+    type EncodeError = MiscCodecError;
+
+    /// Returns the shortest representation length for one byte.
+    fn min_units_per_value(&self) -> usize {
+        1
+    }
+
+    /// Returns the longest `%XX` representation length for one byte.
+    fn max_units_per_value(&self) -> usize {
+        3
+    }
+
+    /// Decodes one raw byte, `+`, or `%XX` escape.
+    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        percent_decode_byte(input, index, true)
+    }
+
+    /// Encodes one byte using form URL encoding.
+    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        Ok(percent_encode_byte(value, output, index, true))
     }
 }

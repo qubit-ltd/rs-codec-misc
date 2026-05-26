@@ -10,7 +10,6 @@
 //! Tests for lightweight encoder and decoder traits.
 
 use qubit_codec_misc::{
-    Codec,
     Decoder,
     Encoder,
     FormUrlencodedCodec,
@@ -29,11 +28,10 @@ fn test_codec_types_can_be_used_through_traits() {
 }
 
 #[test]
-fn test_bidirectional_codec_trait_accepts_text_codecs() {
+fn test_whole_value_traits_accept_text_codecs() {
     fn roundtrip<C>(codec: &C, text: &str) -> String
     where
-        C: Codec<str, str>
-            + Encoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>
+        C: Encoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>
             + Decoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>,
     {
         let encoded = Encoder::<str>::encode(codec, text).expect("text should encode");
