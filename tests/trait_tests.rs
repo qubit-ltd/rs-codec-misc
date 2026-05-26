@@ -9,7 +9,7 @@
  ******************************************************************************/
 //! Tests for lightweight encoder and decoder traits.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     Codec,
     Decoder,
     Encoder,
@@ -33,8 +33,8 @@ fn test_bidirectional_codec_trait_accepts_text_codecs() {
     fn roundtrip<C>(codec: &C, text: &str) -> String
     where
         C: Codec<str, str>
-            + Encoder<str, Output = String, Error = qubit_codec::CodecError>
-            + Decoder<str, Output = String, Error = qubit_codec::CodecError>,
+            + Encoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>
+            + Decoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>,
     {
         let encoded = Encoder::<str>::encode(codec, text).expect("text should encode");
         Decoder::<str>::decode(codec, &encoded).expect("text should decode")

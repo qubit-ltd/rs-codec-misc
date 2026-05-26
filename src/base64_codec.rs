@@ -18,10 +18,10 @@ use ::base64::engine::general_purpose::{
 };
 
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
     Encoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Encodes and decodes Base64 byte strings.
@@ -96,12 +96,14 @@ impl Base64Codec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidInput`] when `text` is malformed.
-    pub fn decode(&self, text: &str) -> CodecResult<Vec<u8>> {
-        self.engine().decode(text).map_err(|source| CodecError::InvalidInput {
-            codec: "base64",
-            reason: source.to_string(),
-        })
+    /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
+    pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
+        self.engine()
+            .decode(text)
+            .map_err(|source| MiscCodecError::InvalidInput {
+                codec: "base64",
+                reason: source.to_string(),
+            })
     }
 
     /// Selects the concrete Base64 engine.
@@ -126,7 +128,7 @@ impl Default for Base64Codec {
 }
 
 impl Encoder<[u8]> for Base64Codec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Encodes bytes into Base64 text.
@@ -136,7 +138,7 @@ impl Encoder<[u8]> for Base64Codec {
 }
 
 impl Decoder<str> for Base64Codec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = Vec<u8>;
 
     /// Decodes Base64 text into bytes.

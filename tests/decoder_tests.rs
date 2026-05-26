@@ -9,11 +9,11 @@
  ******************************************************************************/
 //! Tests for the decoder trait contract.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     Base64Codec,
-    CodecError,
     Decoder,
     HexCodec,
+    MiscCodecError,
 };
 
 #[test]
@@ -29,5 +29,5 @@ fn test_decoder_trait_dispatches_to_concrete_hex_decoder() {
 fn test_decoder_trait_preserves_concrete_error_type() {
     let error = Decoder::<str>::decode(&Base64Codec::standard(), "@@@").expect_err("invalid base64 should fail");
 
-    assert!(matches!(error, CodecError::InvalidInput { codec: "base64", .. }));
+    assert!(matches!(error, MiscCodecError::InvalidInput { codec: "base64", .. }));
 }

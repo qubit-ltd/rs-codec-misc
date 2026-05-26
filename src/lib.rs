@@ -7,7 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! # qubit-codec
+//! # qubit-codec-misc
 //!
 //! Reusable byte and text codecs for Rust applications.
 //!
@@ -21,24 +21,23 @@
 mod base64_codec;
 mod c_integer_literal_codec;
 mod c_string_literal_codec;
-mod codec;
-mod codec_error;
-mod decoder;
-mod encoder;
 mod form_urlencoded_codec;
 mod hex_codec;
+mod misc_codec_error;
 mod percent_codec;
 
 pub use base64_codec::Base64Codec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
-pub use codec::Codec;
-pub use codec_error::{
-    CodecError,
-    CodecResult,
-};
-pub use decoder::Decoder;
-pub use encoder::Encoder;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
 pub use hex_codec::HexCodec;
+pub use misc_codec_error::{
+    MiscCodecError,
+    MiscCodecResult,
+};
 pub use percent_codec::PercentCodec;
+pub use qubit_codec::{
+    Codec,
+    Decoder,
+    Encoder,
+};

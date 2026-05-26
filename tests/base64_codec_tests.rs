@@ -9,11 +9,11 @@
  ******************************************************************************/
 //! Tests for Base64 encoding variants.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     Base64Codec,
-    CodecError,
     Decoder,
     Encoder,
+    MiscCodecError,
 };
 
 #[test]
@@ -72,7 +72,7 @@ fn test_decode_rejects_invalid_base64() {
         .decode("not base64!")
         .expect_err("invalid base64 should fail");
 
-    assert!(matches!(error, CodecError::InvalidInput { codec: "base64", .. }));
+    assert!(matches!(error, MiscCodecError::InvalidInput { codec: "base64", .. }));
 }
 
 #[test]

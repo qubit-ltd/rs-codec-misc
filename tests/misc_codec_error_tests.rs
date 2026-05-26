@@ -7,26 +7,26 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Tests for shared codec errors.
+//! Tests for shared misc codec errors.
 
 use std::error::Error;
 
-use qubit_codec::{
-    CodecError,
-    CodecResult,
+use qubit_codec_misc::{
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 #[test]
-fn test_codec_error_display_messages_include_context() {
+fn test_misc_misc_codec_error_display_messages_include_context() {
     let cases = [
         (
-            CodecError::MissingPrefix {
+            MiscCodecError::MissingPrefix {
                 prefix: "0x".to_owned(),
             },
             "missing required prefix '0x'",
         ),
         (
-            CodecError::InvalidDigit {
+            MiscCodecError::InvalidDigit {
                 radix: 16,
                 index: 3,
                 character: 'g',
@@ -34,7 +34,7 @@ fn test_codec_error_display_messages_include_context() {
             "invalid radix-16 digit 'g' at index 3",
         ),
         (
-            CodecError::InvalidLength {
+            MiscCodecError::InvalidLength {
                 context: "hex digits",
                 expected: "even number".to_owned(),
                 actual: 3,
@@ -42,7 +42,7 @@ fn test_codec_error_display_messages_include_context() {
             "invalid length for hex digits: expected even number, got 3",
         ),
         (
-            CodecError::InvalidEscape {
+            MiscCodecError::InvalidEscape {
                 index: 1,
                 escape: "%z".to_owned(),
                 reason: "expected two hex digits".to_owned(),
@@ -50,7 +50,7 @@ fn test_codec_error_display_messages_include_context() {
             "invalid escape \"%z\" at index 1: expected two hex digits",
         ),
         (
-            CodecError::InvalidCharacter {
+            MiscCodecError::InvalidCharacter {
                 index: 5,
                 character: ' ',
                 reason: "space is not allowed".to_owned(),
@@ -58,7 +58,7 @@ fn test_codec_error_display_messages_include_context() {
             "invalid character ' ' at index 5: space is not allowed",
         ),
         (
-            CodecError::InvalidInput {
+            MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: "invalid symbol".to_owned(),
             },
@@ -72,9 +72,9 @@ fn test_codec_error_display_messages_include_context() {
 }
 
 #[test]
-fn test_codec_error_wraps_utf8_source_error() {
+fn test_misc_misc_codec_error_wraps_utf8_source_error() {
     let error = String::from_utf8(vec![0xff]).expect_err("invalid utf-8 should fail");
-    let error = CodecError::from(error);
+    let error = MiscCodecError::from(error);
 
     assert_eq!(
         "decoded bytes are not valid UTF-8: invalid utf-8 sequence of 1 bytes from index 0",
@@ -84,12 +84,12 @@ fn test_codec_error_wraps_utf8_source_error() {
 }
 
 #[test]
-fn test_codec_result_alias_uses_codec_error() {
-    fn decode_stub() -> CodecResult<()> {
-        Err(CodecError::MissingPrefix { prefix: "#".to_owned() })
+fn test_misc_codec_result_alias_uses_misc_codec_error() {
+    fn decode_stub() -> MiscCodecResult<()> {
+        Err(MiscCodecError::MissingPrefix { prefix: "#".to_owned() })
     }
 
-    let error = decode_stub().expect_err("stub should return codec error");
+    let error = decode_stub().expect_err("stub should return misc codec error");
 
-    assert!(matches!(error, CodecError::MissingPrefix { prefix } if prefix == "#"));
+    assert!(matches!(error, MiscCodecError::MissingPrefix { prefix } if prefix == "#"));
 }
