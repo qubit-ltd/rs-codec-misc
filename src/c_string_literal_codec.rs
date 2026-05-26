@@ -118,11 +118,21 @@ unsafe impl Codec<u8, u8> for CStringLiteralCodec {
 
     /// Decodes one raw byte or one C escape fragment.
     unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        debug_assert!(index < input.len());
+        debug_assert!(input[index] != b'\\' || index + 2 <= input.len());
+
         decode_c_string_literal_byte(input, index)
     }
 
     /// Encodes one byte as a raw byte or C escape fragment.
     unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        let required = match value {
+            b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
+            b' '..=b'~' => 1,
+            _ => 4,
+        };
+        debug_assert!(index + required <= output.len());
+
         Ok(write_encoded_byte(value, output, index))
     }
 }
