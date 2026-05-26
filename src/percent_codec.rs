@@ -10,10 +10,10 @@
 //! Percent text codec.
 
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
     Encoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Encodes and decodes percent-encoded UTF-8 text.
@@ -49,15 +49,15 @@ impl PercentCodec {
     /// Decoded UTF-8 text.
     ///
     /// # Errors
-    /// Returns [`CodecError`] when a percent escape is malformed or decoded
+    /// Returns [`MiscCodecError`] when a percent escape is malformed or decoded
     /// bytes are not valid UTF-8.
-    pub fn decode(&self, text: &str) -> CodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, false)?).map_err(CodecError::from)
+    pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
+        String::from_utf8(percent_decode_bytes(text, false)?).map_err(MiscCodecError::from)
     }
 }
 
 impl Encoder<str> for PercentCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Encodes text using percent encoding.
@@ -67,7 +67,7 @@ impl Encoder<str> for PercentCodec {
 }
 
 impl Decoder<str> for PercentCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Decodes percent-encoded text.
@@ -110,8 +110,8 @@ pub(crate) fn percent_encode_bytes(bytes: &[u8], space_as_plus: bool) -> String 
 /// Decoded bytes.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidEscape`] for malformed escapes.
-pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResult<Vec<u8>> {
+/// Returns [`MiscCodecError::InvalidEscape`] for malformed escapes.
+pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> MiscCodecResult<Vec<u8>> {
     let bytes = text.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -146,8 +146,8 @@ pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> CodecResu
 ///
 /// # Returns
 /// An invalid escape error for a `%XX` sequence.
-fn invalid_percent_escape(index: usize) -> CodecError {
-    CodecError::InvalidEscape {
+fn invalid_percent_escape(index: usize) -> MiscCodecError {
+    MiscCodecError::InvalidEscape {
         index,
         escape: "%".to_owned(),
         reason: "expected two hexadecimal digits".to_owned(),

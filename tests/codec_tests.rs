@@ -9,30 +9,30 @@
  ******************************************************************************/
 //! Tests for the bidirectional codec trait.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     Codec,
-    CodecError,
     Decoder,
     Encoder,
     HexCodec,
+    MiscCodecError,
     PercentCodec,
 };
 
-fn roundtrip_bytes<C>(codec: &C, bytes: &[u8]) -> Result<Vec<u8>, CodecError>
+fn roundtrip_bytes<C>(codec: &C, bytes: &[u8]) -> Result<Vec<u8>, MiscCodecError>
 where
     C: Codec<[u8], str>
-        + Encoder<[u8], Output = String, Error = CodecError>
-        + Decoder<str, Output = Vec<u8>, Error = CodecError>,
+        + Encoder<[u8], Output = String, Error = MiscCodecError>
+        + Decoder<str, Output = Vec<u8>, Error = MiscCodecError>,
 {
     let encoded = Encoder::<[u8]>::encode(codec, bytes)?;
     Decoder::<str>::decode(codec, &encoded)
 }
 
-fn roundtrip_text<C>(codec: &C, text: &str) -> Result<String, CodecError>
+fn roundtrip_text<C>(codec: &C, text: &str) -> Result<String, MiscCodecError>
 where
     C: Codec<str, str>
-        + Encoder<str, Output = String, Error = CodecError>
-        + Decoder<str, Output = String, Error = CodecError>,
+        + Encoder<str, Output = String, Error = MiscCodecError>
+        + Decoder<str, Output = String, Error = MiscCodecError>,
 {
     let encoded = Encoder::<str>::encode(codec, text)?;
     Decoder::<str>::decode(codec, &encoded)

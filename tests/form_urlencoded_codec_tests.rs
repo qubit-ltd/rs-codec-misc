@@ -9,7 +9,7 @@
  ******************************************************************************/
 //! Tests for application/x-www-form-urlencoded text encoding.
 
-use qubit_codec::FormUrlencodedCodec;
+use qubit_codec_misc::FormUrlencodedCodec;
 
 #[test]
 fn test_form_urlencoded_codec_uses_plus_for_spaces() {

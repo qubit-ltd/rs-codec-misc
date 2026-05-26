@@ -9,9 +9,9 @@
  ******************************************************************************/
 //! Tests for hexadecimal byte encoding.
 
-use qubit_codec::{
-    CodecError,
+use qubit_codec_misc::{
     HexCodec,
+    MiscCodecError,
 };
 
 #[test]
@@ -20,40 +20,37 @@ fn test_production_code_does_not_use_panic_helpers() {
         include_str!("../src/base64_codec.rs"),
         include_str!("../src/c_integer_literal_codec.rs"),
         include_str!("../src/c_string_literal_codec.rs"),
-        include_str!("../src/codec.rs"),
-        include_str!("../src/codec_error.rs"),
-        include_str!("../src/decoder.rs"),
-        include_str!("../src/encoder.rs"),
         include_str!("../src/form_urlencoded_codec.rs"),
         include_str!("../src/hex_codec.rs"),
         include_str!("../src/lib.rs"),
+        include_str!("../src/misc_codec_error.rs"),
         include_str!("../src/percent_codec.rs"),
     ];
     let combined = sources.join("\n");
 
     assert!(
         !combined.contains(".expect("),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
     assert!(
         !combined.contains(".unwrap("),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
     assert!(
         !combined.contains("panic!"),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
     assert!(
         !combined.contains("unreachable!"),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
     assert!(
         !combined.contains("todo!"),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
     assert!(
         !combined.contains("unimplemented!"),
-        "production code should return CodecError instead of panicking"
+        "production code should return MiscCodecError instead of panicking"
     );
 }
 
@@ -199,7 +196,7 @@ fn test_decode_reports_precise_hex_errors() {
         .expect_err("odd number of digits should fail");
     assert!(matches!(
         odd,
-        CodecError::InvalidLength {
+        MiscCodecError::InvalidLength {
             context: "hex digits",
             actual: 3,
             ..
@@ -209,7 +206,7 @@ fn test_decode_reports_precise_hex_errors() {
     let invalid = HexCodec::new().decode("12xz").expect_err("invalid digit should fail");
     assert!(matches!(
         invalid,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 16,
             index: 2,
             character: 'x'
@@ -220,13 +217,13 @@ fn test_decode_reports_precise_hex_errors() {
         .with_prefix("0x")
         .decode("1f")
         .expect_err("missing prefix should fail");
-    assert!(matches!(missing_prefix, CodecError::MissingPrefix { .. }));
+    assert!(matches!(missing_prefix, MiscCodecError::MissingPrefix { .. }));
 
     let missing_second_prefix = HexCodec::new()
         .with_byte_prefix("0x")
         .decode("0x1f8b")
         .expect_err("each byte should require its own prefix");
-    assert!(matches!(missing_second_prefix, CodecError::MissingPrefix { .. }));
+    assert!(matches!(missing_second_prefix, MiscCodecError::MissingPrefix { .. }));
 
     let invalid_after_prefix = HexCodec::new()
         .with_prefix("0x")
@@ -234,7 +231,7 @@ fn test_decode_reports_precise_hex_errors() {
         .expect_err("invalid digit after prefix should fail");
     assert!(matches!(
         invalid_after_prefix,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 16,
             index: 3,
             character: 'g'
@@ -247,7 +244,7 @@ fn test_decode_reports_precise_hex_errors() {
         .expect_err("invalid digit after byte prefix should fail");
     assert!(matches!(
         invalid_after_byte_prefix,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 16,
             index: 3,
             character: 'g'
@@ -259,5 +256,5 @@ fn test_decode_reports_precise_hex_errors() {
         .with_ignore_prefix_case(true)
         .decode("0")
         .expect_err("short input should not match prefix");
-    assert!(matches!(too_short_prefix, CodecError::MissingPrefix { .. }));
+    assert!(matches!(too_short_prefix, MiscCodecError::MissingPrefix { .. }));
 }

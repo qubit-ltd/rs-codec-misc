@@ -14,10 +14,10 @@ use crate::percent_codec::{
     percent_encode_bytes,
 };
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
     Encoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
@@ -53,15 +53,15 @@ impl FormUrlencodedCodec {
     /// Decoded UTF-8 text.
     ///
     /// # Errors
-    /// Returns [`CodecError`] when an escape is malformed or decoded bytes are
+    /// Returns [`MiscCodecError`] when an escape is malformed or decoded bytes are
     /// not valid UTF-8.
-    pub fn decode(&self, text: &str) -> CodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?).map_err(CodecError::from)
+    pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
+        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
     }
 }
 
 impl Encoder<str> for FormUrlencodedCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Encodes text, using `+` for spaces.
@@ -71,7 +71,7 @@ impl Encoder<str> for FormUrlencodedCodec {
 }
 
 impl Decoder<str> for FormUrlencodedCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Decodes form-url-encoded text.

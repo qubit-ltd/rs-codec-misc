@@ -10,9 +10,9 @@
 //! C integer literal decoder.
 
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Decodes non-negative C integer literal fragments.
@@ -41,10 +41,10 @@ impl CIntegerLiteralCodec {
     /// Parsed integer value.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidInput`] when the input is empty, lacks digits,
-    /// or overflows `u64`; returns [`CodecError::InvalidDigit`] when a character
+    /// Returns [`MiscCodecError::InvalidInput`] when the input is empty, lacks digits,
+    /// or overflows `u64`; returns [`MiscCodecError::InvalidDigit`] when a character
     /// is not valid for the detected radix.
-    pub fn decode(&self, text: &str) -> CodecResult<u64> {
+    pub fn decode(&self, text: &str) -> MiscCodecResult<u64> {
         let (trimmed, trim_offset) = trim_with_offset(text);
         if trimmed.is_empty() {
             return Err(invalid_c_integer_input("expected at least one digit"));
@@ -57,7 +57,7 @@ impl CIntegerLiteralCodec {
 }
 
 impl Decoder<str> for CIntegerLiteralCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = u64;
 
     /// Decodes a C integer literal into a `u64`.
@@ -85,9 +85,9 @@ impl<'a> LiteralComponents<'a> {
     /// Literal components used by validation and numeric parsing.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidInput`] when a radix prefix is present without
+    /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present without
     /// any digits after it.
-    fn parse(trimmed: &'a str, trim_offset: usize) -> CodecResult<Self> {
+    fn parse(trimmed: &'a str, trim_offset: usize) -> MiscCodecResult<Self> {
         if let Some(digits) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
             if digits.is_empty() {
                 return Err(invalid_c_integer_input(
@@ -136,14 +136,14 @@ fn trim_with_offset(text: &str) -> (&str, usize) {
 /// - `components`: Parsed literal components.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidDigit`] with the original input byte index of
+/// Returns [`MiscCodecError::InvalidDigit`] with the original input byte index of
 /// the invalid character.
-fn validate_digits(components: LiteralComponents<'_>) -> CodecResult<()> {
+fn validate_digits(components: LiteralComponents<'_>) -> MiscCodecResult<()> {
     for (index, character) in components.digits.char_indices() {
         if character.is_digit(components.radix) {
             continue;
         }
-        return Err(CodecError::InvalidDigit {
+        return Err(MiscCodecError::InvalidDigit {
             radix: components.radix,
             index: components.digits_offset + index,
             character,
@@ -159,8 +159,8 @@ fn validate_digits(components: LiteralComponents<'_>) -> CodecResult<()> {
 ///
 /// # Returns
 /// An invalid input error for the C integer literal codec.
-fn invalid_c_integer_input(reason: &str) -> CodecError {
-    CodecError::InvalidInput {
+fn invalid_c_integer_input(reason: &str) -> MiscCodecError {
+    MiscCodecError::InvalidInput {
         codec: "c-integer-literal",
         reason: reason.to_owned(),
     }

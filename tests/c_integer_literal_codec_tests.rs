@@ -9,10 +9,10 @@
  ******************************************************************************/
 //! Tests for C integer literal decoding.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     CIntegerLiteralCodec,
-    CodecError,
     Decoder,
+    MiscCodecError,
 };
 
 #[test]
@@ -49,7 +49,7 @@ fn test_decode_reports_invalid_digits_with_original_index() {
         .expect_err("invalid octal digit should fail");
     assert!(matches!(
         octal,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 8,
             index: 2,
             character: '9'
@@ -61,7 +61,7 @@ fn test_decode_reports_invalid_digits_with_original_index() {
         .expect_err("invalid hex digit should fail");
     assert!(matches!(
         hex,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 16,
             index: 3,
             character: 'g'
@@ -73,7 +73,7 @@ fn test_decode_reports_invalid_digits_with_original_index() {
         .expect_err("signed literals are not supported");
     assert!(matches!(
         decimal,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 10,
             index: 0,
             character: '+'
@@ -88,7 +88,7 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
         .expect_err("empty input should fail");
     assert!(matches!(
         empty,
-        CodecError::InvalidInput {
+        MiscCodecError::InvalidInput {
             codec: "c-integer-literal",
             ..
         }
@@ -99,7 +99,7 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
         .expect_err("hex prefix without digits should fail");
     assert!(matches!(
         missing_hex,
-        CodecError::InvalidInput {
+        MiscCodecError::InvalidInput {
             codec: "c-integer-literal",
             ..
         }
@@ -110,7 +110,7 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
         .expect_err("overflow should fail");
     assert!(matches!(
         overflow,
-        CodecError::InvalidInput {
+        MiscCodecError::InvalidInput {
             codec: "c-integer-literal",
             ..
         }

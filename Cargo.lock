@@ -19,9 +19,14 @@ dependencies = [
 
 [[package]]
 name = "qubit-codec"
-version = "0.3.7"
+version = "0.1.0"
+
+[[package]]
+name = "qubit-codec-misc"
+version = "0.1.0"
 dependencies = [
  "base64",
+ "qubit-codec",
  "thiserror",
 ]
 

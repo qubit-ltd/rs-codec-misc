@@ -10,10 +10,10 @@
 //! Hexadecimal byte codec.
 
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
     Encoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Encodes and decodes hexadecimal byte strings.
@@ -193,9 +193,9 @@ impl HexCodec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`CodecError`] when a configured whole or per-byte prefix is missing,
+    /// Returns [`MiscCodecError`] when a configured whole or per-byte prefix is missing,
     /// when the normalized digit count is odd, or when a non-hex digit is found.
-    pub fn decode(&self, text: &str) -> CodecResult<Vec<u8>> {
+    pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::new();
         self.decode_into(text, &mut output)?;
         Ok(output)
@@ -208,8 +208,8 @@ impl HexCodec {
     /// - `output`: Destination byte vector.
     ///
     /// # Errors
-    /// Returns [`CodecError`] when the input is malformed.
-    pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> CodecResult<()> {
+    /// Returns [`MiscCodecError`] when the input is malformed.
+    pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let digits = self.normalized_digits(text)?;
         if digits.len() % 2 != 0 {
             return Err(invalid_hex_length(digits.len()));
@@ -239,8 +239,8 @@ impl HexCodec {
     /// Hex digits paired with their original character indexes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
-    fn normalized_digits(&self, text: &str) -> CodecResult<Vec<(usize, char)>> {
+    /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
+    fn normalized_digits(&self, text: &str) -> MiscCodecResult<Vec<(usize, char)>> {
         let start_index = self.consume_prefix(text)?;
         if let Some(byte_prefix) = self.byte_prefix.as_deref().filter(|prefix| !prefix.is_empty()) {
             return self.normalized_byte_prefixed_digits(text, byte_prefix, start_index);
@@ -257,22 +257,22 @@ impl HexCodec {
     /// Byte index where byte parsing should start.
     ///
     /// # Errors
-    /// Returns [`CodecError::MissingPrefix`] when a non-empty whole-output
+    /// Returns [`MiscCodecError::MissingPrefix`] when a non-empty whole-output
     /// prefix is configured but absent.
-    fn consume_prefix(&self, text: &str) -> CodecResult<usize> {
+    fn consume_prefix(&self, text: &str) -> MiscCodecResult<usize> {
         let Some(prefix) = self.prefix.as_deref().filter(|prefix| !prefix.is_empty()) else {
             return Ok(0);
         };
         let index = self.skip_ascii_whitespace(text, 0);
         let Some(rest) = text.get(index..) else {
-            return Err(CodecError::MissingPrefix {
+            return Err(MiscCodecError::MissingPrefix {
                 prefix: prefix.to_owned(),
             });
         };
         if self.starts_with_prefix(rest, prefix) {
             Ok(index + prefix.len())
         } else {
-            Err(CodecError::MissingPrefix {
+            Err(MiscCodecError::MissingPrefix {
                 prefix: prefix.to_owned(),
             })
         }
@@ -287,8 +287,8 @@ impl HexCodec {
     /// Hex digits paired with their original character indexes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidDigit`] for unsupported characters.
-    fn normalized_unprefixed_digits(&self, text: &str, mut index: usize) -> CodecResult<Vec<(usize, char)>> {
+    /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
+    fn normalized_unprefixed_digits(&self, text: &str, mut index: usize) -> MiscCodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
         let separator = self.separator.as_deref().filter(|separator| !separator.is_empty());
         while index < text.len() {
@@ -329,14 +329,14 @@ impl HexCodec {
     /// Hex digits paired with their original character indexes.
     ///
     /// # Errors
-    /// Returns [`CodecError::MissingPrefix`] when a byte prefix is missing, or
-    /// [`CodecError::InvalidDigit`] for unsupported characters.
+    /// Returns [`MiscCodecError::MissingPrefix`] when a byte prefix is missing, or
+    /// [`MiscCodecError::InvalidDigit`] for unsupported characters.
     fn normalized_byte_prefixed_digits(
         &self,
         text: &str,
         prefix: &str,
         mut index: usize,
-    ) -> CodecResult<Vec<(usize, char)>> {
+    ) -> MiscCodecResult<Vec<(usize, char)>> {
         let mut digits = Vec::with_capacity(text.len());
         let separator = self.separator.as_deref().filter(|separator| !separator.is_empty());
         while index < text.len() {
@@ -348,7 +348,7 @@ impl HexCodec {
                 break;
             };
             if !self.starts_with_prefix(rest, prefix) {
-                return Err(CodecError::MissingPrefix {
+                return Err(MiscCodecError::MissingPrefix {
                     prefix: prefix.to_owned(),
                 });
             }
@@ -461,7 +461,7 @@ impl Default for HexCodec {
 }
 
 impl Encoder<[u8]> for HexCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Encodes bytes into hexadecimal text.
@@ -471,7 +471,7 @@ impl Encoder<[u8]> for HexCodec {
 }
 
 impl Decoder<str> for HexCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = Vec<u8>;
 
     /// Decodes hexadecimal text into bytes.
@@ -504,8 +504,8 @@ fn hex_value(ch: char) -> Option<u8> {
 ///
 /// # Returns
 /// A radix-16 digit error.
-fn invalid_hex_digit(index: usize, character: char) -> CodecError {
-    CodecError::InvalidDigit {
+fn invalid_hex_digit(index: usize, character: char) -> MiscCodecError {
+    MiscCodecError::InvalidDigit {
         radix: 16,
         index,
         character,
@@ -519,8 +519,8 @@ fn invalid_hex_digit(index: usize, character: char) -> CodecError {
 ///
 /// # Returns
 /// An invalid length error describing the even-digit requirement.
-fn invalid_hex_length(actual: usize) -> CodecError {
-    CodecError::InvalidLength {
+fn invalid_hex_length(actual: usize) -> MiscCodecError {
+    MiscCodecError::InvalidLength {
         context: "hex digits",
         expected: "an even number of digits".to_owned(),
         actual,

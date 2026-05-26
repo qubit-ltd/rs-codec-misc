@@ -9,7 +9,7 @@
  ******************************************************************************/
 //! Tests for the encoder trait contract.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     Base64Codec,
     Encoder,
     HexCodec,

@@ -10,10 +10,10 @@
 //! C string literal byte codec.
 
 use crate::{
-    CodecError,
-    CodecResult,
     Decoder,
     Encoder,
+    MiscCodecError,
+    MiscCodecResult,
 };
 
 /// Encodes and decodes byte-oriented C string literal fragments.
@@ -57,10 +57,10 @@ impl CStringLiteralCodec {
     /// Decoded raw bytes.
     ///
     /// # Errors
-    /// Returns [`CodecError::InvalidEscape`] for malformed escape sequences,
-    /// [`CodecError::InvalidDigit`] for malformed fixed-width numeric escapes,
-    /// and [`CodecError::InvalidCharacter`] for unsupported raw source characters.
-    pub fn decode(&self, text: &str) -> CodecResult<Vec<u8>> {
+    /// Returns [`MiscCodecError::InvalidEscape`] for malformed escape sequences,
+    /// [`MiscCodecError::InvalidDigit`] for malformed fixed-width numeric escapes,
+    /// and [`MiscCodecError::InvalidCharacter`] for unsupported raw source characters.
+    pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         let chars = text.char_indices().collect::<Vec<_>>();
         let mut output = Vec::with_capacity(text.len());
         let mut position = 0;
@@ -78,7 +78,7 @@ impl CStringLiteralCodec {
 }
 
 impl Encoder<[u8]> for CStringLiteralCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = String;
 
     /// Encodes bytes into a C string literal fragment.
@@ -88,7 +88,7 @@ impl Encoder<[u8]> for CStringLiteralCodec {
 }
 
 impl Decoder<str> for CStringLiteralCodec {
-    type Error = CodecError;
+    type Error = MiscCodecError;
     type Output = Vec<u8>;
 
     /// Decodes a C string literal fragment into bytes.
@@ -106,9 +106,14 @@ impl Decoder<str> for CStringLiteralCodec {
 /// - `output`: Destination byte buffer.
 ///
 /// # Errors
-/// Returns [`CodecError`] when the escape marker is trailing or the escape
+/// Returns [`MiscCodecError`] when the escape marker is trailing or the escape
 /// sequence is malformed.
-fn decode_escape(text: &str, chars: &[(usize, char)], position: &mut usize, output: &mut Vec<u8>) -> CodecResult<()> {
+fn decode_escape(
+    text: &str,
+    chars: &[(usize, char)],
+    position: &mut usize,
+    output: &mut Vec<u8>,
+) -> MiscCodecResult<()> {
     let marker_index = chars[*position].0;
     *position += 1;
     let Some(&(_, escape)) = chars.get(*position) else {
@@ -179,9 +184,13 @@ fn push_simple_escape(position: &mut usize, output: &mut Vec<u8>, byte: u8) {
 /// The decoded byte.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidEscape`] when no hexadecimal digit follows
+/// Returns [`MiscCodecError::InvalidEscape`] when no hexadecimal digit follows
 /// `\x`.
-fn parse_variable_hex_escape(chars: &[(usize, char)], position: &mut usize, marker_index: usize) -> CodecResult<u8> {
+fn parse_variable_hex_escape(
+    chars: &[(usize, char)],
+    position: &mut usize,
+    marker_index: usize,
+) -> MiscCodecResult<u8> {
     let mut value = 0u8;
     let mut digit_count = 0;
     while digit_count < 2 {
@@ -218,8 +227,8 @@ fn parse_variable_hex_escape(chars: &[(usize, char)], position: &mut usize, mark
 /// The decoded byte.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidEscape`] when the escape is too short or too
-/// large for one byte, or [`CodecError::InvalidDigit`] when a required digit is
+/// Returns [`MiscCodecError::InvalidEscape`] when the escape is too short or too
+/// large for one byte, or [`MiscCodecError::InvalidDigit`] when a required digit is
 /// not hexadecimal.
 fn parse_fixed_hex_escape(
     text: &str,
@@ -227,7 +236,7 @@ fn parse_fixed_hex_escape(
     position: &mut usize,
     marker_index: usize,
     digits: usize,
-) -> CodecResult<u8> {
+) -> MiscCodecResult<u8> {
     let mut value = 0u32;
     for _ in 0..digits {
         let Some(&(index, character)) = chars.get(*position) else {
@@ -239,7 +248,7 @@ fn parse_fixed_hex_escape(
             ));
         };
         let Some(digit) = hex_value(character) else {
-            return Err(CodecError::InvalidDigit {
+            return Err(MiscCodecError::InvalidDigit {
                 radix: 16,
                 index,
                 character,
@@ -294,13 +303,13 @@ fn parse_octal_escape(chars: &[(usize, char)], position: &mut usize) -> u8 {
 /// - `character`: Raw, unescaped source character.
 ///
 /// # Errors
-/// Returns [`CodecError::InvalidCharacter`] when the raw character is not a
+/// Returns [`MiscCodecError::InvalidCharacter`] when the raw character is not a
 /// supported ASCII C string source character.
-fn validate_source_character(index: usize, character: char) -> CodecResult<()> {
+fn validate_source_character(index: usize, character: char) -> MiscCodecResult<()> {
     if is_source_character(character) {
         return Ok(());
     }
-    Err(CodecError::InvalidCharacter {
+    Err(MiscCodecError::InvalidCharacter {
         index,
         character,
         reason: "raw source character must be printable ASCII or allowed whitespace".to_owned(),
@@ -413,8 +422,8 @@ fn uppercase_hex_digit(value: u8) -> char {
 ///
 /// # Returns
 /// An invalid escape error.
-fn invalid_escape(index: usize, escape: &str, reason: &str) -> CodecError {
-    CodecError::InvalidEscape {
+fn invalid_escape(index: usize, escape: &str, reason: &str) -> MiscCodecError {
+    MiscCodecError::InvalidEscape {
         index,
         escape: escape.to_owned(),
         reason: reason.to_owned(),

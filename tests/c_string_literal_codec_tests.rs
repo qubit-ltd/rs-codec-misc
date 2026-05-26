@@ -9,11 +9,11 @@
  ******************************************************************************/
 //! Tests for C string literal byte encoding.
 
-use qubit_codec::{
+use qubit_codec_misc::{
     CStringLiteralCodec,
-    CodecError,
     Decoder,
     Encoder,
+    MiscCodecError,
 };
 
 #[test]
@@ -145,7 +145,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("trailing escape marker should fail");
     assert!(matches!(
         trailing,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 3,
             escape: _,
             reason: _
@@ -157,7 +157,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("unsupported escape should fail");
     assert!(matches!(
         invalid_escape,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _
@@ -169,7 +169,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("hex escape without digits should fail");
     assert!(matches!(
         missing_hex_digit,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _
@@ -181,7 +181,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("incomplete universal escape should fail");
     assert!(matches!(
         incomplete_universal,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _
@@ -193,7 +193,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("invalid universal escape digit should fail");
     assert!(matches!(
         invalid_universal_digit,
-        CodecError::InvalidDigit {
+        MiscCodecError::InvalidDigit {
             radix: 16,
             index: 4,
             character: 'z'
@@ -205,7 +205,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("non-ASCII source character should fail");
     assert!(matches!(
         unicode,
-        CodecError::InvalidCharacter {
+        MiscCodecError::InvalidCharacter {
             index: 9,
             character: '☃',
             ..
@@ -217,7 +217,7 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
         .expect_err("universal byte escape must fit in one byte");
     assert!(matches!(
         oversized,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _

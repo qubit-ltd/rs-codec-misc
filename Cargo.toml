@@ -1,15 +1,15 @@
 [package]
-name = "qubit-codec"
-version = "0.3.7"
+name = "qubit-codec-misc"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.94"
 autotests = false
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
-repository = "https://github.com/qubit-ltd/rs-codec"
-description = "Reusable byte and text codecs for Rust applications"
-homepage = "https://github.com/qubit-ltd/rs-codec"
-documentation = "https://docs.rs/qubit-codec"
+repository = "https://github.com/qubit-ltd/rs-codec-misc"
+description = "Miscellaneous byte and text format codecs for Rust applications"
+homepage = "https://github.com/qubit-ltd/rs-codec-misc"
+documentation = "https://docs.rs/qubit-codec-misc"
 readme = "README.md"
 keywords = ["codec", "hex", "base64", "percent", "qubit"]
 categories = ["encoding", "parser-implementations"]
@@ -29,6 +29,7 @@ include = [
 
 [dependencies]
 base64 = "0.22"
+qubit-codec = { version = "0.1", path = "../rs-codec" }
 thiserror = "2.0"
 
 [[test]]

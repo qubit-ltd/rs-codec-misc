@@ -14,11 +14,11 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 
 /// Result alias returned by codec operations.
-pub type CodecResult<T> = Result<T, CodecError>;
+pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 
 /// Error returned by codec operations.
 #[derive(Debug, Error)]
-pub enum CodecError {
+pub enum MiscCodecError {
     /// A configured prefix was required but missing.
     #[error("missing required prefix '{prefix}'")]
     MissingPrefix {

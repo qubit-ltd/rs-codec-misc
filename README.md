@@ -1,8 +1,8 @@
 # Qubit Codec
 
-[![Rust CI](https://github.com/qubit-ltd/rs-codec/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-codec/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-codec/coverage-badge.json)](https://qubit-ltd.github.io/rs-codec/coverage/)
-[![Crates.io](https://img.shields.io/crates/v/qubit-codec.svg?color=blue)](https://crates.io/crates/qubit-codec)
+[![Rust CI](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-codec-misc/coverage-badge.json)](https://qubit-ltd.github.io/rs-codec-misc/coverage/)
+[![Crates.io](https://img.shields.io/crates/v/qubit-codec-misc.svg?color=blue)](https://crates.io/crates/qubit-codec-misc)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
@@ -34,7 +34,7 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   and decoding rules.
 - **Small API Surface**: expose direct `encode` and `decode` methods first, with
   traits available for generic call sites.
-- **No Hidden Panics**: malformed input is reported as `CodecError` instead of
+- **No Hidden Panics**: malformed input is reported as `MiscCodecError` instead of
   panicking.
 - **Composable Traits**: `Encoder`, `Decoder`, and `Codec` support reusable
   boundaries without forcing dynamic dispatch.
@@ -65,7 +65,7 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **Standard Alphabet**: padded and no-padding standard Base64.
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
-- **Typed Errors**: malformed input is reported as `CodecError::InvalidInput`.
+- **Typed Errors**: malformed input is reported as `MiscCodecError::InvalidInput`.
 
 ### 🔤 **C String Literal Bytes**
 
@@ -104,7 +104,7 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **`Encoder<Input>`**: encodes borrowed input into an associated output type.
 - **`Decoder<Input>`**: decodes borrowed input into an associated output type.
 - **`Codec<EncodeInput, DecodeInput>`**: combines encoder and decoder traits.
-- **`CodecError` / `CodecResult`**: common error and result types for bundled
+- **`MiscCodecError` / `MiscCodecResult`**: common error and result types for bundled
   codecs.
 
 ## Installation
@@ -113,7 +113,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-codec = "0.3"
+qubit-codec-misc = "0.1"
 ```
 
 ## Quick Start
@@ -121,7 +121,7 @@ qubit-codec = "0.3"
 ### Hexadecimal Bytes
 
 ```rust
-use qubit_codec::HexCodec;
+use qubit_codec_misc::HexCodec;
 
 fn main() {
     let codec = HexCodec::upper()
@@ -141,7 +141,7 @@ fn main() {
 ### Base64 Bytes
 
 ```rust
-use qubit_codec::Base64Codec;
+use qubit_codec_misc::Base64Codec;
 
 fn main() {
     let codec = Base64Codec::standard();
@@ -159,7 +159,7 @@ fn main() {
 ### URL-Safe Base64 Without Padding
 
 ```rust
-use qubit_codec::Base64Codec;
+use qubit_codec_misc::Base64Codec;
 
 fn main() {
     let codec = Base64Codec::url_safe_no_pad();
@@ -177,7 +177,7 @@ fn main() {
 ### C String Literal Bytes
 
 ```rust
-use qubit_codec::CStringLiteralCodec;
+use qubit_codec_misc::CStringLiteralCodec;
 
 fn main() {
     let codec = CStringLiteralCodec::new();
@@ -195,7 +195,7 @@ fn main() {
 ### C Integer Literals
 
 ```rust
-use qubit_codec::CIntegerLiteralCodec;
+use qubit_codec_misc::CIntegerLiteralCodec;
 
 fn main() {
     let codec = CIntegerLiteralCodec::new();
@@ -212,7 +212,7 @@ fn main() {
 ### Percent-Encoding UTF-8 Text
 
 ```rust
-use qubit_codec::PercentCodec;
+use qubit_codec_misc::PercentCodec;
 
 fn main() {
     let codec = PercentCodec::new();
@@ -230,7 +230,7 @@ fn main() {
 ### Form URL Encoding
 
 ```rust
-use qubit_codec::FormUrlencodedCodec;
+use qubit_codec_misc::FormUrlencodedCodec;
 
 fn main() {
     let codec = FormUrlencodedCodec::new();
@@ -251,15 +251,15 @@ Use the traits when application code should depend on an encoding capability
 instead of a concrete codec type.
 
 ```rust
-use qubit_codec::{
-    CodecError,
+use qubit_codec_misc::{
+    MiscCodecError,
     Encoder,
     HexCodec,
 };
 
-fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, CodecError>
+fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, MiscCodecError>
 where
-    C: Encoder<[u8], Output = String, Error = CodecError>,
+    C: Encoder<[u8], Output = String, Error = MiscCodecError>,
 {
     codec.encode(payload)
 }
@@ -337,8 +337,8 @@ fn main() {
 
 ## Error Handling
 
-Bundled decoders return `CodecResult<T>`, an alias for
-`Result<T, CodecError>`.
+Bundled decoders return `MiscCodecResult<T>`, an alias for
+`Result<T, MiscCodecError>`.
 
 | Error | Meaning |
 |-------|---------|
@@ -420,4 +420,4 @@ More Rust libraries from Qubit are available under the
 
 ---
 
-Repository: [https://github.com/qubit-ltd/rs-codec](https://github.com/qubit-ltd/rs-codec)
+Repository: [https://github.com/qubit-ltd/rs-codec-misc](https://github.com/qubit-ltd/rs-codec-misc)

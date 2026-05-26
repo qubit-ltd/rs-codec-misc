@@ -9,10 +9,10 @@
  ******************************************************************************/
 //! Tests for percent encoding.
 
-use qubit_codec::{
-    CodecError,
+use qubit_codec_misc::{
     Decoder,
     Encoder,
+    MiscCodecError,
     PercentCodec,
 };
 
@@ -40,7 +40,7 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("truncated escape should fail");
     assert!(matches!(
         short,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 3,
             escape: _,
             reason: _
@@ -52,7 +52,7 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("bad hex escape should fail");
     assert!(matches!(
         bad_hex,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _
@@ -64,7 +64,7 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("bad low hex digit should fail");
     assert!(matches!(
         bad_low_hex,
-        CodecError::InvalidEscape {
+        MiscCodecError::InvalidEscape {
             index: 0,
             escape: _,
             reason: _
@@ -74,7 +74,7 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
     let bad_utf8 = PercentCodec::new()
         .decode("%FF")
         .expect_err("invalid utf-8 should fail");
-    assert!(matches!(bad_utf8, CodecError::InvalidUtf8 { .. }));
+    assert!(matches!(bad_utf8, MiscCodecError::InvalidUtf8 { .. }));
 }
 
 #[test]
