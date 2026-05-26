@@ -1,4 +1,4 @@
-# Qubit Codec
+# Qubit Misc Codec
 
 [![Rust CI](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-codec-misc/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-codec-misc/coverage-badge.json)](https://qubit-ltd.github.io/rs-codec-misc/coverage/)
@@ -11,7 +11,7 @@
 
 ## 概述
 
-Qubit Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和应用中常见的稳定字节与文本编码。它保持 Rust API 轻量、类型明确且符合 Rust 习惯：常见场景直接使用具体方法，泛型边界再使用 trait。
+Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和应用中常见的稳定字节与文本编码。它保持 Rust API 轻量、类型明确且符合 Rust 习惯：常见场景直接使用具体方法，泛型边界再使用 trait。
 
 本 crate 聚焦具有清晰线格式语义的文本编码：
 
@@ -324,6 +324,11 @@ fn main() {
 | `InvalidCharacter` | 输入包含当前位置不允许的字符 |
 | `InvalidInput` | 输入被 codec 专属校验拒绝 |
 | `InvalidUtf8` | 解码后的字节不是合法 UTF-8 |
+
+## 性能考虑
+
+Codec 实现直接操作借用的 byte slice 或字符串，只在目标格式确实需要时返回 owned output。
+配置存放在小型值类型中，泛型 trait 用法也不要求动态分发。
 
 ## 测试与代码覆盖率
 
