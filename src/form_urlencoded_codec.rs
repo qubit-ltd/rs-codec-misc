@@ -103,11 +103,24 @@ unsafe impl Codec<u8, u8> for FormUrlencodedCodec {
 
     /// Decodes one raw byte, `+`, or `%XX` escape.
     unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        debug_assert!(index < input.len());
+        debug_assert!(input[index] != b'%' || index + 3 <= input.len());
+
         percent_decode_byte(input, index, true)
     }
 
     /// Encodes one byte using form URL encoding.
     unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        debug_assert!(
+            index
+                + if value == b' ' || value.is_ascii_alphanumeric() || matches!(value, b'-' | b'.' | b'_' | b'~') {
+                    1
+                } else {
+                    3
+                }
+                <= output.len()
+        );
+
         Ok(percent_encode_byte(value, output, index, true))
     }
 }

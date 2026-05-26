@@ -502,6 +502,8 @@ unsafe impl Codec<u8, u8> for HexCodec {
 
     /// Decodes one byte from two ASCII hexadecimal digits.
     unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+        debug_assert!(index + 2 <= input.len());
+
         let high_char = char::from(input[index]);
         let low_char = char::from(input[index + 1]);
         let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
@@ -511,6 +513,8 @@ unsafe impl Codec<u8, u8> for HexCodec {
 
     /// Encodes one byte as two ASCII hexadecimal digits.
     unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        debug_assert!(index + 2 <= output.len());
+
         output[index] = hex_digit(value >> 4, self.uppercase) as u8;
         output[index + 1] = hex_digit(value & 0x0f, self.uppercase) as u8;
         Ok(2)

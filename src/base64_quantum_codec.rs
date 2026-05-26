@@ -106,6 +106,8 @@ unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
 
     /// Decodes one complete four-unit Base64 quantum.
     unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<([u8; 3], usize), Self::DecodeError> {
+        debug_assert!(index + 4 <= input.len());
+
         let first = self.decode_unit(input[index], index)?;
         let second = self.decode_unit(input[index + 1], index + 1)?;
         let third = self.decode_unit(input[index + 2], index + 2)?;
@@ -127,6 +129,8 @@ unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
         output: &mut [u8],
         index: usize,
     ) -> Result<usize, Self::EncodeError> {
+        debug_assert!(index + 4 <= output.len());
+
         let alphabet = self.alphabet();
         output[index] = alphabet[(value[0] >> 2) as usize];
         output[index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];

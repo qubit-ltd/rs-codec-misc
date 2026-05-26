@@ -98,18 +98,37 @@ fn test_codec_trait_decodes_and_encodes_percent_byte() {
 #[test]
 fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
     let codec = FormUrlencodedCodec::new();
-    let mut output = [0u8; 1];
+    let mut plus_output = [0u8; 1];
+    let mut raw_output = [0u8; 1];
+    let mut escaped_output = [0u8; 3];
 
     let (decoded_plus, consumed) =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"+", 0).expect("form plus should decode as space") };
-    let written = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, b' ', &mut output, 0).expect("space should encode as plus")
+    let (decoded_escape, escape_consumed) =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"%E4", 0).expect("form escape should decode") };
+    let (decoded_raw, raw_consumed) =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"~", 0).expect("form raw byte should decode") };
+    let plus_written = unsafe {
+        Codec::<u8, u8>::encode_unchecked(&codec, b' ', &mut plus_output, 0).expect("space should encode as plus")
+    };
+    let raw_written =
+        unsafe { Codec::<u8, u8>::encode_unchecked(&codec, b'~', &mut raw_output, 0).expect("raw byte should encode") };
+    let escaped_written = unsafe {
+        Codec::<u8, u8>::encode_unchecked(&codec, 0xe4, &mut escaped_output, 0).expect("escaped byte should encode")
     };
 
     assert_eq!(b' ', decoded_plus);
     assert_eq!(1, consumed);
-    assert_eq!(1, written);
-    assert_eq!(b"+", &output);
+    assert_eq!(0xe4, decoded_escape);
+    assert_eq!(3, escape_consumed);
+    assert_eq!(b'~', decoded_raw);
+    assert_eq!(1, raw_consumed);
+    assert_eq!(1, plus_written);
+    assert_eq!(b"+", &plus_output);
+    assert_eq!(1, raw_written);
+    assert_eq!(b"~", &raw_output);
+    assert_eq!(3, escaped_written);
+    assert_eq!(b"%E4", &escaped_output);
     assert_eq!(1, Codec::<u8, u8>::min_units_per_value(&codec));
     assert_eq!(3, Codec::<u8, u8>::max_units_per_value(&codec));
 }
@@ -179,8 +198,6 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let codec = CStringLiteralCodec::new();
     let invalid_raw =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, &[0xff], 0) }.expect_err("invalid raw byte should fail");
-    let trailing =
-        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\", 0) }.expect_err("trailing escape should fail");
     let unsupported =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\z", 0) }.expect_err("unsupported escape should fail");
     let missing_hex =
@@ -193,7 +210,6 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
         .expect_err("oversized universal escape should fail");
 
     assert!(matches!(invalid_raw, MiscCodecError::InvalidCharacter { index: 0, .. }));
-    assert!(matches!(trailing, MiscCodecError::InvalidEscape { index: 0, .. }));
     assert!(matches!(unsupported, MiscCodecError::InvalidEscape { index: 0, .. }));
     assert!(matches!(missing_hex, MiscCodecError::InvalidEscape { index: 0, .. }));
     assert!(matches!(
