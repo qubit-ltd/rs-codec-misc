@@ -37,8 +37,9 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **No Hidden Panics**: malformed input is reported as `MiscCodecError` instead of
   panicking.
 - **Layered Traits**: `Codec` covers low-level single-value or quantum
-  conversion, while `Encoder` and `Decoder` remain owned whole-value
-  convenience traits.
+  conversion, while `ValueEncoder` and `ValueDecoder` remain owned whole-value
+  convenience traits. `CodecValueEncoder` and `CodecBufferedEncoder` provide
+  default encoder adapters for low-level `Codec` implementations.
 - **Reusable Implementations**: common encodings live in one crate instead of
   being reimplemented by downstream crates.
 - **Minimal Dependencies**: rely on well-maintained crates only where they add
@@ -67,7 +68,7 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **Standard Alphabet**: padded and no-padding standard Base64.
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
 - **Quantum Core**: `Base64QuantumCodec` handles complete three-byte to
-  four-unit Base64 quanta; final padding stays in the facade/coder layer.
+  four-unit Base64 quanta; final padding stays in the facade/transcoder layer.
 - **Typed Errors**: malformed input is reported as `MiscCodecError::InvalidInput`.
 
 ### 🔤 **C String Literal Bytes**
@@ -85,7 +86,7 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   integer literals.
 - **Unsigned Output**: returns `u64` for non-negative integer literal fragments.
 - **Precise Errors**: reports invalid digits with their original input index.
-- **Whole-Token Decoder**: remains a `Decoder<str>` convenience codec because
+- **Value-Token Decode**: remains a `ValueDecoder<str>` convenience codec because
   integer literal encoding strategy and token boundaries are not part of the
   single-value core abstraction yet.
 
@@ -107,10 +108,12 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 ### 🎯 **Focused Public API**
 
-- **`Encoder<Input>`**: encodes borrowed input into an associated output type.
-- **`Decoder<Input>`**: decodes borrowed input into an associated output type.
+- **`ValueEncoder<Input>`**: encodes borrowed input into an associated output type.
+- **`ValueDecoder<Input>`**: decodes borrowed input into an associated output type.
 - **`Codec<Value, Unit>`**: low-level unsafe trait for one value or one codec
   quantum over caller-provided unit buffers.
+- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>`**: default
+  encoder adapters re-exported from `qubit-codec`.
 - **`MiscCodecError` / `MiscCodecResult`**: common error and result types for bundled
   codecs.
 
@@ -260,13 +263,13 @@ instead of a concrete codec type.
 ```rust
 use qubit_codec_misc::{
     MiscCodecError,
-    Encoder,
+    ValueEncoder,
     HexCodec,
 };
 
 fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, MiscCodecError>
 where
-    C: Encoder<[u8], Output = String, Error = MiscCodecError>,
+    C: ValueEncoder<[u8], Output = String, Error = MiscCodecError>,
 {
     codec.encode(payload)
 }
@@ -284,13 +287,15 @@ fn main() {
 
 | Trait | Method | Description |
 |-------|--------|-------------|
-| `Encoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
-| `Decoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
+| `ValueEncoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
+| `ValueDecoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
 | `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
+| `CodecValueEncoder<C, Value, Unit>` | `encode(&Value)` | Encode one value into owned `Vec<Unit>` through `C: Codec<Value, Unit>` |
+| `CodecBufferedEncoder<C>` | `transcode(...)` | Encode value slices into caller-provided unit buffers through `C: Codec<Value, Unit>` |
 
 The low-level `Codec` implementations intentionally exclude facade concerns:
 hex prefix/separator handling, UTF-8 `String` validation, and Base64 final
-padding are handled by whole-value helpers or future coder layers.
+padding are handled by value helpers or future buffered layers.
 
 ### `HexCodec` Operations
 
@@ -343,7 +348,7 @@ padding are handled by whole-value helpers or future coder layers.
 | `new()` | Create a C integer literal decoder |
 | `decode(text)` | Decode a non-negative C integer literal fragment into `u64` |
 
-`CIntegerLiteralCodec` intentionally remains a whole-token decoder. It does not
+`CIntegerLiteralCodec` intentionally remains a value-token decoder. It does not
 implement `Codec<u64, u8>` yet because that would require committing to token
 boundary and encode-format policy that belongs above the single-value core.
 

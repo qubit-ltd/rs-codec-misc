@@ -11,8 +11,8 @@
 
 use qubit_codec_misc::{
     CIntegerLiteralCodec,
-    Decoder,
     MiscCodecError,
+    ValueDecoder,
 };
 
 #[test]
@@ -120,7 +120,7 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
 #[test]
 fn test_c_integer_literal_codec_can_be_used_through_decoder_trait() {
     let codec = CIntegerLiteralCodec::new();
-    let decoded = Decoder::<str>::decode(&codec, "0x2a").expect("C integer literal should decode through trait");
+    let decoded = ValueDecoder::<str>::decode(&codec, "0x2a").expect("C integer literal should decode through trait");
 
     assert_eq!(42, decoded);
 }

@@ -13,12 +13,12 @@ use qubit_codec_misc::{
     Base64QuantumCodec,
     CStringLiteralCodec,
     Codec,
-    Decoder,
-    Encoder,
     FormUrlencodedCodec,
     HexCodec,
     MiscCodecError,
     PercentCodec,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 #[test]
@@ -29,7 +29,7 @@ fn test_codec_trait_decodes_and_encodes_single_hex_byte() {
     let (decoded, consumed) =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"Af", 0).expect("single hex byte should decode") };
     let written = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, 0xaf, &mut output, 0).expect("single hex byte should encode")
+        Codec::<u8, u8>::encode_unchecked(&codec, &0xaf, &mut output, 0).expect("single hex byte should encode")
     };
 
     assert_eq!(0xaf, decoded);
@@ -78,10 +78,11 @@ fn test_codec_trait_decodes_and_encodes_percent_byte() {
     let (decoded_raw, raw_units) =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"~", 0).expect("unreserved byte should decode") };
     let escaped_units = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, 0xe4, &mut escaped, 0).expect("escaped byte should encode")
+        Codec::<u8, u8>::encode_unchecked(&codec, &0xe4, &mut escaped, 0).expect("escaped byte should encode")
     };
-    let unreserved_units =
-        unsafe { Codec::<u8, u8>::encode_unchecked(&codec, b'~', &mut raw, 0).expect("unreserved byte should encode") };
+    let unreserved_units = unsafe {
+        Codec::<u8, u8>::encode_unchecked(&codec, &b'~', &mut raw, 0).expect("unreserved byte should encode")
+    };
 
     assert_eq!(0xe4, decoded_escape);
     assert_eq!(3, escape_units);
@@ -93,6 +94,28 @@ fn test_codec_trait_decodes_and_encodes_percent_byte() {
     assert_eq!(b"~", &raw);
     assert_eq!(1, Codec::<u8, u8>::min_units_per_value(&codec));
     assert_eq!(3, Codec::<u8, u8>::max_units_per_value(&codec));
+}
+
+#[test]
+fn test_codec_trait_decodes_available_percent_byte() {
+    let codec = PercentCodec::new();
+
+    let raw = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"A", 0) }.expect("raw byte should decode");
+    assert_eq!((b'A', 1), raw);
+
+    let incomplete = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"%E", 0) }
+        .expect_err("partial percent escape should be incomplete");
+    assert!(matches!(
+        incomplete,
+        MiscCodecError::Incomplete {
+            required: 3,
+            available: 2
+        }
+    ));
+
+    let malformed = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"%Ez", 0) }
+        .expect_err("malformed percent escape should fail");
+    assert!(matches!(malformed, MiscCodecError::InvalidEscape { index: 0, .. }));
 }
 
 #[test]
@@ -109,12 +132,13 @@ fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
     let (decoded_raw, raw_consumed) =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"~", 0).expect("form raw byte should decode") };
     let plus_written = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, b' ', &mut plus_output, 0).expect("space should encode as plus")
+        Codec::<u8, u8>::encode_unchecked(&codec, &b' ', &mut plus_output, 0).expect("space should encode as plus")
     };
-    let raw_written =
-        unsafe { Codec::<u8, u8>::encode_unchecked(&codec, b'~', &mut raw_output, 0).expect("raw byte should encode") };
+    let raw_written = unsafe {
+        Codec::<u8, u8>::encode_unchecked(&codec, &b'~', &mut raw_output, 0).expect("raw byte should encode")
+    };
     let escaped_written = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, 0xe4, &mut escaped_output, 0).expect("escaped byte should encode")
+        Codec::<u8, u8>::encode_unchecked(&codec, &0xe4, &mut escaped_output, 0).expect("escaped byte should encode")
     };
 
     assert_eq!(b' ', decoded_plus);
@@ -134,6 +158,24 @@ fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
 }
 
 #[test]
+fn test_codec_trait_decodes_available_form_urlencoded_byte() {
+    let codec = FormUrlencodedCodec::new();
+
+    let plus = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"+", 0) }.expect("plus should decode to space");
+    assert_eq!((b' ', 1), plus);
+
+    let incomplete = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, b"%", 0) }
+        .expect_err("partial form escape should be incomplete");
+    assert!(matches!(
+        incomplete,
+        MiscCodecError::Incomplete {
+            required: 3,
+            available: 1
+        }
+    ));
+}
+
+#[test]
 fn test_codec_trait_decodes_and_encodes_c_string_literal_byte() {
     let codec = CStringLiteralCodec::new();
     let mut escaped = [0u8; 4];
@@ -144,10 +186,10 @@ fn test_codec_trait_decodes_and_encodes_c_string_literal_byte() {
     let (decoded_newline, newline_units) =
         unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\n", 0).expect("simple escape should decode") };
     let escaped_units = unsafe {
-        Codec::<u8, u8>::encode_unchecked(&codec, 0xd0, &mut escaped, 0).expect("non-printable byte should encode")
+        Codec::<u8, u8>::encode_unchecked(&codec, &0xd0, &mut escaped, 0).expect("non-printable byte should encode")
     };
     let simple_units =
-        unsafe { Codec::<u8, u8>::encode_unchecked(&codec, b'\n', &mut simple, 0).expect("newline should encode") };
+        unsafe { Codec::<u8, u8>::encode_unchecked(&codec, &b'\n', &mut simple, 0).expect("newline should encode") };
 
     assert_eq!(0xd0, decoded_hex);
     assert_eq!(4, hex_units);
@@ -159,6 +201,38 @@ fn test_codec_trait_decodes_and_encodes_c_string_literal_byte() {
     assert_eq!(br"\n", &simple);
     assert_eq!(1, Codec::<u8, u8>::min_units_per_value(&codec));
     assert_eq!(10, Codec::<u8, u8>::max_units_per_value(&codec));
+}
+
+#[test]
+fn test_codec_trait_decodes_available_c_string_literal_byte() {
+    let codec = CStringLiteralCodec::new();
+
+    let raw = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"A", 0) }.expect("raw C string byte should decode");
+    assert_eq!((b'A', 1), raw);
+
+    let simple =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\n", 0) }.expect("simple C escape should decode");
+    assert_eq!((b'\n', 2), simple);
+
+    let eof_hex =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\xA", 0) }.expect("EOF-closed hex escape should decode");
+    assert_eq!((0x0a, 3), eof_hex);
+
+    let terminated_hex =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\xAG", 0) }.expect("terminated hex escape should decode");
+    assert_eq!((0x0a, 3), terminated_hex);
+
+    let eof_octal = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\12", 0) }
+        .expect("EOF-closed octal escape should decode");
+    assert_eq!((0o12, 3), eof_octal);
+
+    let terminated_octal = unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\12G", 0) }
+        .expect("terminated octal escape should decode");
+    assert_eq!((0o12, 3), terminated_octal);
+
+    let malformed =
+        unsafe { Codec::<u8, u8>::decode_unchecked(&codec, br"\z", 0) }.expect_err("unsupported C escape should fail");
+    assert!(matches!(malformed, MiscCodecError::InvalidEscape { index: 0, .. }));
 }
 
 #[test]
@@ -214,7 +288,10 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     assert!(matches!(missing_hex, MiscCodecError::InvalidEscape { index: 0, .. }));
     assert!(matches!(
         incomplete_universal,
-        MiscCodecError::InvalidEscape { index: 0, .. }
+        MiscCodecError::Incomplete {
+            required: 6,
+            available: 4
+        }
     ));
     assert!(matches!(
         invalid_universal_digit,
@@ -251,7 +328,7 @@ fn test_codec_trait_encodes_c_string_literal_escape_variants() {
     for (byte, expected) in cases {
         let mut output = [0u8; 4];
         let written = unsafe {
-            Codec::<u8, u8>::encode_unchecked(&codec, *byte, &mut output, 0)
+            Codec::<u8, u8>::encode_unchecked(&codec, byte, &mut output, 0)
                 .expect("C string literal byte should encode")
         };
         assert_eq!(*expected, &output[..written], "byte {byte:#04x}");
@@ -266,7 +343,7 @@ fn test_codec_trait_decodes_and_encodes_base64_quantum() {
     let (decoded, consumed) =
         unsafe { Codec::<[u8; 3], u8>::decode_unchecked(&codec, b"YWJj", 0).expect("base64 quantum should decode") };
     let written = unsafe {
-        Codec::<[u8; 3], u8>::encode_unchecked(&codec, *b"abc", &mut output, 0).expect("base64 quantum should encode")
+        Codec::<[u8; 3], u8>::encode_unchecked(&codec, b"abc", &mut output, 0).expect("base64 quantum should encode")
     };
 
     assert_eq!(*b"abc", decoded);
@@ -285,7 +362,7 @@ fn test_codec_trait_decodes_and_encodes_url_safe_base64_quantum() {
     let (decoded, consumed) =
         unsafe { Codec::<[u8; 3], u8>::decode_unchecked(&codec, b"-__u", 0).expect("URL-safe quantum should decode") };
     let written = unsafe {
-        Codec::<[u8; 3], u8>::encode_unchecked(&codec, [0xfb, 0xff, 0xee], &mut output, 0)
+        Codec::<[u8; 3], u8>::encode_unchecked(&codec, &[0xfb, 0xff, 0xee], &mut output, 0)
             .expect("URL-safe quantum should encode")
     };
 
@@ -323,11 +400,11 @@ fn test_codec_trait_covers_base64_quantum_alphabet_and_errors() {
 }
 
 #[test]
-fn test_whole_value_traits_remain_convenience_layer() {
+fn test_value_traits_remain_convenience_layer() {
     let codec = HexCodec::upper().with_byte_prefix("0x").with_separator(" ");
 
-    let encoded = Encoder::<[u8]>::encode(&codec, &[0x00, 0x7f, 0xff]).expect("hex whole-value encode should work");
-    let decoded = Decoder::<str>::decode(&codec, &encoded).expect("hex whole-value decode should work");
+    let encoded = ValueEncoder::<[u8]>::encode(&codec, &[0x00, 0x7f, 0xff]).expect("hex value encode should work");
+    let decoded = ValueDecoder::<str>::decode(&codec, &encoded).expect("hex value decode should work");
 
     assert_eq!("0x00 0x7F 0xFF", encoded);
     assert_eq!(vec![0x00, 0x7f, 0xff], decoded);

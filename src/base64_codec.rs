@@ -18,17 +18,17 @@ use ::base64::engine::general_purpose::{
 };
 
 use crate::{
-    Decoder,
-    Encoder,
     MiscCodecError,
     MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 /// Encodes and decodes Base64 byte strings.
 ///
 /// This facade intentionally remains a whole-value codec backed by the
 /// `base64` crate. Final partial quantum handling and optional `=` padding are
-/// facade/coder responsibilities, not part of the low-level quantum codec.
+/// facade/transcoder responsibilities, not part of the low-level quantum codec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Base64Codec {
     url_safe: bool,
@@ -131,7 +131,7 @@ impl Default for Base64Codec {
     }
 }
 
-impl Encoder<[u8]> for Base64Codec {
+impl ValueEncoder<[u8]> for Base64Codec {
     type Error = MiscCodecError;
     type Output = String;
 
@@ -141,7 +141,7 @@ impl Encoder<[u8]> for Base64Codec {
     }
 }
 
-impl Decoder<str> for Base64Codec {
+impl ValueDecoder<str> for Base64Codec {
     type Error = MiscCodecError;
     type Output = Vec<u8>;
 

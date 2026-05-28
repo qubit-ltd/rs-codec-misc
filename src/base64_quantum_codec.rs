@@ -19,7 +19,7 @@ use crate::{
 ///
 /// A quantum maps exactly three raw bytes to four Base64 units. It does not
 /// handle final short input groups or `=` padding; callers that process streams
-/// must finalize those cases in a coder or facade layer.
+/// must finalize those cases in a transcoder or facade layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Base64QuantumCodec {
     url_safe: bool,
@@ -125,7 +125,7 @@ unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
     /// Encodes one complete three-byte Base64 quantum.
     unsafe fn encode_unchecked(
         &self,
-        value: [u8; 3],
+        value: &[u8; 3],
         output: &mut [u8],
         index: usize,
     ) -> Result<usize, Self::EncodeError> {
