@@ -11,10 +11,10 @@
 
 use crate::{
     Codec,
-    Decoder,
-    Encoder,
     MiscCodecError,
     MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 /// Encodes and decodes percent-encoded UTF-8 text.
@@ -61,7 +61,7 @@ impl PercentCodec {
     }
 }
 
-impl Encoder<str> for PercentCodec {
+impl ValueEncoder<str> for PercentCodec {
     type Error = MiscCodecError;
     type Output = String;
 
@@ -71,7 +71,7 @@ impl Encoder<str> for PercentCodec {
     }
 }
 
-impl Decoder<str> for PercentCodec {
+impl ValueDecoder<str> for PercentCodec {
     type Error = MiscCodecError;
     type Output = String;
 
@@ -98,16 +98,15 @@ unsafe impl Codec<u8, u8> for PercentCodec {
     /// Decodes one raw byte or `%XX` escape.
     unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
         debug_assert!(index < input.len());
-        debug_assert!(input[index] != b'%' || index + 3 <= input.len());
 
         percent_decode_byte(input, index, false)
     }
 
     /// Encodes one byte using percent encoding.
-    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
-        debug_assert!(index + if is_unreserved(value) { 1 } else { 3 } <= output.len());
+    unsafe fn encode_unchecked(&self, value: &u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+        debug_assert!(index + if is_unreserved(*value) { 1 } else { 3 } <= output.len());
 
-        Ok(percent_encode_byte(value, output, index, false))
+        Ok(percent_encode_byte(*value, output, index, false))
     }
 }
 
@@ -196,8 +195,15 @@ pub(crate) fn percent_encode_byte(byte: u8, output: &mut [u8], index: usize, spa
 /// # Errors
 /// Returns [`MiscCodecError::InvalidEscape`] for malformed `%XX` escapes.
 pub(crate) fn percent_decode_byte(input: &[u8], index: usize, plus_as_space: bool) -> MiscCodecResult<(u8, usize)> {
+    let available = input.len().saturating_sub(index);
+    if available == 0 {
+        return Err(MiscCodecError::Incomplete { required: 1, available });
+    }
     match input[index] {
         b'%' => {
+            if available < 3 {
+                return Err(MiscCodecError::Incomplete { required: 3, available });
+            }
             let (Some(&high_byte), Some(&low_byte)) = (input.get(index + 1), input.get(index + 2)) else {
                 return Err(invalid_percent_escape(index));
             };

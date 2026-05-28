@@ -11,23 +11,23 @@
 
 use qubit_codec_misc::{
     Base64Codec,
-    Decoder,
     HexCodec,
     MiscCodecError,
+    ValueDecoder,
 };
 
 #[test]
 fn test_decoder_trait_dispatches_to_concrete_hex_decoder() {
     let codec = HexCodec::new().with_prefix("0x");
 
-    let decoded = Decoder::<str>::decode(&codec, "0x616263").expect("hex should decode");
+    let decoded = ValueDecoder::<str>::decode(&codec, "0x616263").expect("hex should decode");
 
     assert_eq!(b"abc".to_vec(), decoded);
 }
 
 #[test]
 fn test_decoder_trait_preserves_concrete_error_type() {
-    let error = Decoder::<str>::decode(&Base64Codec::standard(), "@@@").expect_err("invalid base64 should fail");
+    let error = ValueDecoder::<str>::decode(&Base64Codec::standard(), "@@@").expect_err("invalid base64 should fail");
 
     assert!(matches!(error, MiscCodecError::InvalidInput { codec: "base64", .. }));
 }

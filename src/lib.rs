@@ -39,7 +39,15 @@ pub use misc_codec_error::{
 };
 pub use percent_codec::PercentCodec;
 pub use qubit_codec::{
+    BufferedEncoder,
     Codec,
-    Decoder,
-    Encoder,
+    CodecBufferedEncoder,
+    CodecValueEncoder,
+    DecodeErrorInfo,
+    DecodeFailure,
+    TranscodeProgress,
+    TranscodeStatus,
+    Transcoder,
+    ValueDecoder,
+    ValueEncoder,
 };

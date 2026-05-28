@@ -10,10 +10,10 @@
 //! Tests for percent encoding.
 
 use qubit_codec_misc::{
-    Decoder,
-    Encoder,
     MiscCodecError,
     PercentCodec,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 #[test]
@@ -40,10 +40,9 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("truncated escape should fail");
     assert!(matches!(
         short,
-        MiscCodecError::InvalidEscape {
-            index: 3,
-            escape: _,
-            reason: _
+        MiscCodecError::Incomplete {
+            required: 3,
+            available: 1
         }
     ));
 
@@ -80,8 +79,8 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
 #[test]
 fn test_percent_codec_default_and_trait_methods() {
     let codec = PercentCodec;
-    let encoded = Encoder::<str>::encode(&codec, "a b").expect("percent encode should succeed");
-    let decoded = Decoder::<str>::decode(&codec, &encoded).expect("percent decode should succeed");
+    let encoded = ValueEncoder::<str>::encode(&codec, "a b").expect("percent encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&codec, &encoded).expect("percent decode should succeed");
 
     assert_eq!("a%20b", encoded);
     assert_eq!("a b", decoded);

@@ -29,8 +29,9 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **语义明确**：每个 codec 都说明字母表、分隔符、填充和解码规则。
 - **API 表面小**：优先提供直接的 `encode` 和 `decode` 方法，泛型场景再使用 trait。
 - **无隐藏 Panic**：畸形输入返回 `MiscCodecError`，不直接 panic。
-- **Trait 分层**：`Codec` 面向低层单值或 quantum 转换，`Encoder` 和 `Decoder`
-  仍是 owned whole-value convenience trait。
+- **Trait 分层**：`Codec` 面向低层单值或 quantum 转换，`ValueEncoder` 和 `ValueDecoder`
+  仍是自有完整值便捷 trait。`CodecValueEncoder` 和 `CodecBufferedEncoder`
+  为低层 `Codec` 实现提供默认 encoder adapter。
 - **实现可复用**：常用编码集中在一个 crate，避免下游重复实现。
 - **依赖最少化**：只在确有价值时依赖维护良好的第三方 crate。
 
@@ -52,7 +53,7 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **标准字母表**：支持带 padding 和无 padding 的标准 Base64。
 - **URL 安全字母表**：支持带 padding 和无 padding 的 URL-safe Base64。
 - **Quantum Core**：`Base64QuantumCodec` 处理完整的三字节到四 unit Base64
-  quantum；final padding 留在 facade/coder 层。
+  quantum；final padding 留在 facade/transcoder 层。
 - **类型化错误**：畸形输入返回 `MiscCodecError::InvalidInput`。
 
 ### 🔤 **C 字符串字面量字节**
@@ -66,7 +67,7 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **进制识别**：解码十进制、八进制和 `0x`/`0X` 十六进制整数字面量。
 - **无符号输出**：将非负整数字面量片段解析为 `u64`。
 - **精确错误**：非法数字会携带原始输入中的字节位置。
-- **Whole-token decoder**：仍作为 `Decoder<str>` convenience codec，因为整数字面量的
+- **Value-token decode**：仍作为 `ValueDecoder<str>` convenience codec，因为整数字面量的
   编码策略和 token 边界尚不属于当前低层单值抽象。
 
 ### 🌐 **Percent-Encoding**
@@ -84,9 +85,11 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 ### 🎯 **聚焦的公开 API**
 
-- **`Encoder<Input>`**：将借用输入编码为关联输出类型。
-- **`Decoder<Input>`**：将借用输入解码为关联输出类型。
+- **`ValueEncoder<Input>`**：将借用输入编码为关联输出类型。
+- **`ValueDecoder<Input>`**：将借用输入解码为关联输出类型。
 - **`Codec<Value, Unit>`**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
+- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>`**：从
+  `qubit-codec` 重导出的默认 encoder adapter。
 - **`MiscCodecError` / `MiscCodecResult`**：内置 codec 的公共错误与结果类型。
 
 ## 安装
@@ -234,13 +237,13 @@ fn main() {
 ```rust
 use qubit_codec_misc::{
     MiscCodecError,
-    Encoder,
+    ValueEncoder,
     HexCodec,
 };
 
 fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, MiscCodecError>
 where
-    C: Encoder<[u8], Output = String, Error = MiscCodecError>,
+    C: ValueEncoder<[u8], Output = String, Error = MiscCodecError>,
 {
     codec.encode(payload)
 }
@@ -258,12 +261,14 @@ fn main() {
 
 | Trait | 方法 | 描述 |
 |-------|------|------|
-| `Encoder<Input>` | `encode(&Input)` | 将借用输入编码为关联输出类型 |
-| `Decoder<Input>` | `decode(&Input)` | 将借用输入解码为关联输出类型 |
+| `ValueEncoder<Input>` | `encode(&Input)` | 将借用输入编码为关联输出类型 |
+| `ValueDecoder<Input>` | `decode(&Input)` | 将借用输入解码为关联输出类型 |
 | `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
+| `CodecValueEncoder<C, Value, Unit>` | `encode(&Value)` | 通过 `C: Codec<Value, Unit>` 把一个值编码成自有 `Vec<Unit>` |
+| `CodecBufferedEncoder<C>` | `transcode(...)` | 通过 `C: Codec<Value, Unit>` 把 value slice 编码进调用方提供的 unit 缓冲区 |
 
 低层 `Codec` 实现刻意排除 facade 关注点：十六进制 prefix/separator、UTF-8
-`String` 校验和 Base64 final padding 都由 whole-value helper 或后续 coder 层处理。
+`String` 校验和 Base64 final padding 都由 value helper 或后续 buffered 层处理。
 
 ### `HexCodec` 操作
 
@@ -316,7 +321,7 @@ fn main() {
 | `new()` | 创建 C 整数字面量解码器 |
 | `decode(text)` | 将非负 C 整数字面量片段解码为 `u64` |
 
-`CIntegerLiteralCodec` 刻意保留为 whole-token decoder，暂不实现 `Codec<u64, u8>`。
+`CIntegerLiteralCodec` 刻意保留为 value-token decoder，暂不实现 `Codec<u64, u8>`。
 原因是这会提前承诺 token 边界和 encode 格式策略，而这些策略应位于单值 core 之上。
 
 ### 文本 Codec 操作

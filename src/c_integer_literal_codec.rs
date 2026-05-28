@@ -10,9 +10,9 @@
 //! C integer literal decoder.
 
 use crate::{
-    Decoder,
     MiscCodecError,
     MiscCodecResult,
+    ValueDecoder,
 };
 
 /// Decodes non-negative C integer literal fragments.
@@ -56,7 +56,7 @@ impl CIntegerLiteralCodec {
     }
 }
 
-impl Decoder<str> for CIntegerLiteralCodec {
+impl ValueDecoder<str> for CIntegerLiteralCodec {
     type Error = MiscCodecError;
     type Output = u64;
 

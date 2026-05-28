@@ -11,9 +11,9 @@
 
 use qubit_codec_misc::{
     CStringLiteralCodec,
-    Decoder,
-    Encoder,
     MiscCodecError,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 #[test]
@@ -248,8 +248,8 @@ fn test_encode_uses_simple_escapes_and_hex_bytes() {
 #[test]
 fn test_c_string_literal_codec_can_be_used_through_traits() {
     let codec = CStringLiteralCodec::new();
-    let encoded = Encoder::<[u8]>::encode(&codec, b"PK\x03\x04").expect("C string literal encode should succeed");
-    let decoded = Decoder::<str>::decode(&codec, &encoded).expect("C string literal decode should succeed");
+    let encoded = ValueEncoder::<[u8]>::encode(&codec, b"PK\x03\x04").expect("C string literal encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&codec, &encoded).expect("C string literal decode should succeed");
 
     assert_eq!(r"PK\x03\x04", encoded);
     assert_eq!(b"PK\x03\x04".to_vec(), decoded);

@@ -11,10 +11,10 @@
 
 use crate::{
     Codec,
-    Decoder,
-    Encoder,
     MiscCodecError,
     MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
 };
 
 /// Encodes and decodes hexadecimal byte strings.
@@ -466,7 +466,7 @@ impl Default for HexCodec {
     }
 }
 
-impl Encoder<[u8]> for HexCodec {
+impl ValueEncoder<[u8]> for HexCodec {
     type Error = MiscCodecError;
     type Output = String;
 
@@ -476,7 +476,7 @@ impl Encoder<[u8]> for HexCodec {
     }
 }
 
-impl Decoder<str> for HexCodec {
+impl ValueDecoder<str> for HexCodec {
     type Error = MiscCodecError;
     type Output = Vec<u8>;
 
@@ -512,11 +512,11 @@ unsafe impl Codec<u8, u8> for HexCodec {
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
-    unsafe fn encode_unchecked(&self, value: u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+    unsafe fn encode_unchecked(&self, value: &u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
         debug_assert!(index + 2 <= output.len());
 
-        output[index] = hex_digit(value >> 4, self.uppercase) as u8;
-        output[index + 1] = hex_digit(value & 0x0f, self.uppercase) as u8;
+        output[index] = hex_digit(*value >> 4, self.uppercase) as u8;
+        output[index + 1] = hex_digit(*value & 0x0f, self.uppercase) as u8;
         Ok(2)
     }
 }
