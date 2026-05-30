@@ -95,17 +95,23 @@ unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the four Base64 units needed for one complete quantum.
-    fn min_units_per_value(&self) -> usize {
-        4
+    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
+        // SAFETY: 4 is non-zero.
+        unsafe { core::num::NonZeroUsize::new_unchecked(4) }
     }
 
     /// Returns the four Base64 units needed for one complete quantum.
-    fn max_units_per_value(&self) -> usize {
-        4
+    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
+        // SAFETY: 4 is non-zero.
+        unsafe { core::num::NonZeroUsize::new_unchecked(4) }
     }
 
     /// Decodes one complete four-unit Base64 quantum.
-    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<([u8; 3], usize), Self::DecodeError> {
+    unsafe fn decode_unchecked(
+        &self,
+        input: &[u8],
+        index: usize,
+    ) -> Result<([u8; 3], core::num::NonZeroUsize), Self::DecodeError> {
         debug_assert!(index + 4 <= input.len());
 
         let first = self.decode_unit(input[index], index)?;
@@ -118,7 +124,8 @@ unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            4,
+            // SAFETY: 4 is non-zero.
+            unsafe { core::num::NonZeroUsize::new_unchecked(4) },
         ))
     }
 
