@@ -86,20 +86,29 @@ unsafe impl Codec<u8, u8> for PercentCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the shortest representation length for one byte.
-    fn min_units_per_value(&self) -> usize {
-        1
+    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
+        core::num::NonZeroUsize::MIN
     }
 
     /// Returns the longest `%XX` representation length for one byte.
-    fn max_units_per_value(&self) -> usize {
-        3
+    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
+        unsafe { core::num::NonZeroUsize::new_unchecked(3) }
     }
 
     /// Decodes one raw byte or `%XX` escape.
-    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+    unsafe fn decode_unchecked(
+        &self,
+        input: &[u8],
+        index: usize,
+    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
         debug_assert!(index < input.len());
 
-        percent_decode_byte(input, index, false)
+        let (value, consumed) = percent_decode_byte(input, index, false)?;
+        debug_assert!(consumed > 0);
+        // SAFETY: `percent_decode_byte` returns a non-zero width for every
+        // successful raw byte or escape.
+        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        Ok((value, consumed))
     }
 
     /// Encodes one byte using percent encoding.

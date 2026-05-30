@@ -491,24 +491,31 @@ unsafe impl Codec<u8, u8> for HexCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the two hexadecimal digits needed for one byte.
-    fn min_units_per_value(&self) -> usize {
-        2
+    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
+        // SAFETY: 2 is non-zero.
+        unsafe { core::num::NonZeroUsize::new_unchecked(2) }
     }
 
     /// Returns the two hexadecimal digits needed for one byte.
-    fn max_units_per_value(&self) -> usize {
-        2
+    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
+        // SAFETY: 2 is non-zero.
+        unsafe { core::num::NonZeroUsize::new_unchecked(2) }
     }
 
     /// Decodes one byte from two ASCII hexadecimal digits.
-    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+    unsafe fn decode_unchecked(
+        &self,
+        input: &[u8],
+        index: usize,
+    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
         debug_assert!(index + 2 <= input.len());
 
         let high_char = char::from(input[index]);
         let low_char = char::from(input[index + 1]);
         let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
         let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
-        Ok(((high << 4) | low, 2))
+        // SAFETY: 2 is non-zero.
+        Ok(((high << 4) | low, unsafe { core::num::NonZeroUsize::new_unchecked(2) }))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.

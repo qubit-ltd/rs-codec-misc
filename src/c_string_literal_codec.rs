@@ -107,20 +107,29 @@ unsafe impl Codec<u8, u8> for CStringLiteralCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the shortest representation length for one byte.
-    fn min_units_per_value(&self) -> usize {
-        1
+    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
+        core::num::NonZeroUsize::MIN
     }
 
     /// Returns the longest supported universal escape length for one byte.
-    fn max_units_per_value(&self) -> usize {
-        10
+    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
+        unsafe { core::num::NonZeroUsize::new_unchecked(10) }
     }
 
     /// Decodes one raw byte or one C escape fragment.
-    unsafe fn decode_unchecked(&self, input: &[u8], index: usize) -> Result<(u8, usize), Self::DecodeError> {
+    unsafe fn decode_unchecked(
+        &self,
+        input: &[u8],
+        index: usize,
+    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
         debug_assert!(index < input.len());
 
-        decode_c_string_literal_byte(input, index)
+        let (value, consumed) = decode_c_string_literal_byte(input, index)?;
+        debug_assert!(consumed > 0);
+        // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
+        // every successful raw byte or escape.
+        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        Ok((value, consumed))
     }
 
     /// Encodes one byte as a raw byte or C escape fragment.

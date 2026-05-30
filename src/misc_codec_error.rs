@@ -106,7 +106,7 @@ impl DecodeErrorInfo for MiscCodecError {
     fn failure(&self) -> DecodeFailure {
         match self {
             Self::Incomplete { required, available } => DecodeFailure::Incomplete {
-                required: *required,
+                required_total: *required,
                 available: *available,
             },
             Self::InvalidEscape { escape, .. } => DecodeFailure::Invalid {

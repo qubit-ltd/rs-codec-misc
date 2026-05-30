@@ -31,7 +31,10 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **无隐藏 Panic**：畸形输入返回 `MiscCodecError`，不直接 panic。
 - **Trait 分层**：`Codec` 面向低层单值或 quantum 转换，`ValueEncoder` 和 `ValueDecoder`
   仍是自有完整值便捷 trait。`CodecValueEncoder` 和 `CodecBufferedEncoder`
-  为低层 `Codec` 实现提供默认 encoder adapter。
+  为低层 `Codec` 实现提供默认 encoder adapter，`CodecBufferedDecoder` 提供对应的
+  默认 decoder adapter；自定义 buffered adapter 如需保留策略，同时复用公共
+  encode/decode 循环，可使用 `BufferedEncodeEngine` / `BufferedEncodeHooks` 或
+  `BufferedDecodeEngine` / `BufferedDecodeHooks`。
 - **实现可复用**：常用编码集中在一个 crate，避免下游重复实现。
 - **依赖最少化**：只在确有价值时依赖维护良好的第三方 crate。
 
@@ -88,8 +91,12 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **`ValueEncoder<Input>`**：将借用输入编码为关联输出类型。
 - **`ValueDecoder<Input>`**：将借用输入解码为关联输出类型。
 - **`Codec<Value, Unit>`**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
-- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>`**：从
-  `qubit-codec` 重导出的默认 encoder adapter。
+- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>` /
+  `CodecBufferedDecoder<C, Unit>`**：从 `qubit-codec` 重导出的默认 value 和
+  buffered adapter。
+- **`BufferedEncodeEngine` / `BufferedEncodeHooks` /
+  `BufferedDecodeEngine` / `BufferedDecodeHooks`**：用于自定义策略 adapter
+  的可复用 buffered engine 与 hook。
 - **`MiscCodecError` / `MiscCodecResult`**：内置 codec 的公共错误与结果类型。
 
 ## 安装
@@ -266,6 +273,7 @@ fn main() {
 | `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
 | `CodecValueEncoder<C, Value, Unit>` | `encode(&Value)` | 通过 `C: Codec<Value, Unit>` 把一个值编码成自有 `Vec<Unit>` |
 | `CodecBufferedEncoder<C>` | `transcode(...)` | 通过 `C: Codec<Value, Unit>` 把 value slice 编码进调用方提供的 unit 缓冲区 |
+| `CodecBufferedDecoder<C, Unit>` | `transcode(...)` | 通过 `C: Codec<Value, Unit>` 把 unit slice 解码进调用方提供的 value 缓冲区 |
 
 低层 `Codec` 实现刻意排除 facade 关注点：十六进制 prefix/separator、UTF-8
 `String` 校验和 Base64 final padding 都由 value helper 或后续 buffered 层处理。
