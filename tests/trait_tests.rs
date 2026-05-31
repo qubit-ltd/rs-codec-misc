@@ -9,8 +9,10 @@
  ******************************************************************************/
 //! Tests for lightweight encoder and decoder traits.
 
-use qubit_codec_misc::{
+use qubit_codec::{
+    BufferedDecodeEngine,
     BufferedDecoder,
+    BufferedEncodeEngine,
     BufferedEncoder,
     CodecBufferedDecoder,
     CodecBufferedEncoder,
@@ -20,6 +22,8 @@ use qubit_codec_misc::{
     DecodeErrorFactory,
     EncodeErrorFactory,
     EncodePlan,
+};
+use qubit_codec_misc::{
     FormUrlencodedCodec,
     HexCodec,
     PercentCodec,
@@ -38,7 +42,7 @@ fn test_codec_types_can_be_used_through_traits() {
 }
 
 #[test]
-fn test_codec_adapter_types_can_be_used_through_reexports() {
+fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_codec_value_encoder<T: ValueEncoder<u8, Output = Vec<u8>, Error = qubit_codec_misc::MiscCodecError>>() {}
     fn assert_codec_buffered_decoder<T: BufferedDecoder<u8, u8>>() {}
     fn assert_codec_buffered_encoder<T: BufferedEncoder<u8, u8>>() {}
@@ -48,8 +52,8 @@ fn test_codec_adapter_types_can_be_used_through_reexports() {
     assert_codec_value_encoder::<CodecValueEncoder<HexCodec, u8, u8>>();
     assert_codec_buffered_decoder::<CodecBufferedDecoder<HexCodec, u8>>();
     assert_codec_buffered_encoder::<CodecBufferedEncoder<HexCodec>>();
-    assert_buffered_decode_engine::<qubit_codec_misc::BufferedDecodeEngine<HexCodec, (), u8>>();
-    assert_buffered_encode_engine::<qubit_codec_misc::BufferedEncodeEngine<HexCodec, ()>>();
+    assert_buffered_decode_engine::<BufferedDecodeEngine<HexCodec, (), u8>>();
+    assert_buffered_encode_engine::<BufferedEncodeEngine<HexCodec, ()>>();
 
     let plan = EncodePlan::new(1, ());
     assert_eq!(1, plan.max_output_units);
