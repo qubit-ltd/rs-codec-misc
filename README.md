@@ -38,12 +38,9 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   panicking.
 - **Layered Traits**: `Codec` covers low-level single-value or quantum
   conversion, while `ValueEncoder` and `ValueDecoder` remain owned whole-value
-  convenience traits. `CodecValueEncoder` and `CodecBufferedEncoder` provide
-  default encoder adapters for low-level `Codec` implementations.
-  `CodecBufferedDecoder` provides the matching default decoder adapter.
-  `BufferedEncodeEngine` / `BufferedEncodeHooks` and
-  `BufferedDecodeEngine` / `BufferedDecodeHooks` are available when custom
-  buffered adapters need policy while sharing the common encode/decode loops.
+  convenience traits. Generic adapters, buffered engines, and policy hooks live
+  in `qubit-codec`; import them from the core crate when building custom
+  adapters around these codecs.
 - **Reusable Implementations**: common encodings live in one crate instead of
   being reimplemented by downstream crates.
 - **Minimal Dependencies**: rely on well-maintained crates only where they add
@@ -118,10 +115,10 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   quantum over caller-provided unit buffers.
 - **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>` /
   `CodecBufferedDecoder<C, Unit>`**: default value and buffered adapters
-  re-exported from `qubit-codec`.
+  available from `qubit-codec`.
 - **`BufferedEncodeEngine` / `BufferedEncodeHooks` /
   `BufferedDecodeEngine` / `BufferedDecodeHooks`**: reusable buffered engines
-  and policy hooks for custom adapters.
+  and policy hooks available from `qubit-codec` for custom adapters.
 - **`MiscCodecError` / `MiscCodecResult`**: common error and result types for bundled
   codecs.
 
@@ -298,9 +295,6 @@ fn main() {
 | `ValueEncoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
 | `ValueDecoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
 | `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
-| `CodecValueEncoder<C, Value, Unit>` | `encode(&Value)` | Encode one value into owned `Vec<Unit>` through `C: Codec<Value, Unit>` |
-| `CodecBufferedEncoder<C>` | `transcode(...)` | Encode value slices into caller-provided unit buffers through `C: Codec<Value, Unit>` |
-| `CodecBufferedDecoder<C, Unit>` | `transcode(...)` | Decode unit slices into caller-provided value buffers through `C: Codec<Value, Unit>` |
 
 The low-level `Codec` implementations intentionally exclude facade concerns:
 hex prefix/separator handling, UTF-8 `String` validation, and Base64 final
