@@ -11,10 +11,6 @@
 
 use std::string::FromUtf8Error;
 
-use qubit_codec::{
-    DecodeErrorInfo,
-    DecodeFailure,
-};
 use thiserror::Error;
 
 /// Result alias returned by codec operations.
@@ -99,25 +95,4 @@ pub enum MiscCodecError {
         #[from]
         source: FromUtf8Error,
     },
-}
-
-impl DecodeErrorInfo for MiscCodecError {
-    /// Returns buffered-decode metadata for this misc codec error.
-    fn failure(&self) -> DecodeFailure {
-        match self {
-            Self::Incomplete { required, available } => DecodeFailure::Incomplete {
-                required_total: *required,
-                available: *available,
-            },
-            Self::InvalidEscape { escape, .. } => DecodeFailure::Invalid {
-                consumed: escape.len().max(1),
-            },
-            Self::InvalidDigit { .. }
-            | Self::InvalidCharacter { .. }
-            | Self::MissingPrefix { .. }
-            | Self::InvalidLength { .. }
-            | Self::InvalidInput { .. }
-            | Self::InvalidUtf8 { .. } => DecodeFailure::Invalid { consumed: 1 },
-        }
-    }
 }
