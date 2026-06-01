@@ -19,7 +19,6 @@ use qubit_codec::{
     CodecDecodeError,
     CodecEncodeError,
     CodecValueEncoder,
-    EncodeErrorFactory,
     EncodePlan,
 };
 use qubit_codec_misc::{
@@ -56,11 +55,7 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
 
     let plan = EncodePlan::new(1, ());
     assert_eq!(1, plan.max_output_units);
-    let codec = HexCodec::new();
-    let encode_error =
-        <CodecEncodeError<core::convert::Infallible> as EncodeErrorFactory<HexCodec>>::invalid_input_index(
-            &codec, 2, 1,
-        );
+    let encode_error = CodecEncodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(encode_error, CodecEncodeError::InvalidInputIndex { .. }));
     let decode_error = CodecDecodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(decode_error, CodecDecodeError::InvalidInputIndex { .. }));
