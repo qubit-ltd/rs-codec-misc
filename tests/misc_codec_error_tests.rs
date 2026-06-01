@@ -11,6 +11,10 @@
 
 use std::error::Error;
 
+use qubit_codec::{
+    DecodeErrorInfo,
+    DecodeFailure,
+};
 use qubit_codec_misc::{
     MiscCodecError,
     MiscCodecResult,
@@ -92,4 +96,71 @@ fn test_misc_codec_result_alias_uses_misc_codec_error() {
     let error = decode_stub().expect_err("stub should return misc codec error");
 
     assert!(matches!(error, MiscCodecError::MissingPrefix { prefix } if prefix == "#"));
+}
+
+#[test]
+fn test_misc_codec_error_reports_incomplete_decode_failure() {
+    let error = MiscCodecError::Incomplete {
+        required: 8,
+        available: 3,
+    };
+
+    assert_eq!(
+        DecodeFailure::Incomplete {
+            required_total: 8,
+            available: 3,
+        },
+        error.failure()
+    );
+}
+
+#[test]
+fn test_misc_codec_error_reports_escape_decode_failure_length() {
+    let error = MiscCodecError::InvalidEscape {
+        index: 1,
+        escape: "%7G".to_owned(),
+        reason: "expected two hex digits".to_owned(),
+    };
+    let empty_escape = MiscCodecError::InvalidEscape {
+        index: 1,
+        escape: String::new(),
+        reason: "missing escape sequence".to_owned(),
+    };
+
+    assert_eq!(DecodeFailure::Invalid { consumed: 3 }, error.failure());
+    assert_eq!(DecodeFailure::Invalid { consumed: 1 }, empty_escape.failure());
+}
+
+#[test]
+fn test_misc_codec_error_reports_single_unit_invalid_decode_failure() {
+    let utf8_error = String::from_utf8(vec![0xff]).expect_err("invalid utf-8 should fail");
+    let cases = [
+        MiscCodecError::MissingPrefix {
+            prefix: "0x".to_owned(),
+        },
+        MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 3,
+            character: 'g',
+        },
+        MiscCodecError::InvalidLength {
+            context: "hex digits",
+            expected: "even number".to_owned(),
+            actual: 3,
+        },
+        MiscCodecError::InvalidCharacter {
+            index: 5,
+            character: ' ',
+            reason: "space is not allowed".to_owned(),
+        },
+        MiscCodecError::InvalidInput {
+            codec: "base64",
+            reason: "invalid symbol".to_owned(),
+        },
+        MiscCodecError::InvalidUtf8 { source: utf8_error },
+    ];
+
+    for error in cases {
+        assert_eq!(DecodeFailure::Invalid { consumed: 1 }, error.failure());
+    }
 }
