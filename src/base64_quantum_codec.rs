@@ -90,7 +90,9 @@ impl Default for Base64QuantumCodec {
     }
 }
 
-unsafe impl Codec<[u8; 3], u8> for Base64QuantumCodec {
+unsafe impl Codec for Base64QuantumCodec {
+    type Value = [u8; 3];
+    type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 

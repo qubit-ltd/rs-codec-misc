@@ -19,7 +19,7 @@ use crate::{
 
 /// Encodes and decodes percent-encoded UTF-8 text.
 ///
-/// Its low-level [`Codec<u8, u8>`] implementation converts one byte to either
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one byte to either
 /// one unreserved ASCII unit or a `%XX` escape. UTF-8 validation remains part of
 /// the owned [`decode`](Self::decode) helper.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -81,7 +81,9 @@ impl ValueDecoder<str> for PercentCodec {
     }
 }
 
-unsafe impl Codec<u8, u8> for PercentCodec {
+unsafe impl Codec for PercentCodec {
+    type Value = u8;
+    type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
