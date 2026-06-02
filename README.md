@@ -111,10 +111,10 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **`ValueEncoder<Input>`**: encodes borrowed input into an associated output type.
 - **`ValueDecoder<Input>`**: decodes borrowed input into an associated output type.
-- **`Codec<Value, Unit>`**: low-level unsafe trait for one value or one codec
+- **`Codec` with associated `Value` and `Unit`**: low-level unsafe trait for one value or one codec
   quantum over caller-provided unit buffers.
-- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>` /
-  `CodecBufferedDecoder<C, Unit>`**: default value and buffered adapters
+- **`CodecValueEncoder<C>` / `CodecBufferedEncoder<C>` /
+  `CodecBufferedDecoder<C>`**: default value and buffered adapters
   available from `qubit-codec`.
 - **`BufferedEncodeEngine` / `BufferedEncodeHooks` /
   `BufferedDecodeEngine` / `BufferedDecodeHooks`**: reusable buffered engines
@@ -294,7 +294,7 @@ fn main() {
 |-------|--------|-------------|
 | `ValueEncoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
 | `ValueDecoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
-| `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
+| `Codec` with associated `Value` and `Unit` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
 
 The low-level `Codec` implementations intentionally exclude facade concerns:
 hex prefix/separator handling, UTF-8 `String` validation, and Base64 final
@@ -334,7 +334,7 @@ padding are handled by value helpers or future buffered layers.
 |--------|----------|-------|-------------|
 | `standard()` | Standard | 4 | Create a standard Base64 quantum codec |
 | `url_safe()` | URL-safe | 4 | Create a URL-safe Base64 quantum codec |
-| `Codec<[u8; 3], u8>` | Configured | 4 | Encode or decode one complete Base64 quantum without padding finalization |
+| `Codec<Value = [u8; 3], Unit = u8>` | Configured | 4 | Encode or decode one complete Base64 quantum without padding finalization |
 
 ### `CStringLiteralCodec` Operations
 
@@ -352,7 +352,7 @@ padding are handled by value helpers or future buffered layers.
 | `decode(text)` | Decode a non-negative C integer literal fragment into `u64` |
 
 `CIntegerLiteralCodec` intentionally remains a value-token decoder. It does not
-implement `Codec<u64, u8>` yet because that would require committing to token
+implement `Codec<Value = u64, Unit = u8>` yet because that would require committing to token
 boundary and encode-format policy that belongs above the single-value core.
 
 ### Text Codec Operations

@@ -23,7 +23,7 @@ use crate::{
 /// escapes, such as `PK\003\004` or `\xd0\xcf`. It decodes into raw bytes and
 /// does not require surrounding quotes.
 ///
-/// Its low-level [`Codec<u8, u8>`] implementation handles one raw byte or one C
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one raw byte or one C
 /// escape fragment. Whole-fragment iteration remains part of the owned
 /// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -102,7 +102,9 @@ impl ValueDecoder<str> for CStringLiteralCodec {
     }
 }
 
-unsafe impl Codec<u8, u8> for CStringLiteralCodec {
+unsafe impl Codec for CStringLiteralCodec {
+    type Value = u8;
+    type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 

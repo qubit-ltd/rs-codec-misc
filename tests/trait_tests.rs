@@ -47,10 +47,10 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_buffered_decode_engine<T>() {}
     fn assert_buffered_encode_engine<T>() {}
 
-    assert_codec_value_encoder::<CodecValueEncoder<HexCodec, u8, u8>>();
-    assert_codec_buffered_decoder::<CodecBufferedDecoder<HexCodec, u8>>();
+    assert_codec_value_encoder::<CodecValueEncoder<HexCodec>>();
+    assert_codec_buffered_decoder::<CodecBufferedDecoder<HexCodec>>();
     assert_codec_buffered_encoder::<CodecBufferedEncoder<HexCodec>>();
-    assert_buffered_decode_engine::<BufferedDecodeEngine<HexCodec, (), u8>>();
+    assert_buffered_decode_engine::<BufferedDecodeEngine<HexCodec, ()>>();
     assert_buffered_encode_engine::<BufferedEncodeEngine<HexCodec, ()>>();
 
     let plan = EncodePlan::new(1, ());

@@ -25,7 +25,7 @@ use crate::{
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
-/// Its low-level [`Codec<u8, u8>`] implementation converts one byte at a time,
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one byte at a time,
 /// including the form-specific space and `+` mapping. UTF-8 validation remains
 /// part of the owned [`decode`](Self::decode) helper.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -87,7 +87,9 @@ impl ValueDecoder<str> for FormUrlencodedCodec {
     }
 }
 
-unsafe impl Codec<u8, u8> for FormUrlencodedCodec {
+unsafe impl Codec for FormUrlencodedCodec {
+    type Value = u8;
+    type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 

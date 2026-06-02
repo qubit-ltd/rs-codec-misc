@@ -87,9 +87,9 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 - **`ValueEncoder<Input>`**：将借用输入编码为关联输出类型。
 - **`ValueDecoder<Input>`**：将借用输入解码为关联输出类型。
-- **`Codec<Value, Unit>`**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
-- **`CodecValueEncoder<C, Value, Unit>` / `CodecBufferedEncoder<C>` /
-  `CodecBufferedDecoder<C, Unit>`**：由 `qubit-codec` 提供的默认 value 和
+- **`Codec`（关联类型 `Value` 与 `Unit`）**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
+- **`CodecValueEncoder<C>` / `CodecBufferedEncoder<C>` /
+  `CodecBufferedDecoder<C>`**：由 `qubit-codec` 提供的默认 value 和
   buffered adapter。
 - **`BufferedEncodeEngine` / `BufferedEncodeHooks` /
   `BufferedDecodeEngine` / `BufferedDecodeHooks`**：由 `qubit-codec` 提供、
@@ -267,7 +267,7 @@ fn main() {
 |-------|------|------|
 | `ValueEncoder<Input>` | `encode(&Input)` | 将借用输入编码为关联输出类型 |
 | `ValueDecoder<Input>` | `decode(&Input)` | 将借用输入解码为关联输出类型 |
-| `Codec<Value, Unit>` | `decode_unchecked`, `encode_unchecked` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
+| `Codec`（关联类型 `Value` 与 `Unit`） | `decode_unchecked`, `encode_unchecked` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
 
 低层 `Codec` 实现刻意排除 facade 关注点：十六进制 prefix/separator、UTF-8
 `String` 校验和 Base64 final padding 都由 value helper 或后续 buffered 层处理。
@@ -306,7 +306,7 @@ fn main() {
 |------|--------|-------|------|
 | `standard()` | 标准 | 4 | 创建标准 Base64 quantum codec |
 | `url_safe()` | URL-safe | 4 | 创建 URL-safe Base64 quantum codec |
-| `Codec<[u8; 3], u8>` | 已配置 | 4 | 编码或解码一个完整 Base64 quantum，不处理 padding finalization |
+| `Codec<Value = [u8; 3], Unit = u8>` | 已配置 | 4 | 编码或解码一个完整 Base64 quantum，不处理 padding finalization |
 
 ### `CStringLiteralCodec` 操作
 
@@ -323,7 +323,7 @@ fn main() {
 | `new()` | 创建 C 整数字面量解码器 |
 | `decode(text)` | 将非负 C 整数字面量片段解码为 `u64` |
 
-`CIntegerLiteralCodec` 刻意保留为 value-token decoder，暂不实现 `Codec<u64, u8>`。
+`CIntegerLiteralCodec` 刻意保留为 value-token decoder，暂不实现 `Codec<Value = u64, Unit = u8>`。
 原因是这会提前承诺 token 边界和 encode 格式策略，而这些策略应位于单值 core 之上。
 
 ### 文本 Codec 操作

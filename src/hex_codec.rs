@@ -19,7 +19,7 @@ use crate::{
 
 /// Encodes and decodes hexadecimal byte strings.
 ///
-/// Its low-level [`Codec<u8, u8>`] implementation handles exactly one byte as
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles exactly one byte as
 /// two ASCII hexadecimal units. Whole-string prefix, per-byte prefix,
 /// separator, and whitespace handling remain part of the owned
 /// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
@@ -486,7 +486,9 @@ impl ValueDecoder<str> for HexCodec {
     }
 }
 
-unsafe impl Codec<u8, u8> for HexCodec {
+unsafe impl Codec for HexCodec {
+    type Value = u8;
+    type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
