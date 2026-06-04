@@ -29,7 +29,7 @@ include = [
 
 [dependencies]
 base64 = "0.22"
-qubit-codec = { version = "0.6", path = "../rs-codec" }
+qubit-codec = "0.5.0"
 thiserror = "2.0"
 
 [[test]]
