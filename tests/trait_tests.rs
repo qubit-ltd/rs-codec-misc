@@ -8,32 +8,17 @@
 //! Tests for lightweight encoder and decoder traits.
 
 use qubit_codec::{
-    BufferedDecodeEngine,
-    BufferedDecoder,
-    BufferedEncodeEngine,
-    BufferedEncoder,
-    CodecBufferedDecoder,
-    CodecBufferedEncoder,
-    CodecDecodeError,
-    CodecEncodeError,
-    CodecValueEncoder,
-    EncodePlan,
+    BufferedDecodeEngine, BufferedDecoder, BufferedEncodeEngine, BufferedEncoder,
+    CodecBufferedDecoder, CodecBufferedEncoder, CodecDecodeError, CodecEncodeError,
+    CodecValueEncoder, EncodePlan,
 };
-use qubit_codec_misc::{
-    FormUrlencodedCodec,
-    HexCodec,
-    PercentCodec,
-    ValueDecoder,
-    ValueEncoder,
-};
+use qubit_codec_misc::{FormUrlencodedCodec, HexCodec, PercentCodec, ValueDecoder, ValueEncoder};
 
 #[test]
 fn test_codec_types_can_be_used_through_traits() {
     let codec = HexCodec::new();
-    let encoded = ValueEncoder::<[u8]>::encode(&codec, b"abc")
-        .expect("hex encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&codec, &encoded)
-        .expect("hex decode should succeed");
+    let encoded = ValueEncoder::<[u8]>::encode(&codec, b"abc").expect("hex encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&codec, &encoded).expect("hex decode should succeed");
 
     assert_eq!("616263", encoded);
     assert_eq!(b"abc".to_vec(), decoded);
@@ -42,11 +27,7 @@ fn test_codec_types_can_be_used_through_traits() {
 #[test]
 fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_codec_value_encoder<
-        T: ValueEncoder<
-                u8,
-                Output = Vec<u8>,
-                Error = qubit_codec_misc::MiscCodecError,
-            >,
+        T: ValueEncoder<u8, Output = Vec<u8>, Error = qubit_codec_misc::MiscCodecError>,
     >() {
     }
     fn assert_codec_buffered_decoder<T: BufferedDecoder<u8, u8>>() {}
@@ -62,18 +43,12 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
 
     let plan = EncodePlan::new(1, ());
     assert_eq!(1, plan.max_output_units);
-    let encode_error =
-        CodecEncodeError::<core::convert::Infallible>::invalid_input_index(
-            2, 1,
-        );
+    let encode_error = CodecEncodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(
         encode_error,
         CodecEncodeError::InvalidInputIndex { .. }
     ));
-    let decode_error =
-        CodecDecodeError::<core::convert::Infallible>::invalid_input_index(
-            2, 1,
-        );
+    let decode_error = CodecDecodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(
         decode_error,
         CodecDecodeError::InvalidInputIndex { .. }
@@ -84,20 +59,11 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
 fn test_value_traits_accept_text_codecs() {
     fn roundtrip<C>(codec: &C, text: &str) -> String
     where
-        C: ValueEncoder<
-                str,
-                Output = String,
-                Error = qubit_codec_misc::MiscCodecError,
-            > + ValueDecoder<
-                str,
-                Output = String,
-                Error = qubit_codec_misc::MiscCodecError,
-            >,
+        C: ValueEncoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>
+            + ValueDecoder<str, Output = String, Error = qubit_codec_misc::MiscCodecError>,
     {
-        let encoded = ValueEncoder::<str>::encode(codec, text)
-            .expect("text should encode");
-        ValueDecoder::<str>::decode(codec, &encoded)
-            .expect("text should decode")
+        let encoded = ValueEncoder::<str>::encode(codec, text).expect("text should encode");
+        ValueDecoder::<str>::decode(codec, &encoded).expect("text should decode")
     }
 
     assert_eq!("a b", roundtrip(&PercentCodec::new(), "a b"));
