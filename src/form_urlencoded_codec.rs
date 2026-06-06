@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
@@ -25,9 +23,9 @@ use crate::{
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
-/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one byte at a time,
-/// including the form-specific space and `+` mapping. UTF-8 validation remains
-/// part of the owned [`decode`](Self::decode) helper.
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
+/// byte at a time, including the form-specific space and `+` mapping. UTF-8
+/// validation remains part of the owned [`decode`](Self::decode) helper.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FormUrlencodedCodec;
 
@@ -60,10 +58,11 @@ impl FormUrlencodedCodec {
     /// Decoded UTF-8 text.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError`] when an escape is malformed or decoded bytes are
-    /// not valid UTF-8.
+    /// Returns [`MiscCodecError`] when an escape is malformed or decoded bytes
+    /// are not valid UTF-8.
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?)
+            .map_err(MiscCodecError::from)
     }
 }
 
@@ -115,15 +114,24 @@ unsafe impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed =
+            unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
         Ok((value, consumed))
     }
 
     /// Encodes one byte using form URL encoding.
-    unsafe fn encode_unchecked(&self, value: &u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+    unsafe fn encode_unchecked(
+        &self,
+        value: &u8,
+        output: &mut [u8],
+        index: usize,
+    ) -> Result<usize, Self::EncodeError> {
         debug_assert!(
             index
-                + if *value == b' ' || value.is_ascii_alphanumeric() || matches!(*value, b'-' | b'.' | b'_' | b'~') {
+                + if *value == b' '
+                    || value.is_ascii_alphanumeric()
+                    || matches!(*value, b'-' | b'.' | b'_' | b'~')
+                {
                     1
                 } else {
                     3

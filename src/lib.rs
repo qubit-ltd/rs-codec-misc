@@ -1,19 +1,16 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! # qubit-codec-misc
 //!
 //! Reusable byte and text codecs for Rust applications.
 //!
 //! This crate focuses on stable textual encodings such as hexadecimal,
 //! Base64, percent encoding, and `application/x-www-form-urlencoded` strings.
-//!
 
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Tests for percent encoding.
 
 use qubit_codec_misc::{
@@ -79,8 +77,10 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
 #[test]
 fn test_percent_codec_default_and_trait_methods() {
     let codec = PercentCodec;
-    let encoded = ValueEncoder::<str>::encode(&codec, "a b").expect("percent encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&codec, &encoded).expect("percent decode should succeed");
+    let encoded = ValueEncoder::<str>::encode(&codec, "a b")
+        .expect("percent encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&codec, &encoded)
+        .expect("percent decode should succeed");
 
     assert_eq!("a%20b", encoded);
     assert_eq!("a b", decoded);

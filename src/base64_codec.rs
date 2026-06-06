@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Base64 byte codec.
 
 use ::base64::Engine;
@@ -102,12 +100,12 @@ impl Base64Codec {
     /// # Errors
     /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine()
-            .decode(text)
-            .map_err(|source| MiscCodecError::InvalidInput {
+        self.engine().decode(text).map_err(|source| {
+            MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: source.to_string(),
-            })
+            }
+        })
     }
 
     /// Selects the concrete Base64 engine.
