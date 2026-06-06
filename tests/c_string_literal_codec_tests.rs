@@ -9,6 +9,7 @@
 
 use qubit_codec_misc::{
     CStringLiteralCodec,
+    Codec,
     MiscCodecError,
     ValueDecoder,
     ValueEncoder,
@@ -260,4 +261,69 @@ fn test_c_string_literal_codec_can_be_used_through_traits() {
 
     assert_eq!(r"PK\x03\x04", encoded);
     assert_eq!(b"PK\x03\x04".to_vec(), decoded);
+}
+
+#[test]
+fn test_decode_matches_codec_trait_path_for_complete_fragments() {
+    let codec = CStringLiteralCodec::new();
+    let cases = [
+        "",
+        "plain text",
+        r"PK\003\004",
+        r#"quote\"apos\'question\?slash\\"#,
+        r"\a\b\f\n\r\t\v",
+        r"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
+        r"\x41\u0022\U00000021",
+        r"\x1Z\7\377",
+        "<!DOCTYPE\\ xbel",
+    ];
+
+    for input in cases {
+        let owned = codec
+            .decode(input)
+            .expect("owned C string literal decoder should accept fixture");
+        let codec_trait =
+            decode_complete_fragment_through_codec_trait(&codec, input)
+                .expect("Codec trait path should accept fixture");
+
+        assert_eq!(owned, codec_trait, "input {input:?}");
+    }
+}
+
+#[test]
+fn test_c_string_literal_codec_uses_shared_parser_core() {
+    let source = include_str!("../src/c_string_literal_codec.rs");
+
+    assert!(
+        source.contains("fn decode_c_string_literal_unit("),
+        "C string literal decoding should have one shared unit parser"
+    );
+    for removed_function in [
+        "fn decode_escape(",
+        "fn parse_variable_hex_escape(",
+        "fn parse_fixed_hex_escape(",
+        "fn parse_octal_escape(",
+        "fn validate_source_character(",
+    ] {
+        assert!(
+            !source.contains(removed_function),
+            "owned decode should not keep the old char-oriented parser function {removed_function}"
+        );
+    }
+}
+
+fn decode_complete_fragment_through_codec_trait(
+    codec: &CStringLiteralCodec,
+    input: &str,
+) -> Result<Vec<u8>, MiscCodecError> {
+    let mut output = Vec::with_capacity(input.len());
+    let bytes = input.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let (decoded, consumed) =
+            unsafe { Codec::decode_unchecked(codec, bytes, index)? };
+        output.push(decoded);
+        index += consumed.get();
+    }
+    Ok(output)
 }
