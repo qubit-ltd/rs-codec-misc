@@ -30,16 +30,8 @@ pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
 pub use hex_codec::HexCodec;
-pub use misc_codec_error::{
-    MiscCodecError,
-    MiscCodecResult,
-};
+pub use misc_codec_error::{MiscCodecError, MiscCodecResult};
 pub use percent_codec::PercentCodec;
 pub use qubit_codec::{
-    BufferedTranscoder,
-    Codec,
-    TranscodeProgress,
-    TranscodeStatus,
-    ValueDecoder,
-    ValueEncoder,
+    BufferedTranscoder, Codec, TranscodeProgress, TranscodeStatus, ValueDecoder, ValueEncoder,
 };

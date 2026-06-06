@@ -8,19 +8,9 @@
 //! Base64 byte codec.
 
 use ::base64::Engine;
-use ::base64::engine::general_purpose::{
-    STANDARD,
-    STANDARD_NO_PAD,
-    URL_SAFE,
-    URL_SAFE_NO_PAD,
-};
+use ::base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
 
 /// Encodes and decodes Base64 byte strings.
 ///
@@ -38,6 +28,7 @@ impl Base64Codec {
     ///
     /// # Returns
     /// Standard Base64 codec.
+    #[inline]
     pub fn standard() -> Self {
         Self {
             url_safe: false,
@@ -49,6 +40,7 @@ impl Base64Codec {
     ///
     /// # Returns
     /// Standard no-padding Base64 codec.
+    #[inline]
     pub fn standard_no_pad() -> Self {
         Self {
             url_safe: false,
@@ -60,6 +52,7 @@ impl Base64Codec {
     ///
     /// # Returns
     /// URL-safe Base64 codec.
+    #[inline]
     pub fn url_safe() -> Self {
         Self {
             url_safe: true,
@@ -71,6 +64,7 @@ impl Base64Codec {
     ///
     /// # Returns
     /// URL-safe no-padding Base64 codec.
+    #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self {
             url_safe: true,
@@ -85,6 +79,7 @@ impl Base64Codec {
     ///
     /// # Returns
     /// Encoded Base64 text.
+    #[inline]
     pub fn encode(&self, bytes: &[u8]) -> String {
         self.engine().encode(bytes)
     }
@@ -99,19 +94,21 @@ impl Base64Codec {
     ///
     /// # Errors
     /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
+    #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine().decode(text).map_err(|source| {
-            MiscCodecError::InvalidInput {
+        self.engine()
+            .decode(text)
+            .map_err(|source| MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: source.to_string(),
-            }
-        })
+            })
     }
 
     /// Selects the concrete Base64 engine.
     ///
     /// # Returns
     /// Base64 engine matching this codec's alphabet and padding settings.
+    #[inline(always)]
     fn engine(&self) -> &'static ::base64::engine::GeneralPurpose {
         match (self.url_safe, self.padding) {
             (false, true) => &STANDARD,
@@ -124,6 +121,7 @@ impl Base64Codec {
 
 impl Default for Base64Codec {
     /// Creates a standard Base64 codec with padding.
+    #[inline]
     fn default() -> Self {
         Self::standard()
     }
@@ -134,6 +132,7 @@ impl ValueEncoder<[u8]> for Base64Codec {
     type Output = String;
 
     /// Encodes bytes into Base64 text.
+    #[inline]
     fn encode(&self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(Base64Codec::encode(self, input))
     }
@@ -144,6 +143,7 @@ impl ValueDecoder<str> for Base64Codec {
     type Output = Vec<u8>;
 
     /// Decodes Base64 text into bytes.
+    #[inline]
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         Base64Codec::decode(self, input)
     }
