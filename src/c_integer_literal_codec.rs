@@ -7,11 +7,7 @@
 // =============================================================================
 //! C integer literal decoder.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-};
+use crate::{MiscCodecError, MiscCodecResult, ValueDecoder};
 
 /// Decodes non-negative C integer literal fragments.
 ///
@@ -26,6 +22,7 @@ impl CIntegerLiteralCodec {
     ///
     /// # Returns
     /// A stateless C integer literal codec.
+    #[inline]
     pub fn new() -> Self {
         Self
     }
@@ -42,6 +39,7 @@ impl CIntegerLiteralCodec {
     /// Returns [`MiscCodecError::InvalidInput`] when the input is empty, lacks
     /// digits, or overflows `u64`; returns [`MiscCodecError::InvalidDigit`]
     /// when a character is not valid for the detected radix.
+    #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<u64> {
         let (trimmed, trim_offset) = trim_with_offset(text);
         if trimmed.is_empty() {
@@ -49,13 +47,9 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix).map_err(
-            |error| {
-                invalid_c_integer_input(&format!(
-                    "integer literal is out of range: {error}"
-                ))
-            },
-        )
+        u64::from_str_radix(components.digits, components.radix).map_err(|error| {
+            invalid_c_integer_input(&format!("integer literal is out of range: {error}"))
+        })
     }
 }
 
@@ -64,6 +58,7 @@ impl ValueDecoder<str> for CIntegerLiteralCodec {
     type Output = u64;
 
     /// Decodes a C integer literal into a `u64`.
+    #[inline]
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         CIntegerLiteralCodec::decode(self, input)
     }
@@ -90,6 +85,7 @@ impl<'a> LiteralComponents<'a> {
     /// # Errors
     /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present
     /// without any digits after it.
+    #[inline]
     fn parse(trimmed: &'a str, trim_offset: usize) -> MiscCodecResult<Self> {
         if let Some(digits) = trimmed
             .strip_prefix("0x")
@@ -130,6 +126,7 @@ impl<'a> LiteralComponents<'a> {
 ///
 /// # Returns
 /// Trimmed text and the byte offset where it starts in `text`.
+#[inline]
 fn trim_with_offset(text: &str) -> (&str, usize) {
     let trimmed_start = text.trim_start();
     let start = text.len() - trimmed_start.len();

@@ -7,11 +7,7 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult};
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -28,6 +24,7 @@ impl Base64QuantumCodec {
     ///
     /// # Returns
     /// Standard Base64 quantum codec.
+    #[inline]
     pub fn standard() -> Self {
         Self { url_safe: false }
     }
@@ -36,6 +33,7 @@ impl Base64QuantumCodec {
     ///
     /// # Returns
     /// URL-safe Base64 quantum codec.
+    #[inline]
     pub fn url_safe() -> Self {
         Self { url_safe: true }
     }
@@ -44,6 +42,7 @@ impl Base64QuantumCodec {
     ///
     /// # Returns
     /// The 64-byte alphabet used for encoding.
+    #[inline(always)]
     fn alphabet(&self) -> &'static [u8; 64] {
         if self.url_safe {
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -64,6 +63,7 @@ impl Base64QuantumCodec {
     /// # Errors
     /// Returns [`MiscCodecError::InvalidInput`] when `unit` is not valid for
     /// this quantum codec's alphabet.
+    #[inline]
     fn decode_unit(&self, unit: u8, index: usize) -> MiscCodecResult<u8> {
         match unit {
             b'A'..=b'Z' => Ok(unit - b'A'),
@@ -87,6 +87,7 @@ impl Base64QuantumCodec {
 
 impl Default for Base64QuantumCodec {
     /// Creates a standard-alphabet Base64 quantum codec.
+    #[inline]
     fn default() -> Self {
         Self::standard()
     }
@@ -99,18 +100,21 @@ unsafe impl Codec for Base64QuantumCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the four Base64 units needed for one complete quantum.
+    #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
         // SAFETY: 4 is non-zero.
         unsafe { core::num::NonZeroUsize::new_unchecked(4) }
     }
 
     /// Returns the four Base64 units needed for one complete quantum.
+    #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
         // SAFETY: 4 is non-zero.
         unsafe { core::num::NonZeroUsize::new_unchecked(4) }
     }
 
     /// Decodes one complete four-unit Base64 quantum.
+    #[inline]
     unsafe fn decode_unchecked(
         &self,
         input: &[u8],
@@ -134,6 +138,7 @@ unsafe impl Codec for Base64QuantumCodec {
     }
 
     /// Encodes one complete three-byte Base64 quantum.
+    #[inline]
     unsafe fn encode_unchecked(
         &self,
         value: &[u8; 3],
@@ -144,10 +149,8 @@ unsafe impl Codec for Base64QuantumCodec {
 
         let alphabet = self.alphabet();
         output[index] = alphabet[(value[0] >> 2) as usize];
-        output[index + 1] =
-            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[index + 2] =
-            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(4)
     }

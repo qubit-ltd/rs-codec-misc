@@ -7,13 +7,15 @@
 // =============================================================================
 //! Hexadecimal byte codec.
 
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+
+const LOWER_HEX_DIGITS: [char; 16] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+];
+
+const UPPER_HEX_DIGITS: [char; 16] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+];
 
 /// Encodes and decodes hexadecimal byte strings.
 ///
@@ -42,6 +44,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// A hexadecimal codec using lowercase digits.
+    #[inline]
     pub fn new() -> Self {
         Self {
             uppercase: false,
@@ -57,6 +60,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// A hexadecimal codec using uppercase digits.
+    #[inline]
     pub fn upper() -> Self {
         Self::new().with_uppercase(true)
     }
@@ -68,6 +72,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_uppercase(mut self, uppercase: bool) -> Self {
         self.uppercase = uppercase;
         self
@@ -84,6 +89,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.prefix = Some(prefix.into());
         self
@@ -100,6 +106,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_byte_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.byte_prefix = Some(prefix.into());
         self
@@ -112,6 +119,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_separator(mut self, separator: impl Into<String>) -> Self {
         self.separator = Some(separator.into());
         self
@@ -124,6 +132,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_ignored_ascii_whitespace(mut self, ignore: bool) -> Self {
         self.ignore_ascii_whitespace = ignore;
         self
@@ -139,6 +148,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The updated codec.
+    #[inline]
     pub fn with_ignore_prefix_case(mut self, ignore: bool) -> Self {
         self.ignore_prefix_case = ignore;
         self
@@ -151,6 +161,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// Hexadecimal text.
+    #[inline]
     pub fn encode(&self, bytes: &[u8]) -> String {
         let separator_len = self.separator.as_ref().map_or(0, String::len);
         let prefix_len = self.prefix.as_ref().map_or(0, String::len);
@@ -159,9 +170,7 @@ impl HexCodec {
             bytes
                 .len()
                 .saturating_mul(byte_prefix_len.saturating_add(2))
-                .saturating_add(
-                    bytes.len().saturating_sub(1).saturating_mul(separator_len),
-                ),
+                .saturating_add(bytes.len().saturating_sub(1).saturating_mul(separator_len)),
         );
         let mut output = String::with_capacity(capacity);
         self.encode_into(bytes, &mut output);
@@ -173,6 +182,7 @@ impl HexCodec {
     /// # Parameters
     /// - `bytes`: Bytes to encode.
     /// - `output`: Destination string.
+    #[inline]
     pub fn encode_into(&self, bytes: &[u8], output: &mut String) {
         if let Some(prefix) = &self.prefix {
             output.push_str(prefix);
@@ -202,6 +212,7 @@ impl HexCodec {
     /// Returns [`MiscCodecError`] when a configured whole or per-byte prefix is
     /// missing, when the normalized digit count is odd, or when a non-hex
     /// digit is found.
+    #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::new();
         self.decode_into(text, &mut output)?;
@@ -216,11 +227,8 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`MiscCodecError`] when the input is malformed.
-    pub fn decode_into(
-        &self,
-        text: &str,
-        output: &mut Vec<u8>,
-    ) -> MiscCodecResult<()> {
+    #[inline]
+    pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let digits = self.normalized_digits(text)?;
         if digits.len() % 2 != 0 {
             return Err(invalid_hex_length(digits.len()));
@@ -234,10 +242,8 @@ impl HexCodec {
             let Some(&(low_index, low_char)) = pair.next() else {
                 continue;
             };
-            let high = hex_value(high_char)
-                .ok_or(invalid_hex_digit(high_index, high_char))?;
-            let low = hex_value(low_char)
-                .ok_or(invalid_hex_digit(low_index, low_char))?;
+            let high = hex_value(high_char).ok_or(invalid_hex_digit(high_index, high_char))?;
+            let low = hex_value(low_char).ok_or(invalid_hex_digit(low_index, low_char))?;
             output.push((high << 4) | low);
         }
         Ok(())
@@ -253,32 +259,22 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
-    fn normalized_digits(
-        &self,
-        text: &str,
-    ) -> MiscCodecResult<Vec<(usize, char)>> {
+    #[inline]
+    fn normalized_digits(&self, text: &str) -> MiscCodecResult<Vec<(usize, char)>> {
         let start_index = self.consume_prefix(text)?;
         if let Some(separator) = self
             .separator
             .as_deref()
             .filter(|separator| !separator.is_empty())
         {
-            return self.normalized_separated_digits(
-                text,
-                start_index,
-                separator,
-            );
+            return self.normalized_separated_digits(text, start_index, separator);
         }
         if let Some(byte_prefix) = self
             .byte_prefix
             .as_deref()
             .filter(|prefix| !prefix.is_empty())
         {
-            return self.normalized_byte_prefixed_digits(
-                text,
-                byte_prefix,
-                start_index,
-            );
+            return self.normalized_byte_prefixed_digits(text, byte_prefix, start_index);
         }
         self.normalized_unprefixed_digits(text, start_index)
     }
@@ -294,10 +290,9 @@ impl HexCodec {
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a non-empty whole-output
     /// prefix is configured but absent.
+    #[inline]
     fn consume_prefix(&self, text: &str) -> MiscCodecResult<usize> {
-        let Some(prefix) =
-            self.prefix.as_deref().filter(|prefix| !prefix.is_empty())
-        else {
+        let Some(prefix) = self.prefix.as_deref().filter(|prefix| !prefix.is_empty()) else {
             return Ok(0);
         };
         let index = self.skip_ascii_whitespace(text, 0);
@@ -341,16 +336,13 @@ impl HexCodec {
         }
         loop {
             index = self.consume_byte_prefix(text, index)?;
-            let (high_index, high_char, next_index) =
-                read_required_hex_digit(text, index)?;
-            let (low_index, low_char, next_index) =
-                read_required_hex_digit(text, next_index)?;
+            let (high_index, high_char, next_index) = read_required_hex_digit(text, index)?;
+            let (low_index, low_char, next_index) = read_required_hex_digit(text, next_index)?;
             digits.push((high_index, high_char));
             digits.push((low_index, low_char));
             index = next_index;
 
-            let separator_index =
-                self.next_separator_index(text, index, separator);
+            let separator_index = self.next_separator_index(text, index, separator);
             if separator_index >= text.len() {
                 return Ok(digits);
             }
@@ -364,8 +356,7 @@ impl HexCodec {
                     "missing separator '{separator}' between hex bytes"
                 )));
             }
-            index = self
-                .skip_ascii_whitespace(text, separator_index + separator.len());
+            index = self.skip_ascii_whitespace(text, separator_index + separator.len());
             if index >= text.len() {
                 return Err(invalid_hex_input(
                     "separator must be followed by a hex byte",
@@ -387,11 +378,8 @@ impl HexCodec {
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when the configured per-byte
     /// prefix is absent.
-    fn consume_byte_prefix(
-        &self,
-        text: &str,
-        index: usize,
-    ) -> MiscCodecResult<usize> {
+    #[inline]
+    fn consume_byte_prefix(&self, text: &str, index: usize) -> MiscCodecResult<usize> {
         let Some(prefix) = self
             .byte_prefix
             .as_deref()
@@ -423,12 +411,8 @@ impl HexCodec {
     /// # Returns
     /// Index where the separator must start, or `text.len()` when only ignored
     /// trailing whitespace remains.
-    fn next_separator_index(
-        &self,
-        text: &str,
-        index: usize,
-        separator: &str,
-    ) -> usize {
+    #[inline]
+    fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
         let whitespace_end = self.skip_ascii_whitespace(text, index);
         if whitespace_end >= text.len() {
             return whitespace_end;
@@ -559,12 +543,8 @@ impl HexCodec {
     ///
     /// # Returns
     /// The next byte index that should be parsed.
-    fn skip_ignored(
-        &self,
-        text: &str,
-        mut index: usize,
-        separator: Option<&str>,
-    ) -> usize {
+    #[inline]
+    fn skip_ignored(&self, text: &str, mut index: usize, separator: Option<&str>) -> usize {
         loop {
             let Some(rest) = text.get(index..) else {
                 return index;
@@ -594,6 +574,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The next byte index after ignored ASCII whitespace.
+    #[inline]
     fn skip_ascii_whitespace(&self, text: &str, mut index: usize) -> usize {
         while self.ignore_ascii_whitespace && index < text.len() {
             let Some(rest) = text.get(index..) else {
@@ -619,6 +600,7 @@ impl HexCodec {
     /// # Returns
     /// `true` when `text` starts with `prefix`, honoring the configured
     /// ASCII case sensitivity for decoding prefixes.
+    #[inline]
     fn starts_with_prefix(&self, text: &str, prefix: &str) -> bool {
         if !self.ignore_prefix_case {
             return text.starts_with(prefix);
@@ -632,6 +614,7 @@ impl HexCodec {
 
 impl Default for HexCodec {
     /// Creates a lowercase codec without prefix or separators.
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -642,6 +625,7 @@ impl ValueEncoder<[u8]> for HexCodec {
     type Output = String;
 
     /// Encodes bytes into hexadecimal text.
+    #[inline]
     fn encode(&self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(HexCodec::encode(self, input))
     }
@@ -652,6 +636,7 @@ impl ValueDecoder<str> for HexCodec {
     type Output = Vec<u8>;
 
     /// Decodes hexadecimal text into bytes.
+    #[inline]
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         HexCodec::decode(self, input)
     }
@@ -664,18 +649,21 @@ unsafe impl Codec for HexCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the two hexadecimal digits needed for one byte.
+    #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
         // SAFETY: 2 is non-zero.
         unsafe { core::num::NonZeroUsize::new_unchecked(2) }
     }
 
     /// Returns the two hexadecimal digits needed for one byte.
+    #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
         // SAFETY: 2 is non-zero.
         unsafe { core::num::NonZeroUsize::new_unchecked(2) }
     }
 
     /// Decodes one byte from two ASCII hexadecimal digits.
+    #[inline]
     unsafe fn decode_unchecked(
         &self,
         input: &[u8],
@@ -685,10 +673,8 @@ unsafe impl Codec for HexCodec {
 
         let high_char = char::from(input[index]);
         let low_char = char::from(input[index + 1]);
-        let high = hex_value(high_char)
-            .ok_or_else(|| invalid_hex_digit(index, high_char))?;
-        let low = hex_value(low_char)
-            .ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
+        let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
+        let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
         // SAFETY: 2 is non-zero.
         Ok(((high << 4) | low, unsafe {
             core::num::NonZeroUsize::new_unchecked(2)
@@ -696,6 +682,7 @@ unsafe impl Codec for HexCodec {
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
+    #[inline]
     unsafe fn encode_unchecked(
         &self,
         value: &u8,
@@ -717,6 +704,7 @@ unsafe impl Codec for HexCodec {
 ///
 /// # Returns
 /// Nibble value, or `None` when `ch` is not a hex digit.
+#[inline(always)]
 fn hex_value(ch: char) -> Option<u8> {
     match ch {
         '0'..='9' => Some(ch as u8 - b'0'),
@@ -783,10 +771,8 @@ fn invalid_hex_input(reason: &str) -> MiscCodecError {
 /// # Errors
 /// Returns [`MiscCodecError::InvalidInput`] when input ends before the digit,
 /// or [`MiscCodecError::InvalidDigit`] when the next character is not hex.
-fn read_required_hex_digit(
-    text: &str,
-    index: usize,
-) -> MiscCodecResult<(usize, char, usize)> {
+#[inline]
+fn read_required_hex_digit(text: &str, index: usize) -> MiscCodecResult<(usize, char, usize)> {
     let Some(rest) = text.get(index..) else {
         return Err(invalid_hex_input(
             "expected a hexadecimal digit at a character boundary",
@@ -807,6 +793,7 @@ fn read_required_hex_digit(
 /// - `byte`: Byte to encode.
 /// - `uppercase`: Whether to use uppercase digits.
 /// - `output`: Destination string.
+#[inline(always)]
 fn push_hex_byte(byte: u8, uppercase: bool, output: &mut String) {
     output.push(hex_digit(byte >> 4, uppercase));
     output.push(hex_digit(byte & 0x0f, uppercase));
@@ -820,29 +807,12 @@ fn push_hex_byte(byte: u8, uppercase: bool, output: &mut String) {
 ///
 /// # Returns
 /// Hexadecimal digit. Values above `0x0f` are masked to their low nibble.
+#[inline(always)]
 fn hex_digit(value: u8, uppercase: bool) -> char {
-    match value & 0x0f {
-        0x0 => '0',
-        0x1 => '1',
-        0x2 => '2',
-        0x3 => '3',
-        0x4 => '4',
-        0x5 => '5',
-        0x6 => '6',
-        0x7 => '7',
-        0x8 => '8',
-        0x9 => '9',
-        0x0a if uppercase => 'A',
-        0x0b if uppercase => 'B',
-        0x0c if uppercase => 'C',
-        0x0d if uppercase => 'D',
-        0x0e if uppercase => 'E',
-        0x0f if uppercase => 'F',
-        0x0a => 'a',
-        0x0b => 'b',
-        0x0c => 'c',
-        0x0d => 'd',
-        0x0e => 'e',
-        _ => 'f',
-    }
+    let digits = if uppercase {
+        &UPPER_HEX_DIGITS
+    } else {
+        &LOWER_HEX_DIGITS
+    };
+    digits[(value & 0x0f) as usize]
 }

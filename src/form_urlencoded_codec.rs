@@ -8,18 +8,9 @@
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
-    percent_decode_byte,
-    percent_decode_bytes,
-    percent_encode_byte,
-    percent_encode_bytes,
+    percent_decode_byte, percent_decode_bytes, percent_encode_byte, percent_encode_bytes,
 };
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -34,6 +25,7 @@ impl FormUrlencodedCodec {
     ///
     /// # Returns
     /// Form URL encoded codec.
+    #[inline]
     pub fn new() -> Self {
         Self
     }
@@ -45,6 +37,7 @@ impl FormUrlencodedCodec {
     ///
     /// # Returns
     /// Form-url-encoded text.
+    #[inline]
     pub fn encode(&self, text: &str) -> String {
         percent_encode_bytes(text.as_bytes(), true)
     }
@@ -60,9 +53,9 @@ impl FormUrlencodedCodec {
     /// # Errors
     /// Returns [`MiscCodecError`] when an escape is malformed or decoded bytes
     /// are not valid UTF-8.
+    #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?)
-            .map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
     }
 }
 
@@ -71,6 +64,7 @@ impl ValueEncoder<str> for FormUrlencodedCodec {
     type Output = String;
 
     /// Encodes text, using `+` for spaces.
+    #[inline]
     fn encode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         Ok(FormUrlencodedCodec::encode(self, input))
     }
@@ -81,6 +75,7 @@ impl ValueDecoder<str> for FormUrlencodedCodec {
     type Output = String;
 
     /// Decodes form-url-encoded text.
+    #[inline]
     fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
         FormUrlencodedCodec::decode(self, input)
     }
@@ -93,16 +88,19 @@ unsafe impl Codec for FormUrlencodedCodec {
     type EncodeError = MiscCodecError;
 
     /// Returns the shortest representation length for one byte.
+    #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
         core::num::NonZeroUsize::MIN
     }
 
     /// Returns the longest `%XX` representation length for one byte.
+    #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
         unsafe { core::num::NonZeroUsize::new_unchecked(3) }
     }
 
     /// Decodes one raw byte, `+`, or `%XX` escape.
+    #[inline]
     unsafe fn decode_unchecked(
         &self,
         input: &[u8],
@@ -114,12 +112,12 @@ unsafe impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed =
-            unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
         Ok((value, consumed))
     }
 
     /// Encodes one byte using form URL encoding.
+    #[inline]
     unsafe fn encode_unchecked(
         &self,
         value: &u8,
