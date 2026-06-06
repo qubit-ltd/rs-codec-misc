@@ -7,7 +7,10 @@
 // =============================================================================
 //! Tests for hexadecimal byte encoding.
 
-use qubit_codec_misc::{HexCodec, MiscCodecError};
+use qubit_codec_misc::{
+    HexCodec,
+    MiscCodecError,
+};
 
 #[test]
 fn test_production_code_does_not_use_panic_helpers() {
@@ -186,7 +189,9 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_prefix("0x")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1f")
-            .expect("whole prefix should tolerate configured leading whitespace")
+            .expect(
+                "whole prefix should tolerate configured leading whitespace"
+            )
     );
 }
 
@@ -196,9 +201,15 @@ fn test_decode_requires_configured_separator_between_bytes() {
 
     assert_eq!(
         vec![0x1f, 0x8b, 0x00],
+        codec.decode("1f:8b:00").expect(
+            "configured separator should decode between complete bytes"
+        )
+    );
+    assert_eq!(
+        Vec::<u8>::new(),
         codec
-            .decode("1f:8b:00")
-            .expect("configured separator should decode between complete bytes")
+            .decode("")
+            .expect("empty separated hex input should decode to empty bytes")
     );
     assert_eq!(
         vec![0x1f],
@@ -214,6 +225,14 @@ fn test_decode_requires_configured_separator_between_bytes() {
         codec.decode("1f:8b00").is_err(),
         "configured separator should be required between every byte pair"
     );
+
+    let missing_low_digit = codec
+        .decode("1")
+        .expect_err("separated hex byte should require two digits");
+    assert!(matches!(
+        missing_low_digit,
+        MiscCodecError::InvalidInput { codec: "hex", .. }
+    ));
 }
 
 #[test]
@@ -246,9 +265,9 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     );
     assert_eq!(
         vec![0x1f, 0x8b],
-        space_codec
-            .decode(" \t0x1F 0x8B ")
-            .expect("space separator should still work with ignored edge whitespace")
+        space_codec.decode(" \t0x1F 0x8B ").expect(
+            "space separator should still work with ignored edge whitespace"
+        )
     );
     assert!(
         colon_codec.decode("1 f:8b").is_err(),
@@ -261,6 +280,26 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     assert!(
         space_codec.decode("0x1F0x8B").is_err(),
         "space separator should be required between byte-prefixed bytes"
+    );
+}
+
+#[test]
+fn test_decode_ignores_configured_whitespace_without_separator() {
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        HexCodec::new()
+            .with_ignored_ascii_whitespace(true)
+            .decode("1f \n8B")
+            .expect("unprefixed hex should ignore configured ASCII whitespace")
+    );
+
+    assert_eq!(
+        vec![0x1f],
+        HexCodec::new()
+            .with_byte_prefix("0x")
+            .with_ignored_ascii_whitespace(true)
+            .decode("0x1 f \t")
+            .expect("byte-prefixed hex should ignore configured whitespace")
     );
 }
 
@@ -332,6 +371,16 @@ fn test_decode_reports_precise_hex_errors() {
             index: 3,
             character: 'g'
         }
+    ));
+
+    let missing_separated_byte_prefix = HexCodec::new()
+        .with_byte_prefix("0x")
+        .with_separator(":")
+        .decode("0x1f:8b")
+        .expect_err("separated bytes should each require the byte prefix");
+    assert!(matches!(
+        missing_separated_byte_prefix,
+        MiscCodecError::MissingPrefix { .. }
     ));
 
     let too_short_prefix = HexCodec::new()
