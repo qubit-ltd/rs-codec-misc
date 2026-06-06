@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Shared codec error type.
 
 use std::string::FromUtf8Error;
@@ -20,7 +18,9 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
     /// Input ended before a complete codec value was available.
-    #[error("incomplete input: required {required} units, available {available}")]
+    #[error(
+        "incomplete input: required {required} units, available {available}"
+    )]
     Incomplete {
         /// Total units required from the current decode start.
         required: usize,

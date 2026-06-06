@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! C integer literal decoder.
 
 use crate::{
@@ -41,9 +39,9 @@ impl CIntegerLiteralCodec {
     /// Parsed integer value.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidInput`] when the input is empty, lacks digits,
-    /// or overflows `u64`; returns [`MiscCodecError::InvalidDigit`] when a character
-    /// is not valid for the detected radix.
+    /// Returns [`MiscCodecError::InvalidInput`] when the input is empty, lacks
+    /// digits, or overflows `u64`; returns [`MiscCodecError::InvalidDigit`]
+    /// when a character is not valid for the detected radix.
     pub fn decode(&self, text: &str) -> MiscCodecResult<u64> {
         let (trimmed, trim_offset) = trim_with_offset(text);
         if trimmed.is_empty() {
@@ -51,8 +49,13 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix)
-            .map_err(|error| invalid_c_integer_input(&format!("integer literal is out of range: {error}")))
+        u64::from_str_radix(components.digits, components.radix).map_err(
+            |error| {
+                invalid_c_integer_input(&format!(
+                    "integer literal is out of range: {error}"
+                ))
+            },
+        )
     }
 }
 
@@ -85,10 +88,13 @@ impl<'a> LiteralComponents<'a> {
     /// Literal components used by validation and numeric parsing.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present without
-    /// any digits after it.
+    /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present
+    /// without any digits after it.
     fn parse(trimmed: &'a str, trim_offset: usize) -> MiscCodecResult<Self> {
-        if let Some(digits) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
+        if let Some(digits) = trimmed
+            .strip_prefix("0x")
+            .or_else(|| trimmed.strip_prefix("0X"))
+        {
             if digits.is_empty() {
                 return Err(invalid_c_integer_input(
                     "hexadecimal literal requires at least one digit",
@@ -136,8 +142,8 @@ fn trim_with_offset(text: &str) -> (&str, usize) {
 /// - `components`: Parsed literal components.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::InvalidDigit`] with the original input byte index of
-/// the invalid character.
+/// Returns [`MiscCodecError::InvalidDigit`] with the original input byte index
+/// of the invalid character.
 fn validate_digits(components: LiteralComponents<'_>) -> MiscCodecResult<()> {
     for (index, character) in components.digits.char_indices() {
         if character.is_digit(components.radix) {

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! C string literal byte codec.
 
 use crate::{
@@ -23,9 +21,9 @@ use crate::{
 /// escapes, such as `PK\003\004` or `\xd0\xcf`. It decodes into raw bytes and
 /// does not require surrounding quotes.
 ///
-/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one raw byte or one C
-/// escape fragment. Whole-fragment iteration remains part of the owned
-/// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
+/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one
+/// raw byte or one C escape fragment. Whole-fragment iteration remains part of
+/// the owned [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CStringLiteralCodec;
 
@@ -62,9 +60,11 @@ impl CStringLiteralCodec {
     /// Decoded raw bytes.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidEscape`] for malformed escape sequences,
-    /// [`MiscCodecError::InvalidDigit`] for malformed fixed-width numeric escapes,
-    /// and [`MiscCodecError::InvalidCharacter`] for unsupported raw source characters.
+    /// Returns [`MiscCodecError::InvalidEscape`] for malformed escape
+    /// sequences, [`MiscCodecError::InvalidDigit`] for malformed
+    /// fixed-width numeric escapes,
+    /// and [`MiscCodecError::InvalidCharacter`] for unsupported raw source
+    /// characters.
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         let chars = text.char_indices().collect::<Vec<_>>();
         let mut output = Vec::with_capacity(text.len());
@@ -130,14 +130,21 @@ unsafe impl Codec for CStringLiteralCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed =
+            unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
         Ok((value, consumed))
     }
 
     /// Encodes one byte as a raw byte or C escape fragment.
-    unsafe fn encode_unchecked(&self, value: &u8, output: &mut [u8], index: usize) -> Result<usize, Self::EncodeError> {
+    unsafe fn encode_unchecked(
+        &self,
+        value: &u8,
+        output: &mut [u8],
+        index: usize,
+    ) -> Result<usize, Self::EncodeError> {
         let required = match *value {
-            b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
+            b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n'
+            | b'\r' | b'\t' | 0x0b => 2,
             b' '..=b'~' => 1,
             _ => 4,
         };
@@ -167,7 +174,11 @@ fn decode_escape(
     let marker_index = chars[*position].0;
     *position += 1;
     let Some(&(_, escape)) = chars.get(*position) else {
-        return Err(invalid_escape(marker_index, "\\", "incomplete escape sequence"));
+        return Err(invalid_escape(
+            marker_index,
+            "\\",
+            "incomplete escape sequence",
+        ));
     };
     match escape {
         ' ' => push_simple_escape(position, output, b' '),
@@ -184,17 +195,20 @@ fn decode_escape(
         'v' => push_simple_escape(position, output, 0x0b),
         'x' | 'X' => {
             *position += 1;
-            let value = parse_variable_hex_escape(chars, position, marker_index)?;
+            let value =
+                parse_variable_hex_escape(chars, position, marker_index)?;
             output.push(value);
         }
         'u' => {
             *position += 1;
-            let value = parse_fixed_hex_escape(text, chars, position, marker_index, 4)?;
+            let value =
+                parse_fixed_hex_escape(text, chars, position, marker_index, 4)?;
             output.push(value);
         }
         'U' => {
             *position += 1;
-            let value = parse_fixed_hex_escape(text, chars, position, marker_index, 8)?;
+            let value =
+                parse_fixed_hex_escape(text, chars, position, marker_index, 8)?;
             output.push(value);
         }
         '0'..='7' => {
@@ -277,9 +291,9 @@ fn parse_variable_hex_escape(
 /// The decoded byte.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::InvalidEscape`] when the escape is too short or too
-/// large for one byte, or [`MiscCodecError::InvalidDigit`] when a required digit is
-/// not hexadecimal.
+/// Returns [`MiscCodecError::InvalidEscape`] when the escape is too short or
+/// too large for one byte, or [`MiscCodecError::InvalidDigit`] when a required
+/// digit is not hexadecimal.
 fn parse_fixed_hex_escape(
     text: &str,
     chars: &[(usize, char)],
@@ -309,7 +323,11 @@ fn parse_fixed_hex_escape(
     }
     if value > u32::from(u8::MAX) {
         let escape = text
-            .get(marker_index..chars[*position - 1].0 + chars[*position - 1].1.len_utf8())
+            .get(
+                marker_index
+                    ..chars[*position - 1].0
+                        + chars[*position - 1].1.len_utf8(),
+            )
             .unwrap_or("\\u");
         return Err(invalid_escape(
             marker_index,
@@ -355,14 +373,19 @@ fn parse_octal_escape(chars: &[(usize, char)], position: &mut usize) -> u8 {
 /// # Errors
 /// Returns [`MiscCodecError::InvalidCharacter`] when the raw character is not a
 /// supported ASCII C string source character.
-fn validate_source_character(index: usize, character: char) -> MiscCodecResult<()> {
+fn validate_source_character(
+    index: usize,
+    character: char,
+) -> MiscCodecResult<()> {
     if is_source_character(character) {
         return Ok(());
     }
     Err(MiscCodecError::InvalidCharacter {
         index,
         character,
-        reason: "raw source character must be printable ASCII or allowed whitespace".to_owned(),
+        reason:
+            "raw source character must be printable ASCII or allowed whitespace"
+                .to_owned(),
     })
 }
 
@@ -416,10 +439,16 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 ///
 /// # Errors
 /// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
-fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(u8, usize)> {
+fn decode_c_string_literal_byte(
+    input: &[u8],
+    index: usize,
+) -> MiscCodecResult<(u8, usize)> {
     let available = input.len().saturating_sub(index);
     if available == 0 {
-        return Err(MiscCodecError::Incomplete { required: 1, available });
+        return Err(MiscCodecError::Incomplete {
+            required: 1,
+            available,
+        });
     }
     let byte = input[index];
     if byte != b'\\' {
@@ -427,7 +456,10 @@ fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(
         return Ok((byte, 1));
     }
     if available < 2 {
-        return Err(MiscCodecError::Incomplete { required: 2, available });
+        return Err(MiscCodecError::Incomplete {
+            required: 2,
+            available,
+        });
     }
     let escape = input[index + 1];
     match escape {
@@ -476,9 +508,16 @@ fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(
 ///
 /// # Errors
 /// Returns [`MiscCodecError::Incomplete`] when more units are required.
-fn ensure_variable_hex_escape_complete(_input: &[u8], _index: usize, available: usize) -> MiscCodecResult<()> {
+fn ensure_variable_hex_escape_complete(
+    _input: &[u8],
+    _index: usize,
+    available: usize,
+) -> MiscCodecResult<()> {
     if available < 3 {
-        return Err(MiscCodecError::Incomplete { required: 3, available });
+        return Err(MiscCodecError::Incomplete {
+            required: 3,
+            available,
+        });
     }
     Ok(())
 }
@@ -491,9 +530,15 @@ fn ensure_variable_hex_escape_complete(_input: &[u8], _index: usize, available: 
 ///
 /// # Errors
 /// Returns [`MiscCodecError::Incomplete`] when more units are required.
-fn ensure_fixed_escape_complete(available: usize, required: usize) -> MiscCodecResult<()> {
+fn ensure_fixed_escape_complete(
+    available: usize,
+    required: usize,
+) -> MiscCodecResult<()> {
     if available < required {
-        return Err(MiscCodecError::Incomplete { required, available });
+        return Err(MiscCodecError::Incomplete {
+            required,
+            available,
+        });
     }
     Ok(())
 }
@@ -507,7 +552,11 @@ fn ensure_fixed_escape_complete(available: usize, required: usize) -> MiscCodecR
 ///
 /// # Errors
 /// Returns [`MiscCodecError::Incomplete`] when more units are required.
-fn ensure_octal_escape_complete(_input: &[u8], _index: usize, _available: usize) -> MiscCodecResult<()> {
+fn ensure_octal_escape_complete(
+    _input: &[u8],
+    _index: usize,
+    _available: usize,
+) -> MiscCodecResult<()> {
     Ok(())
 }
 
@@ -527,7 +576,8 @@ fn validate_source_byte(index: usize, byte: u8) -> MiscCodecResult<()> {
     Err(MiscCodecError::InvalidCharacter {
         index,
         character: char::from(byte),
-        reason: "raw source byte must be printable ASCII or allowed whitespace".to_owned(),
+        reason: "raw source byte must be printable ASCII or allowed whitespace"
+            .to_owned(),
     })
 }
 
@@ -543,7 +593,10 @@ fn validate_source_byte(index: usize, byte: u8) -> MiscCodecResult<()> {
 /// # Errors
 /// Returns [`MiscCodecError::InvalidEscape`] when no hexadecimal digit follows
 /// `\x`.
-fn parse_variable_hex_escape_units(input: &[u8], marker_index: usize) -> MiscCodecResult<(u8, usize)> {
+fn parse_variable_hex_escape_units(
+    input: &[u8],
+    marker_index: usize,
+) -> MiscCodecResult<(u8, usize)> {
     let mut value = 0u8;
     let mut digit_count = 0usize;
     let mut index = marker_index + 2;
@@ -582,7 +635,11 @@ fn parse_variable_hex_escape_units(input: &[u8], marker_index: usize) -> MiscCod
 /// Returns [`MiscCodecError::InvalidEscape`] when the escape is incomplete or
 /// larger than one byte, or [`MiscCodecError::InvalidDigit`] when a required
 /// digit is not hexadecimal.
-fn parse_fixed_hex_escape_units(input: &[u8], marker_index: usize, digits: usize) -> MiscCodecResult<(u8, usize)> {
+fn parse_fixed_hex_escape_units(
+    input: &[u8],
+    marker_index: usize,
+    digits: usize,
+) -> MiscCodecResult<(u8, usize)> {
     let mut value = 0u32;
     let mut index = marker_index + 2;
     for _ in 0..digits {
@@ -702,7 +759,10 @@ fn write_ascii_escape(output: &mut [u8], index: usize, escape: u8) -> usize {
 /// String fragment used in diagnostics.
 fn escape_fragment(input: &[u8], start: usize, end: usize) -> String {
     let bounded_end = end.min(input.len());
-    input[start..bounded_end].iter().map(|byte| char::from(*byte)).collect()
+    input[start..bounded_end]
+        .iter()
+        .map(|byte| char::from(*byte))
+        .collect()
 }
 
 /// Converts one hexadecimal character to its nibble value.

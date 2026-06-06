@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Base64 quantum codec.
 
 use crate::{
@@ -77,7 +75,11 @@ impl Base64QuantumCodec {
             b'_' if self.url_safe => Ok(63),
             _ => Err(MiscCodecError::InvalidInput {
                 codec: "base64-quantum",
-                reason: format!("invalid Base64 unit '{}' at index {}", char::from(unit), index),
+                reason: format!(
+                    "invalid Base64 unit '{}' at index {}",
+                    char::from(unit),
+                    index
+                ),
             }),
         }
     }
@@ -142,8 +144,10 @@ unsafe impl Codec for Base64QuantumCodec {
 
         let alphabet = self.alphabet();
         output[index] = alphabet[(value[0] >> 2) as usize];
-        output[index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[index + 1] =
+            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[index + 2] =
+            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(4)
     }
