@@ -7,13 +7,19 @@
 // =============================================================================
 //! Tests for the decoder trait contract.
 
-use qubit_codec_misc::{Base64Codec, HexCodec, MiscCodecError, ValueDecoder};
+use qubit_codec_misc::{
+    Base64Codec,
+    HexCodec,
+    MiscCodecError,
+    ValueDecoder,
+};
 
 #[test]
 fn test_decoder_trait_dispatches_to_concrete_hex_decoder() {
     let codec = HexCodec::new().with_prefix("0x");
 
-    let decoded = ValueDecoder::<str>::decode(&codec, "0x616263").expect("hex should decode");
+    let decoded = ValueDecoder::<str>::decode(&codec, "0x616263")
+        .expect("hex should decode");
 
     assert_eq!(b"abc".to_vec(), decoded);
 }
