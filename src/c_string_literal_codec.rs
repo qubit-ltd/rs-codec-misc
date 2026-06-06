@@ -231,7 +231,7 @@ impl CStringLiteralParseContext<'_> {
             Self::CompleteText(text) => text
                 .get(index..)
                 .and_then(|rest| rest.chars().next())
-                .unwrap_or_else(|| char::from(input[index])),
+                .unwrap_or(char::from(input[index])),
             Self::StreamingBytes => char::from(input[index]),
         }
     }
@@ -265,7 +265,7 @@ impl CStringLiteralParseContext<'_> {
         match self {
             Self::CompleteText(text) => text
                 .get(start..end)
-                .or_else(|| text.get(start..))
+                .or(text.get(start..))
                 .unwrap_or("\\")
                 .to_owned(),
             Self::StreamingBytes => escape_fragment(input, start, end),

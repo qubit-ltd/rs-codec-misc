@@ -18,7 +18,9 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
     /// Input ended before a complete codec value was available.
-    #[error("incomplete input: required {required} units, available {available}")]
+    #[error(
+        "incomplete input: required {required} units, available {available}"
+    )]
     Incomplete {
         /// Total units required from the current decode start.
         required: usize,

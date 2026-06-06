@@ -8,9 +8,18 @@
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
-    percent_decode_byte, percent_decode_bytes, percent_encode_byte, percent_encode_bytes,
+    percent_decode_byte,
+    percent_decode_bytes,
+    percent_encode_byte,
+    percent_encode_bytes,
 };
-use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+use crate::{
+    Codec,
+    MiscCodecError,
+    MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
+};
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -55,7 +64,8 @@ impl FormUrlencodedCodec {
     /// are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?)
+            .map_err(MiscCodecError::from)
     }
 }
 
@@ -112,7 +122,8 @@ unsafe impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed =
+            unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
         Ok((value, consumed))
     }
 
