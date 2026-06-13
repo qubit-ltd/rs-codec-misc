@@ -7,22 +7,14 @@
 // =============================================================================
 //! Hexadecimal byte codec.
 
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
 
 const LOWER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e',
-    'f',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
 ];
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-    'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
 ];
 
 /// Encodes and decodes hexadecimal byte strings.
@@ -178,9 +170,7 @@ impl HexCodec {
             bytes
                 .len()
                 .saturating_mul(byte_prefix_len.saturating_add(2))
-                .saturating_add(
-                    bytes.len().saturating_sub(1).saturating_mul(separator_len),
-                ),
+                .saturating_add(bytes.len().saturating_sub(1).saturating_mul(separator_len)),
         );
         let mut output = String::with_capacity(capacity);
         self.encode_into(bytes, &mut output);
@@ -238,11 +228,7 @@ impl HexCodec {
     /// # Errors
     /// Returns [`MiscCodecError`] when the input is malformed.
     #[inline]
-    pub fn decode_into(
-        &self,
-        text: &str,
-        output: &mut Vec<u8>,
-    ) -> MiscCodecResult<()> {
+    pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let digits = self.normalized_digits(text)?;
         if digits.len() % 2 != 0 {
             return Err(invalid_hex_length(digits.len()));
@@ -251,10 +237,8 @@ impl HexCodec {
         for pair in digits.chunks_exact(2) {
             let (high_index, high_char) = pair[0];
             let (low_index, low_char) = pair[1];
-            let high = hex_value(high_char)
-                .ok_or(invalid_hex_digit(high_index, high_char))?;
-            let low = hex_value(low_char)
-                .ok_or(invalid_hex_digit(low_index, low_char))?;
+            let high = hex_value(high_char).ok_or(invalid_hex_digit(high_index, high_char))?;
+            let low = hex_value(low_char).ok_or(invalid_hex_digit(low_index, low_char))?;
             output.push((high << 4) | low);
         }
         Ok(())
@@ -271,32 +255,21 @@ impl HexCodec {
     /// # Errors
     /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
     #[inline]
-    fn normalized_digits(
-        &self,
-        text: &str,
-    ) -> MiscCodecResult<Vec<(usize, char)>> {
+    fn normalized_digits(&self, text: &str) -> MiscCodecResult<Vec<(usize, char)>> {
         let start_index = self.consume_prefix(text)?;
         if let Some(separator) = self
             .separator
             .as_deref()
             .filter(|separator| !separator.is_empty())
         {
-            return self.normalized_separated_digits(
-                text,
-                start_index,
-                separator,
-            );
+            return self.normalized_separated_digits(text, start_index, separator);
         }
         if let Some(byte_prefix) = self
             .byte_prefix
             .as_deref()
             .filter(|prefix| !prefix.is_empty())
         {
-            return self.normalized_byte_prefixed_digits(
-                text,
-                byte_prefix,
-                start_index,
-            );
+            return self.normalized_byte_prefixed_digits(text, byte_prefix, start_index);
         }
         self.normalized_unprefixed_digits(text, start_index)
     }
@@ -314,9 +287,7 @@ impl HexCodec {
     /// prefix is configured but absent.
     #[inline]
     fn consume_prefix(&self, text: &str) -> MiscCodecResult<usize> {
-        let Some(prefix) =
-            self.prefix.as_deref().filter(|prefix| !prefix.is_empty())
-        else {
+        let Some(prefix) = self.prefix.as_deref().filter(|prefix| !prefix.is_empty()) else {
             return Ok(0);
         };
         let index = self.skip_ascii_whitespace(text, 0);
@@ -356,16 +327,13 @@ impl HexCodec {
         }
         loop {
             index = self.consume_byte_prefix(text, index)?;
-            let (high_index, high_char, next_index) =
-                read_required_hex_digit(text, index)?;
-            let (low_index, low_char, next_index) =
-                read_required_hex_digit(text, next_index)?;
+            let (high_index, high_char, next_index) = read_required_hex_digit(text, index)?;
+            let (low_index, low_char, next_index) = read_required_hex_digit(text, next_index)?;
             digits.push((high_index, high_char));
             digits.push((low_index, low_char));
             index = next_index;
 
-            let separator_index =
-                self.next_separator_index(text, index, separator);
+            let separator_index = self.next_separator_index(text, index, separator);
             if separator_index >= text.len() {
                 return Ok(digits);
             }
@@ -375,8 +343,7 @@ impl HexCodec {
                     "missing separator '{separator}' between hex bytes"
                 )));
             }
-            index = self
-                .skip_ascii_whitespace(text, separator_index + separator.len());
+            index = self.skip_ascii_whitespace(text, separator_index + separator.len());
             if index >= text.len() {
                 return Err(invalid_hex_input(
                     "separator must be followed by a hex byte",
@@ -399,11 +366,7 @@ impl HexCodec {
     /// Returns [`MiscCodecError::MissingPrefix`] when the configured per-byte
     /// prefix is absent.
     #[inline]
-    fn consume_byte_prefix(
-        &self,
-        text: &str,
-        index: usize,
-    ) -> MiscCodecResult<usize> {
+    fn consume_byte_prefix(&self, text: &str, index: usize) -> MiscCodecResult<usize> {
         let Some(prefix) = self
             .byte_prefix
             .as_deref()
@@ -432,12 +395,7 @@ impl HexCodec {
     /// Index where the separator must start, or `text.len()` when only ignored
     /// trailing whitespace remains.
     #[inline]
-    fn next_separator_index(
-        &self,
-        text: &str,
-        index: usize,
-        separator: &str,
-    ) -> usize {
+    fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
         let whitespace_end = self.skip_ascii_whitespace(text, index);
         if whitespace_end >= text.len() {
             return whitespace_end;
@@ -620,7 +578,7 @@ impl ValueEncoder<[u8]> for HexCodec {
 
     /// Encodes bytes into hexadecimal text.
     #[inline]
-    fn encode(&self, input: &[u8]) -> Result<Self::Output, Self::Error> {
+    fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(HexCodec::encode(self, input))
     }
 }
@@ -631,7 +589,7 @@ impl ValueDecoder<str> for HexCodec {
 
     /// Decodes hexadecimal text into bytes.
     #[inline]
-    fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
+    fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         HexCodec::decode(self, input)
     }
 }
@@ -645,21 +603,19 @@ unsafe impl Codec for HexCodec {
     /// Returns the two hexadecimal digits needed for one byte.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        // SAFETY: 2 is non-zero.
-        unsafe { core::num::NonZeroUsize::new_unchecked(2) }
+        qubit_codec::nz!(2)
     }
 
     /// Returns the two hexadecimal digits needed for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        // SAFETY: 2 is non-zero.
-        unsafe { core::num::NonZeroUsize::new_unchecked(2) }
+        qubit_codec::nz!(2)
     }
 
     /// Decodes one byte from two ASCII hexadecimal digits.
     #[inline]
-    unsafe fn decode_unchecked(
-        &self,
+    unsafe fn decode(
+        &mut self,
         input: &[u8],
         index: usize,
     ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
@@ -667,29 +623,24 @@ unsafe impl Codec for HexCodec {
 
         let high_char = char::from(input[index]);
         let low_char = char::from(input[index + 1]);
-        let high = hex_value(high_char)
-            .ok_or_else(|| invalid_hex_digit(index, high_char))?;
-        let low = hex_value(low_char)
-            .ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
-        // SAFETY: 2 is non-zero.
-        Ok(((high << 4) | low, unsafe {
-            core::num::NonZeroUsize::new_unchecked(2)
-        }))
+        let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
+        let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
+        Ok(((high << 4) | low, qubit_codec::nz!(2)))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
     #[inline]
-    unsafe fn encode_unchecked(
-        &self,
+    unsafe fn encode(
+        &mut self,
         value: &u8,
         output: &mut [u8],
         index: usize,
-    ) -> Result<usize, Self::EncodeError> {
+    ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
         debug_assert!(index + 2 <= output.len());
 
         output[index] = hex_digit(*value >> 4, self.uppercase) as u8;
         output[index + 1] = hex_digit(*value & 0x0f, self.uppercase) as u8;
-        Ok(2)
+        Ok(qubit_codec::nz!(2))
     }
 }
 
@@ -768,10 +719,7 @@ fn invalid_hex_input(reason: &str) -> MiscCodecError {
 /// Returns [`MiscCodecError::InvalidInput`] when input ends before the digit,
 /// or [`MiscCodecError::InvalidDigit`] when the next character is not hex.
 #[inline]
-fn read_required_hex_digit(
-    text: &str,
-    index: usize,
-) -> MiscCodecResult<(usize, char, usize)> {
+fn read_required_hex_digit(text: &str, index: usize) -> MiscCodecResult<(usize, char, usize)> {
     let Some(rest) = text.get(index..) else {
         return Err(invalid_hex_input(
             "expected a hexadecimal digit at a character boundary",

@@ -113,11 +113,11 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **`ValueDecoder<Input>`**: decodes borrowed input into an associated output type.
 - **`Codec` with associated `Value` and `Unit`**: low-level unsafe trait for one value or one codec
   quantum over caller-provided unit buffers.
-- **`CodecValueEncoder<C>` / `CodecBufferedEncoder<C>` /
-  `CodecBufferedDecoder<C>`**: default value and buffered adapters
+- **`CodecValueEncoder<C>` / `CodecTranscodeEncoder<C>` /
+  `CodecTranscodeDecoder<C>`**: default value and buffered adapters
   available from `qubit-codec`.
-- **`BufferedEncodeEngine` / `BufferedEncodeHooks` /
-  `BufferedDecodeEngine` / `BufferedDecodeHooks`**: reusable buffered engines
+- **`TranscodeEncodeEngine` / `TranscodeEncodeHooks` /
+  `TranscodeDecodeEngine` / `TranscodeDecodeHooks`**: reusable buffered engines
   and policy hooks available from `qubit-codec` for custom adapters.
 - **`MiscCodecError` / `MiscCodecResult`**: common error and result types for bundled
   codecs.
@@ -294,7 +294,7 @@ fn main() {
 |-------|--------|-------------|
 | `ValueEncoder<Input>` | `encode(&Input)` | Encode borrowed input into an associated output type |
 | `ValueDecoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
-| `Codec` with associated `Value` and `Unit` | `decode_unchecked`, `encode_unchecked` | Convert one value or codec quantum against caller-provided unit buffers |
+| `Codec` with associated `Value` and `Unit` | `decode`, `encode` | Convert one value or codec quantum against caller-provided unit buffers |
 
 The low-level `Codec` implementations intentionally exclude facade concerns:
 hex prefix/separator handling, UTF-8 `String` validation, and Base64 final

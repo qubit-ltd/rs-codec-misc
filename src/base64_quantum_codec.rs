@@ -7,11 +7,7 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult};
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -106,21 +102,19 @@ unsafe impl Codec for Base64QuantumCodec {
     /// Returns the four Base64 units needed for one complete quantum.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        // SAFETY: 4 is non-zero.
-        unsafe { core::num::NonZeroUsize::new_unchecked(4) }
+        qubit_codec::nz!(4)
     }
 
     /// Returns the four Base64 units needed for one complete quantum.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        // SAFETY: 4 is non-zero.
-        unsafe { core::num::NonZeroUsize::new_unchecked(4) }
+        qubit_codec::nz!(4)
     }
 
     /// Decodes one complete four-unit Base64 quantum.
     #[inline]
-    unsafe fn decode_unchecked(
-        &self,
+    unsafe fn decode(
+        &mut self,
         input: &[u8],
         index: usize,
     ) -> Result<([u8; 3], core::num::NonZeroUsize), Self::DecodeError> {
@@ -136,28 +130,25 @@ unsafe impl Codec for Base64QuantumCodec {
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            // SAFETY: 4 is non-zero.
-            unsafe { core::num::NonZeroUsize::new_unchecked(4) },
+            qubit_codec::nz!(4),
         ))
     }
 
     /// Encodes one complete three-byte Base64 quantum.
     #[inline]
-    unsafe fn encode_unchecked(
-        &self,
+    unsafe fn encode(
+        &mut self,
         value: &[u8; 3],
         output: &mut [u8],
         index: usize,
-    ) -> Result<usize, Self::EncodeError> {
+    ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
         debug_assert!(index + 4 <= output.len());
 
         let alphabet = self.alphabet();
         output[index] = alphabet[(value[0] >> 2) as usize];
-        output[index + 1] =
-            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[index + 2] =
-            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[index + 3] = alphabet[(value[2] & 0x3f) as usize];
-        Ok(4)
+        Ok(qubit_codec::nz!(4))
     }
 }

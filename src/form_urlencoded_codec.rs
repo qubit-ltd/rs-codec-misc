@@ -8,18 +8,9 @@
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
-    percent_decode_byte,
-    percent_decode_bytes,
-    percent_encode_byte,
-    percent_encode_bytes,
+    percent_decode_byte, percent_decode_bytes, percent_encode_byte, percent_encode_bytes,
 };
-use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -64,8 +55,7 @@ impl FormUrlencodedCodec {
     /// are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?)
-            .map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
     }
 }
 
@@ -75,7 +65,7 @@ impl ValueEncoder<str> for FormUrlencodedCodec {
 
     /// Encodes text, using `+` for spaces.
     #[inline]
-    fn encode(&self, input: &str) -> Result<Self::Output, Self::Error> {
+    fn encode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         Ok(FormUrlencodedCodec::encode(self, input))
     }
 }
@@ -86,7 +76,7 @@ impl ValueDecoder<str> for FormUrlencodedCodec {
 
     /// Decodes form-url-encoded text.
     #[inline]
-    fn decode(&self, input: &str) -> Result<Self::Output, Self::Error> {
+    fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         FormUrlencodedCodec::decode(self, input)
     }
 }
@@ -106,13 +96,26 @@ unsafe impl Codec for FormUrlencodedCodec {
     /// Returns the longest `%XX` representation length for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        unsafe { core::num::NonZeroUsize::new_unchecked(3) }
+        qubit_codec::nz!(3)
+    }
+
+    /// Returns the exact form-url-encoded width for one byte.
+    #[inline(always)]
+    fn encode_len(&self, value: &u8) -> core::num::NonZeroUsize {
+        if *value == b' '
+            || value.is_ascii_alphanumeric()
+            || matches!(*value, b'-' | b'.' | b'_' | b'~')
+        {
+            core::num::NonZeroUsize::MIN
+        } else {
+            qubit_codec::nz!(3)
+        }
     }
 
     /// Decodes one raw byte, `+`, or `%XX` escape.
     #[inline]
-    unsafe fn decode_unchecked(
-        &self,
+    unsafe fn decode(
+        &mut self,
         input: &[u8],
         index: usize,
     ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
@@ -122,19 +125,18 @@ unsafe impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed =
-            unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
         Ok((value, consumed))
     }
 
     /// Encodes one byte using form URL encoding.
     #[inline]
-    unsafe fn encode_unchecked(
-        &self,
+    unsafe fn encode(
+        &mut self,
         value: &u8,
         output: &mut [u8],
         index: usize,
-    ) -> Result<usize, Self::EncodeError> {
+    ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
         debug_assert!(
             index
                 + if *value == b' '
@@ -148,6 +150,9 @@ unsafe impl Codec for FormUrlencodedCodec {
                 <= output.len()
         );
 
-        Ok(percent_encode_byte(*value, output, index, true))
+        let written = percent_encode_byte(*value, output, index, true);
+        let required = <Self as Codec>::encode_len(self, value);
+        debug_assert_eq!(written, required.get());
+        Ok(required)
     }
 }
