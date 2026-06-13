@@ -7,11 +7,7 @@
 // =============================================================================
 //! Tests for C integer literal decoding.
 
-use qubit_codec_misc::{
-    CIntegerLiteralCodec,
-    MiscCodecError,
-    ValueDecoder,
-};
+use qubit_codec_misc::{CIntegerLiteralCodec, MiscCodecError, ValueDecoder};
 
 #[test]
 fn test_decode_decimal_octal_and_hex_literals() {
@@ -127,8 +123,8 @@ fn test_decode_reports_empty_missing_digits_and_overflow() {
 
 #[test]
 fn test_c_integer_literal_codec_can_be_used_through_decoder_trait() {
-    let codec = CIntegerLiteralCodec::new();
-    let decoded = ValueDecoder::<str>::decode(&codec, "0x2a")
+    let mut codec = CIntegerLiteralCodec::new();
+    let decoded = ValueDecoder::<str>::decode(&mut codec, "0x2a")
         .expect("C integer literal should decode through trait");
 
     assert_eq!(42, decoded);

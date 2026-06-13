@@ -7,13 +7,7 @@
 // =============================================================================
 //! Tests for C string literal byte encoding.
 
-use qubit_codec_misc::{
-    CStringLiteralCodec,
-    Codec,
-    MiscCodecError,
-    ValueDecoder,
-    ValueEncoder,
-};
+use qubit_codec_misc::{CStringLiteralCodec, Codec, MiscCodecError, ValueDecoder, ValueEncoder};
 
 #[test]
 fn test_decode_plain_text_and_simple_escapes() {
@@ -253,10 +247,10 @@ fn test_encode_uses_simple_escapes_and_hex_bytes() {
 
 #[test]
 fn test_c_string_literal_codec_can_be_used_through_traits() {
-    let codec = CStringLiteralCodec::new();
-    let encoded = ValueEncoder::<[u8]>::encode(&codec, b"PK\x03\x04")
+    let mut codec = CStringLiteralCodec::new();
+    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"PK\x03\x04")
         .expect("C string literal encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&codec, &encoded)
+    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
         .expect("C string literal decode should succeed");
 
     assert_eq!(r"PK\x03\x04", encoded);
@@ -265,7 +259,7 @@ fn test_c_string_literal_codec_can_be_used_through_traits() {
 
 #[test]
 fn test_decode_matches_codec_trait_path_for_complete_fragments() {
-    let codec = CStringLiteralCodec::new();
+    let mut codec = CStringLiteralCodec::new();
     let cases = [
         "",
         "plain text",
@@ -282,9 +276,8 @@ fn test_decode_matches_codec_trait_path_for_complete_fragments() {
         let owned = codec
             .decode(input)
             .expect("owned C string literal decoder should accept fixture");
-        let codec_trait =
-            decode_complete_fragment_through_codec_trait(&codec, input)
-                .expect("Codec trait path should accept fixture");
+        let codec_trait = decode_complete_fragment_through_codec_trait(&mut codec, input)
+            .expect("Codec trait path should accept fixture");
 
         assert_eq!(owned, codec_trait, "input {input:?}");
     }
@@ -313,15 +306,14 @@ fn test_c_string_literal_codec_uses_shared_parser_core() {
 }
 
 fn decode_complete_fragment_through_codec_trait(
-    codec: &CStringLiteralCodec,
+    codec: &mut CStringLiteralCodec,
     input: &str,
 ) -> Result<Vec<u8>, MiscCodecError> {
     let mut output = Vec::with_capacity(input.len());
     let bytes = input.as_bytes();
     let mut index = 0;
     while index < bytes.len() {
-        let (decoded, consumed) =
-            unsafe { Codec::decode_unchecked(codec, bytes, index)? };
+        let (decoded, consumed) = unsafe { Codec::decode(codec, bytes, index)? };
         output.push(decoded);
         index += consumed.get();
     }
