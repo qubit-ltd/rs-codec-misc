@@ -12,7 +12,9 @@ use qubit_codec::{
     CodecValueEncoder, EncodePlan, TranscodeDecodeEngine, TranscodeDecoder, TranscodeEncodeEngine,
     TranscodeEncoder,
 };
-use qubit_codec_misc::{FormUrlencodedCodec, HexCodec, PercentCodec, ValueDecoder, ValueEncoder};
+use qubit_codec_misc::{
+    FormUrlencodedCodec, HexByteCodec, HexCodec, PercentCodec, ValueDecoder, ValueEncoder,
+};
 
 #[test]
 fn test_codec_types_can_be_used_through_traits() {
@@ -29,7 +31,11 @@ fn test_codec_types_can_be_used_through_traits() {
 #[test]
 fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_codec_value_encoder<
-        T: ValueEncoder<u8, Output = Vec<u8>, Error = qubit_codec_misc::MiscCodecError>,
+        T: ValueEncoder<
+                u8,
+                Output = Vec<u8>,
+                Error = CodecEncodeError<qubit_codec_misc::MiscCodecError>,
+            >,
     >() {
     }
     fn assert_codec_transcode_decoder<T: TranscodeDecoder<u8, u8>>() {}
@@ -37,11 +43,11 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_transcode_decode_engine<T>() {}
     fn assert_transcode_encode_engine<T>() {}
 
-    assert_codec_value_encoder::<CodecValueEncoder<HexCodec>>();
-    assert_codec_transcode_decoder::<CodecTranscodeDecoder<HexCodec>>();
-    assert_codec_transcode_encoder::<CodecTranscodeEncoder<HexCodec>>();
-    assert_transcode_decode_engine::<TranscodeDecodeEngine<HexCodec, ()>>();
-    assert_transcode_encode_engine::<TranscodeEncodeEngine<HexCodec, ()>>();
+    assert_codec_value_encoder::<CodecValueEncoder<HexByteCodec>>();
+    assert_codec_transcode_decoder::<CodecTranscodeDecoder<HexByteCodec>>();
+    assert_codec_transcode_encoder::<CodecTranscodeEncoder<HexByteCodec>>();
+    assert_transcode_decode_engine::<TranscodeDecodeEngine<HexByteCodec, ()>>();
+    assert_transcode_encode_engine::<TranscodeEncodeEngine<HexByteCodec, ()>>();
 
     let plan = EncodePlan::new(1, ());
     assert_eq!(1, plan.max_output_units);

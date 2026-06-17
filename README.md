@@ -317,6 +317,15 @@ padding are handled by value helpers or future buffered layers.
 | `decode(text)` | Decode hexadecimal text into bytes |
 | `decode_into(text, output)` | Append decoded bytes into an existing `Vec<u8>` |
 
+### `HexByteCodec` Operations
+
+| Method or Trait | Description |
+|-----------------|-------------|
+| `new()` | Create a lowercase single-byte hex codec |
+| `upper()` | Create an uppercase single-byte hex codec |
+| `with_uppercase(enabled)` | Configure digit case |
+| `Codec<Value = u8, Unit = u8>` | Decode or encode one byte as exactly two ASCII hex units |
+
 ### `Base64Codec` Operations
 
 | Method | Alphabet | Padding | Description |

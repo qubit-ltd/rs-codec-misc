@@ -17,12 +17,72 @@ const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
 ];
 
+/// Encodes and decodes one byte as two ASCII hexadecimal units.
+///
+/// `HexByteCodec` is the low-level [`Codec`] implementation for streaming or
+/// generic codec call sites. It does not understand whole-string prefixes,
+/// per-byte prefixes, separators, or whitespace. Use [`HexCodec`] for owned
+/// byte-slice helpers with those formatting options.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HexByteCodec {
+    uppercase: bool,
+}
+
+impl HexByteCodec {
+    /// Creates a lowercase single-byte hexadecimal codec.
+    ///
+    /// # Returns
+    ///
+    /// A byte codec using lowercase digits.
+    #[must_use]
+    #[inline]
+    pub const fn new() -> Self {
+        Self { uppercase: false }
+    }
+
+    /// Creates an uppercase single-byte hexadecimal codec.
+    ///
+    /// # Returns
+    ///
+    /// A byte codec using uppercase digits.
+    #[must_use]
+    #[inline]
+    pub const fn upper() -> Self {
+        Self { uppercase: true }
+    }
+
+    /// Sets whether encoded digits should be uppercase.
+    ///
+    /// # Parameters
+    /// - `uppercase`: Whether to use uppercase hexadecimal digits.
+    ///
+    /// # Returns
+    /// The updated byte codec.
+    #[must_use]
+    #[inline]
+    pub const fn with_uppercase(mut self, uppercase: bool) -> Self {
+        self.uppercase = uppercase;
+        self
+    }
+
+    /// Returns whether this byte codec emits uppercase hexadecimal digits.
+    ///
+    /// # Returns
+    /// `true` when uppercase digits are selected.
+    #[must_use]
+    #[inline(always)]
+    pub const fn is_uppercase(self) -> bool {
+        self.uppercase
+    }
+}
+
 /// Encodes and decodes hexadecimal byte strings.
 ///
-/// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles
-/// exactly one byte as two ASCII hexadecimal units. Whole-string prefix,
-/// per-byte prefix, separator, and whitespace handling remain part of the owned
-/// [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
+/// `HexCodec` is an owned facade for whole byte slices. Whole-string prefix,
+/// per-byte prefix, separator, and whitespace handling are part of
+/// [`encode`](Self::encode) and [`decode`](Self::decode). Use
+/// [`HexByteCodec`] when a low-level [`Codec<Value = u8, Unit = u8>`] is
+/// required.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexCodec {
     /// Whether to use uppercase hexadecimal digits.
@@ -594,7 +654,7 @@ impl ValueDecoder<str> for HexCodec {
     }
 }
 
-unsafe impl Codec for HexCodec {
+unsafe impl Codec for HexByteCodec {
     type Value = u8;
     type Unit = u8;
     type DecodeError = MiscCodecError;

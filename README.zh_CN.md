@@ -289,6 +289,15 @@ fn main() {
 | `decode(text)` | 将十六进制文本解码为字节 |
 | `decode_into(text, output)` | 将解码字节追加到已有 `Vec<u8>` |
 
+### `HexByteCodec` 操作
+
+| 方法或 Trait | 描述 |
+|--------------|------|
+| `new()` | 创建小写的单字节 hex codec |
+| `upper()` | 创建大写的单字节 hex codec |
+| `with_uppercase(enabled)` | 配置字符大小写 |
+| `Codec<Value = u8, Unit = u8>` | 将一个 byte 编码或解码为正好两个 ASCII hex unit |
+
 ### `Base64Codec` 操作
 
 | 方法 | 字母表 | Padding | 描述 |
