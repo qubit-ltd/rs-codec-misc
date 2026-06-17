@@ -8,13 +8,13 @@
 //! Tests for the bidirectional codec trait.
 
 use qubit_codec_misc::{
-    Base64QuantumCodec, CStringLiteralCodec, Codec, FormUrlencodedCodec, HexCodec, MiscCodecError,
-    PercentCodec, ValueDecoder, ValueEncoder,
+    Base64QuantumCodec, CStringLiteralCodec, Codec, FormUrlencodedCodec, HexByteCodec, HexCodec,
+    MiscCodecError, PercentCodec, ValueDecoder, ValueEncoder,
 };
 
 #[test]
-fn test_codec_trait_decodes_and_encodes_single_hex_byte() {
-    let mut codec = HexCodec::upper().with_byte_prefix("0x").with_separator(":");
+fn test_hex_byte_codec_decodes_and_encodes_single_hex_byte() {
+    let mut codec = HexByteCodec::upper();
     let mut output = [0u8; 2];
 
     let (decoded, consumed) =
@@ -32,8 +32,8 @@ fn test_codec_trait_decodes_and_encodes_single_hex_byte() {
 }
 
 #[test]
-fn test_codec_trait_reports_single_hex_byte_errors() {
-    let mut codec = HexCodec::new();
+fn test_hex_byte_codec_reports_single_hex_byte_errors() {
+    let mut codec = HexByteCodec::new();
 
     let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }
         .expect_err("invalid high hex digit should fail");
