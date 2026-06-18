@@ -11,6 +11,7 @@ use crate::percent_codec::{
     percent_decode_byte, percent_decode_bytes, percent_encode_byte, percent_encode_bytes,
 };
 use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+use qubit_io;
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -90,13 +91,13 @@ unsafe impl Codec for FormUrlencodedCodec {
     /// Returns the shortest representation length for one byte.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        core::num::NonZeroUsize::MIN
+        qubit_io::nz!(1)
     }
 
     /// Returns the longest `%XX` representation length for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(3)
+        qubit_io::nz!(3)
     }
 
     /// Returns the exact form-url-encoded width for one byte.
@@ -106,9 +107,9 @@ unsafe impl Codec for FormUrlencodedCodec {
             || value.is_ascii_alphanumeric()
             || matches!(*value, b'-' | b'.' | b'_' | b'~')
         {
-            core::num::NonZeroUsize::MIN
+            qubit_io::nz!(1)
         } else {
-            qubit_codec::nz!(3)
+            qubit_io::nz!(3)
         }
     }
 
@@ -125,7 +126,7 @@ unsafe impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed = qubit_io::nz!(consumed);
         Ok((value, consumed))
     }
 

@@ -8,6 +8,7 @@
 //! Hexadecimal byte codec.
 
 use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+use qubit_io;
 
 const LOWER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
@@ -663,13 +664,13 @@ unsafe impl Codec for HexByteCodec {
     /// Returns the two hexadecimal digits needed for one byte.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(2)
+        qubit_io::nz!(2)
     }
 
     /// Returns the two hexadecimal digits needed for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(2)
+        qubit_io::nz!(2)
     }
 
     /// Decodes one byte from two ASCII hexadecimal digits.
@@ -685,7 +686,7 @@ unsafe impl Codec for HexByteCodec {
         let low_char = char::from(input[index + 1]);
         let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
         let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
-        Ok(((high << 4) | low, qubit_codec::nz!(2)))
+        Ok(((high << 4) | low, qubit_io::nz!(2)))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
@@ -700,7 +701,7 @@ unsafe impl Codec for HexByteCodec {
 
         output[index] = hex_digit(*value >> 4, self.uppercase) as u8;
         output[index + 1] = hex_digit(*value & 0x0f, self.uppercase) as u8;
-        Ok(qubit_codec::nz!(2))
+        Ok(qubit_io::nz!(2))
     }
 }
 

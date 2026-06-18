@@ -8,6 +8,7 @@
 //! C string literal byte codec.
 
 use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+use qubit_io;
 
 const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
@@ -115,13 +116,13 @@ unsafe impl Codec for CStringLiteralCodec {
     /// Returns the shortest representation length for one byte.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        core::num::NonZeroUsize::MIN
+        qubit_io::nz!(1)
     }
 
     /// Returns the longest supported universal escape length for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(10)
+        qubit_io::nz!(10)
     }
 
     /// Returns the exact C string literal width for one byte.
@@ -143,7 +144,7 @@ unsafe impl Codec for CStringLiteralCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed = qubit_io::nz!(consumed);
         Ok((value, consumed))
     }
 
@@ -606,10 +607,10 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 fn encoded_byte_len(byte: u8) -> core::num::NonZeroUsize {
     match byte {
         b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => {
-            qubit_codec::nz!(2)
+            qubit_io::nz!(2)
         }
-        b' '..=b'~' => core::num::NonZeroUsize::MIN,
-        _ => qubit_codec::nz!(4),
+        b' '..=b'~' => qubit_io::nz!(1),
+        _ => qubit_io::nz!(4),
     }
 }
 

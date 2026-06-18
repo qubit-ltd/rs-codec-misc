@@ -8,6 +8,7 @@
 //! Base64 quantum codec.
 
 use crate::{Codec, MiscCodecError, MiscCodecResult};
+use qubit_io;
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -102,13 +103,13 @@ unsafe impl Codec for Base64QuantumCodec {
     /// Returns the four Base64 units needed for one complete quantum.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(4)
+        qubit_io::nz!(4)
     }
 
     /// Returns the four Base64 units needed for one complete quantum.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(4)
+        qubit_io::nz!(4)
     }
 
     /// Decodes one complete four-unit Base64 quantum.
@@ -130,7 +131,7 @@ unsafe impl Codec for Base64QuantumCodec {
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            qubit_codec::nz!(4),
+            qubit_io::nz!(4),
         ))
     }
 
@@ -149,6 +150,6 @@ unsafe impl Codec for Base64QuantumCodec {
         output[index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
         output[index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[index + 3] = alphabet[(value[2] & 0x3f) as usize];
-        Ok(qubit_codec::nz!(4))
+        Ok(qubit_io::nz!(4))
     }
 }
