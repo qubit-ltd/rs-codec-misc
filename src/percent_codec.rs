@@ -8,6 +8,7 @@
 //! Percent text codec.
 
 use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
+use qubit_io;
 
 const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
@@ -91,22 +92,22 @@ unsafe impl Codec for PercentCodec {
     /// Returns the shortest representation length for one byte.
     #[inline(always)]
     fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        core::num::NonZeroUsize::MIN
+        qubit_io::nz!(1)
     }
 
     /// Returns the longest `%XX` representation length for one byte.
     #[inline(always)]
     fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_codec::nz!(3)
+        qubit_io::nz!(3)
     }
 
     /// Returns the exact percent-encoded width for one byte.
     #[inline(always)]
     fn encode_len(&self, value: &u8) -> core::num::NonZeroUsize {
         if is_unreserved(*value) {
-            core::num::NonZeroUsize::MIN
+            qubit_io::nz!(1)
         } else {
-            qubit_codec::nz!(3)
+            qubit_io::nz!(3)
         }
     }
 
@@ -123,7 +124,7 @@ unsafe impl Codec for PercentCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
-        let consumed = unsafe { core::num::NonZeroUsize::new_unchecked(consumed) };
+        let consumed = qubit_io::nz!(consumed);
         Ok((value, consumed))
     }
 
