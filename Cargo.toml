@@ -1,6 +1,6 @@
 [package]
 name = "qubit-codec-misc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.94"
 autotests = false
@@ -29,8 +29,8 @@ include = [
 
 [dependencies]
 base64 = "0.22"
-qubit-codec = { version = "0.8", path = "../rs-codec" }
-qubit-io = { version = "0.9", path = "../rs-io" }
+qubit-codec = { version = "0.9", path = "../rs-codec" }
+qubit-io = { version = "0.10", path = "../rs-io" }
 thiserror = "2.0"
 
 [[test]]

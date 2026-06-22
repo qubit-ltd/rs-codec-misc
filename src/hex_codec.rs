@@ -6,9 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Hexadecimal byte codec.
+// qubit-style: allow multiple-public-types
 
-use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
-use qubit_io;
+use crate::{
+    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
+    misc_codec_error::map_misc_decode_failure,
+};
 
 const LOWER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
@@ -71,7 +74,7 @@ impl HexByteCodec {
     /// # Returns
     /// `true` when uppercase digits are selected.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn is_uppercase(self) -> bool {
         self.uppercase
     }
@@ -655,23 +658,14 @@ impl ValueDecoder<str> for HexCodec {
     }
 }
 
-unsafe impl Codec for HexByteCodec {
+impl Codec for HexByteCodec {
     type Value = u8;
     type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
-    /// Returns the two hexadecimal digits needed for one byte.
-    #[inline(always)]
-    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(2)
-    }
-
-    /// Returns the two hexadecimal digits needed for one byte.
-    #[inline(always)]
-    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(2)
-    }
+    const MIN_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(2);
+    const MAX_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(2);
 
     /// Decodes one byte from two ASCII hexadecimal digits.
     #[inline]
@@ -679,13 +673,18 @@ unsafe impl Codec for HexByteCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
+    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::CodecDecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(index + 2 <= input.len());
 
         let high_char = char::from(input[index]);
         let low_char = char::from(input[index + 1]);
-        let high = hex_value(high_char).ok_or_else(|| invalid_hex_digit(index, high_char))?;
-        let low = hex_value(low_char).ok_or_else(|| invalid_hex_digit(index + 1, low_char))?;
+        let high = hex_value(high_char)
+            .ok_or_else(|| invalid_hex_digit(index, high_char))
+            .map_err(map_misc_decode_failure)?;
+        let low = hex_value(low_char)
+            .ok_or_else(|| invalid_hex_digit(index + 1, low_char))
+            .map_err(map_misc_decode_failure)?;
         Ok(((high << 4) | low, qubit_io::nz!(2)))
     }
 

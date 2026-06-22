@@ -7,8 +7,7 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{Codec, MiscCodecError, MiscCodecResult};
-use qubit_io;
+use crate::{Codec, MiscCodecError, MiscCodecResult, misc_codec_error::map_misc_decode_failure};
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -94,23 +93,14 @@ impl Default for Base64QuantumCodec {
     }
 }
 
-unsafe impl Codec for Base64QuantumCodec {
+impl Codec for Base64QuantumCodec {
     type Value = [u8; 3];
     type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
-    /// Returns the four Base64 units needed for one complete quantum.
-    #[inline(always)]
-    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(4)
-    }
-
-    /// Returns the four Base64 units needed for one complete quantum.
-    #[inline(always)]
-    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(4)
-    }
+    const MIN_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(4);
+    const MAX_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(4);
 
     /// Decodes one complete four-unit Base64 quantum.
     #[inline]
@@ -118,13 +108,24 @@ unsafe impl Codec for Base64QuantumCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<([u8; 3], core::num::NonZeroUsize), Self::DecodeError> {
+    ) -> Result<
+        ([u8; 3], core::num::NonZeroUsize),
+        qubit_codec::CodecDecodeFailure<Self::DecodeError>,
+    > {
         debug_assert!(index + 4 <= input.len());
 
-        let first = self.decode_unit(input[index], index)?;
-        let second = self.decode_unit(input[index + 1], index + 1)?;
-        let third = self.decode_unit(input[index + 2], index + 2)?;
-        let fourth = self.decode_unit(input[index + 3], index + 3)?;
+        let first = self
+            .decode_unit(input[index], index)
+            .map_err(map_misc_decode_failure)?;
+        let second = self
+            .decode_unit(input[index + 1], index + 1)
+            .map_err(map_misc_decode_failure)?;
+        let third = self
+            .decode_unit(input[index + 2], index + 2)
+            .map_err(map_misc_decode_failure)?;
+        let fourth = self
+            .decode_unit(input[index + 3], index + 3)
+            .map_err(map_misc_decode_failure)?;
         Ok((
             [
                 (first << 2) | (second >> 4),
