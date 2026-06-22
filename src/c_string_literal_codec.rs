@@ -7,8 +7,10 @@
 // =============================================================================
 //! C string literal byte codec.
 
-use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
-use qubit_io;
+use crate::{
+    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
+    misc_codec_error::map_misc_decode_failure,
+};
 
 const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
@@ -107,23 +109,14 @@ impl ValueDecoder<str> for CStringLiteralCodec {
     }
 }
 
-unsafe impl Codec for CStringLiteralCodec {
+impl Codec for CStringLiteralCodec {
     type Value = u8;
     type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
-    /// Returns the shortest representation length for one byte.
-    #[inline(always)]
-    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(1)
-    }
-
-    /// Returns the longest supported universal escape length for one byte.
-    #[inline(always)]
-    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(10)
-    }
+    const MIN_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(1);
+    const MAX_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(10);
 
     /// Returns the exact C string literal width for one byte.
     #[inline(always)]
@@ -137,10 +130,12 @@ unsafe impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
+    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::CodecDecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(index < input.len());
 
-        let (value, consumed) = decode_c_string_literal_byte(input, index)?;
+        let (value, consumed) =
+            decode_c_string_literal_byte(input, index).map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.

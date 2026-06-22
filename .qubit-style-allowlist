@@ -1,0 +1,1 @@
+multiple-public-types | src/hex_codec.rs | HexCodec and HexByteCodec share hexadecimal digit helpers and document the owned and streaming hex APIs together.

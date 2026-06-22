@@ -9,6 +9,7 @@
 
 use std::string::FromUtf8Error;
 
+use qubit_codec::CodecDecodeFailure;
 use thiserror::Error;
 
 /// Result alias returned by codec operations.
@@ -93,4 +94,12 @@ pub enum MiscCodecError {
         #[from]
         source: FromUtf8Error,
     },
+}
+
+#[inline]
+pub(crate) fn map_misc_decode_failure(error: MiscCodecError) -> CodecDecodeFailure<MiscCodecError> {
+    match error {
+        MiscCodecError::Incomplete { required, .. } => CodecDecodeFailure::incomplete(required),
+        error => CodecDecodeFailure::invalid_without_consumed(error),
+    }
 }

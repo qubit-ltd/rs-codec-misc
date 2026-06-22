@@ -7,6 +7,7 @@
 // =============================================================================
 //! Integration tests for qubit-codec-misc.
 
+mod assertions_tests;
 mod base64_codec_tests;
 mod c_integer_literal_codec_tests;
 mod c_string_literal_codec_tests;
@@ -18,3 +19,5 @@ mod hex_codec_tests;
 mod misc_codec_error_tests;
 mod percent_codec_tests;
 mod trait_tests;
+
+pub(crate) use assertions_tests::{incomplete_required, invalid_source};

@@ -7,8 +7,10 @@
 // =============================================================================
 //! Percent text codec.
 
-use crate::{Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
-use qubit_io;
+use crate::{
+    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
+    misc_codec_error::map_misc_decode_failure,
+};
 
 const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
@@ -83,23 +85,14 @@ impl ValueDecoder<str> for PercentCodec {
     }
 }
 
-unsafe impl Codec for PercentCodec {
+impl Codec for PercentCodec {
     type Value = u8;
     type Unit = u8;
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
-    /// Returns the shortest representation length for one byte.
-    #[inline(always)]
-    fn min_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(1)
-    }
-
-    /// Returns the longest `%XX` representation length for one byte.
-    #[inline(always)]
-    fn max_units_per_value(&self) -> core::num::NonZeroUsize {
-        qubit_io::nz!(3)
-    }
+    const MIN_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(1);
+    const MAX_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(3);
 
     /// Returns the exact percent-encoded width for one byte.
     #[inline(always)]
@@ -117,10 +110,12 @@ unsafe impl Codec for PercentCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), Self::DecodeError> {
+    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::CodecDecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(index < input.len());
 
-        let (value, consumed) = percent_decode_byte(input, index, false)?;
+        let (value, consumed) =
+            percent_decode_byte(input, index, false).map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.

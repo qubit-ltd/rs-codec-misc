@@ -313,7 +313,16 @@ fn decode_complete_fragment_through_codec_trait(
     let bytes = input.as_bytes();
     let mut index = 0;
     while index < bytes.len() {
-        let (decoded, consumed) = unsafe { Codec::decode(codec, bytes, index)? };
+        let (decoded, consumed) =
+            unsafe { Codec::decode(codec, bytes, index) }.map_err(|failure| match failure {
+                qubit_codec::CodecDecodeFailure::Invalid { source, .. } => source,
+                qubit_codec::CodecDecodeFailure::Incomplete { required_total } => {
+                    MiscCodecError::Incomplete {
+                        required: required_total,
+                        available: bytes.len().saturating_sub(index),
+                    }
+                }
+            })?;
         output.push(decoded);
         index += consumed.get();
     }
