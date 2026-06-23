@@ -7,7 +7,13 @@
 // =============================================================================
 //! Tests for C string literal byte encoding.
 
-use qubit_codec_misc::{CStringLiteralCodec, Codec, MiscCodecError, ValueDecoder, ValueEncoder};
+use qubit_codec_misc::{
+    CStringLiteralCodec,
+    Codec,
+    MiscCodecError,
+    ValueDecoder,
+    ValueEncoder,
+};
 
 #[test]
 fn test_decode_plain_text_and_simple_escapes() {
@@ -276,8 +282,9 @@ fn test_decode_matches_codec_trait_path_for_complete_fragments() {
         let owned = codec
             .decode(input)
             .expect("owned C string literal decoder should accept fixture");
-        let codec_trait = decode_complete_fragment_through_codec_trait(&mut codec, input)
-            .expect("Codec trait path should accept fixture");
+        let codec_trait =
+            decode_complete_fragment_through_codec_trait(&mut codec, input)
+                .expect("Codec trait path should accept fixture");
 
         assert_eq!(owned, codec_trait, "input {input:?}");
     }
@@ -313,15 +320,17 @@ fn decode_complete_fragment_through_codec_trait(
     let bytes = input.as_bytes();
     let mut index = 0;
     while index < bytes.len() {
-        let (decoded, consumed) =
-            unsafe { Codec::decode(codec, bytes, index) }.map_err(|failure| match failure {
-                qubit_codec::CodecDecodeFailure::Invalid { source, .. } => source,
-                qubit_codec::CodecDecodeFailure::Incomplete { required_total } => {
-                    MiscCodecError::Incomplete {
-                        required: required_total.get(),
-                        available: bytes.len().saturating_sub(index),
-                    }
+        let (decoded, consumed) = unsafe { Codec::decode(codec, bytes, index) }
+            .map_err(|failure| match failure {
+                qubit_codec::CodecDecodeFailure::Invalid { source, .. } => {
+                    source
                 }
+                qubit_codec::CodecDecodeFailure::Incomplete {
+                    required_total,
+                } => MiscCodecError::Incomplete {
+                    required: required_total,
+                    available: bytes.len().saturating_sub(index),
+                },
             })?;
         output.push(decoded);
         index += consumed.get();
