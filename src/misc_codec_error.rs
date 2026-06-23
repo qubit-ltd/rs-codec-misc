@@ -7,6 +7,7 @@
 // =============================================================================
 //! Shared codec error type.
 
+use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
 use qubit_codec::CodecDecodeFailure;
@@ -99,7 +100,23 @@ pub enum MiscCodecError {
 #[inline]
 pub(crate) fn map_misc_decode_failure(error: MiscCodecError) -> CodecDecodeFailure<MiscCodecError> {
     match error {
-        MiscCodecError::Incomplete { required, .. } => CodecDecodeFailure::incomplete(required),
+        MiscCodecError::Incomplete {
+            required,
+            available,
+        } => {
+            if let Some(required) = NonZeroUsize::new(required) {
+                CodecDecodeFailure::incomplete(required)
+            } else {
+                debug_assert!(
+                    required != 0,
+                    "incomplete misc codec errors must require non-zero units",
+                );
+                CodecDecodeFailure::invalid_without_consumed(MiscCodecError::Incomplete {
+                    required,
+                    available,
+                })
+            }
+        }
         error => CodecDecodeFailure::invalid_without_consumed(error),
     }
 }
