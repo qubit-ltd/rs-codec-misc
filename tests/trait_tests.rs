@@ -9,8 +9,8 @@
 
 use qubit_codec::{
     CodecDecodeError, CodecEncodeError, CodecTranscodeDecoder, CodecTranscodeEncoder,
-    CodecValueEncoder, EncodePlan, TranscodeDecodeEngine, TranscodeDecoder, TranscodeEncodeEngine,
-    TranscodeEncoder,
+    CodecValueEncoder, EncodeOutcome, TranscodeDecodeEngine, TranscodeDecoder,
+    TranscodeEncodeEngine, TranscodeEncoder,
 };
 use qubit_codec_misc::{
     FormUrlencodedCodec, HexByteCodec, HexCodec, PercentCodec, ValueDecoder, ValueEncoder,
@@ -49,8 +49,10 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     assert_transcode_decode_engine::<TranscodeDecodeEngine<HexByteCodec, ()>>();
     assert_transcode_encode_engine::<TranscodeEncodeEngine<HexByteCodec, ()>>();
 
-    let plan = EncodePlan::new(1, ());
-    assert_eq!(1, plan.max_output_units);
+    assert_eq!(
+        EncodeOutcome::consumed(1),
+        EncodeOutcome::Consumed { written: 1 }
+    );
     let encode_error = CodecEncodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(
         encode_error,

@@ -318,7 +318,7 @@ fn decode_complete_fragment_through_codec_trait(
                 qubit_codec::CodecDecodeFailure::Invalid { source, .. } => source,
                 qubit_codec::CodecDecodeFailure::Incomplete { required_total } => {
                     MiscCodecError::Incomplete {
-                        required: required_total,
+                        required: required_total.get(),
                         available: bytes.len().saturating_sub(index),
                     }
                 }
