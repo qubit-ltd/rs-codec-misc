@@ -8,12 +8,17 @@
 //! C string literal byte codec.
 
 use crate::{
-    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
+    Codec,
+    MiscCodecError,
+    MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
     misc_codec_error::map_misc_decode_failure,
 };
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+    'F',
 ];
 
 /// Encodes and decodes byte-oriented C string literal fragments.
@@ -130,12 +135,14 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::CodecDecodeFailure<Self::DecodeError>>
-    {
+    ) -> Result<
+        (u8, core::num::NonZeroUsize),
+        qubit_codec::CodecDecodeFailure<Self::DecodeError>,
+    > {
         debug_assert!(index < input.len());
 
-        let (value, consumed) =
-            decode_c_string_literal_byte(input, index).map_err(map_misc_decode_failure)?;
+        let (value, consumed) = decode_c_string_literal_byte(input, index)
+            .map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -192,13 +199,17 @@ impl CStringLiteralParseContext<'_> {
     /// # Returns
     /// A malformed escape error for complete text, or an incomplete-input error
     /// for streaming byte parsing.
-    fn trailing_escape_error(self, marker_index: usize, available: usize) -> MiscCodecError {
+    fn trailing_escape_error(
+        self,
+        marker_index: usize,
+        available: usize,
+    ) -> MiscCodecError {
         match self {
             Self::CompleteText(_) => {
                 invalid_escape(marker_index, "\\", "incomplete escape sequence")
             }
             Self::StreamingBytes => MiscCodecError::Incomplete {
-                required: 2,
+                required: qubit_io::nz!(2),
                 available,
             },
         }
@@ -233,7 +244,9 @@ impl CStringLiteralParseContext<'_> {
             Self::CompleteText(_) => {
                 "raw source character must be printable ASCII or allowed whitespace"
             }
-            Self::StreamingBytes => "raw source byte must be printable ASCII or allowed whitespace",
+            Self::StreamingBytes => {
+                "raw source byte must be printable ASCII or allowed whitespace"
+            }
         }
     }
 
@@ -299,8 +312,15 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 /// # Errors
 /// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
 #[inline]
-fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(u8, usize)> {
-    decode_c_string_literal_unit(input, index, CStringLiteralParseContext::StreamingBytes)
+fn decode_c_string_literal_byte(
+    input: &[u8],
+    index: usize,
+) -> MiscCodecResult<(u8, usize)> {
+    decode_c_string_literal_unit(
+        input,
+        index,
+        CStringLiteralParseContext::StreamingBytes,
+    )
 }
 
 /// Decodes one C string literal unit from `input`.
@@ -324,7 +344,7 @@ fn decode_c_string_literal_unit(
     let available = input.len().saturating_sub(index);
     if available == 0 {
         return Err(MiscCodecError::Incomplete {
-            required: 1,
+            required: qubit_io::nz!(1),
             available,
         });
     }
@@ -358,13 +378,13 @@ fn decode_c_string_literal_unit(
         }
         b'u' => {
             if !context.is_complete_text() {
-                ensure_fixed_escape_complete(available, 6)?;
+                ensure_fixed_escape_complete(available, qubit_io::nz!(6))?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
         }
         b'U' => {
             if !context.is_complete_text() {
-                ensure_fixed_escape_complete(available, 10)?;
+                ensure_fixed_escape_complete(available, qubit_io::nz!(10))?;
             }
             parse_fixed_hex_escape_units(input, index, 8, context)
         }
@@ -397,7 +417,7 @@ fn ensure_variable_hex_escape_complete(
 ) -> MiscCodecResult<()> {
     if available < 3 {
         return Err(MiscCodecError::Incomplete {
-            required: 3,
+            required: qubit_io::nz!(3),
             available,
         });
     }
@@ -413,8 +433,11 @@ fn ensure_variable_hex_escape_complete(
 /// # Errors
 /// Returns [`MiscCodecError::Incomplete`] when more units are required.
 #[inline]
-fn ensure_fixed_escape_complete(available: usize, required: usize) -> MiscCodecResult<()> {
-    if available < required {
+fn ensure_fixed_escape_complete(
+    available: usize,
+    required: core::num::NonZeroUsize,
+) -> MiscCodecResult<()> {
+    if available < required.get() {
         return Err(MiscCodecError::Incomplete {
             required,
             available,
@@ -601,7 +624,8 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 #[inline(always)]
 fn encoded_byte_len(byte: u8) -> core::num::NonZeroUsize {
     match byte {
-        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => {
+        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r'
+        | b'\t' | 0x0b => {
             qubit_io::nz!(2)
         }
         b' '..=b'~' => qubit_io::nz!(1),

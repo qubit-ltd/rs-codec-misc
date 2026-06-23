@@ -8,10 +8,17 @@
 //! `application/x-www-form-urlencoded` text codec.
 
 use crate::percent_codec::{
-    percent_decode_byte, percent_decode_bytes, percent_encode_byte, percent_encode_bytes,
+    percent_decode_byte,
+    percent_decode_bytes,
+    percent_encode_byte,
+    percent_encode_bytes,
 };
 use crate::{
-    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
+    Codec,
+    MiscCodecError,
+    MiscCodecResult,
+    ValueDecoder,
+    ValueEncoder,
     misc_codec_error::map_misc_decode_failure,
 };
 
@@ -58,7 +65,8 @@ impl FormUrlencodedCodec {
     /// are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?)
+            .map_err(MiscCodecError::from)
     }
 }
 
@@ -112,12 +120,14 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::CodecDecodeFailure<Self::DecodeError>>
-    {
+    ) -> Result<
+        (u8, core::num::NonZeroUsize),
+        qubit_codec::CodecDecodeFailure<Self::DecodeError>,
+    > {
         debug_assert!(index < input.len());
 
-        let (value, consumed) =
-            percent_decode_byte(input, index, true).map_err(map_misc_decode_failure)?;
+        let (value, consumed) = percent_decode_byte(input, index, true)
+            .map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.

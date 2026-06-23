@@ -20,10 +20,12 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
     /// Input ended before a complete codec value was available.
-    #[error("incomplete input: required {required} units, available {available}")]
+    #[error(
+        "incomplete input: required {required} units, available {available}"
+    )]
     Incomplete {
         /// Total units required from the current decode start.
-        required: usize,
+        required: NonZeroUsize,
         /// Units currently available from the current decode start.
         available: usize,
     },
@@ -97,25 +99,23 @@ pub enum MiscCodecError {
     },
 }
 
+impl MiscCodecError {
+    /// Converts this error into the failure type returned by
+    /// [`qubit_codec::Codec::decode`].
+    #[must_use]
+    #[inline]
+    pub fn into_codec_failure(self) -> CodecDecodeFailure<Self> {
+        map_misc_decode_failure(self)
+    }
+}
+
 #[inline]
-pub(crate) fn map_misc_decode_failure(error: MiscCodecError) -> CodecDecodeFailure<MiscCodecError> {
+pub(crate) fn map_misc_decode_failure(
+    error: MiscCodecError,
+) -> CodecDecodeFailure<MiscCodecError> {
     match error {
-        MiscCodecError::Incomplete {
-            required,
-            available,
-        } => {
-            if let Some(required) = NonZeroUsize::new(required) {
-                CodecDecodeFailure::incomplete(required)
-            } else {
-                debug_assert!(
-                    required != 0,
-                    "incomplete misc codec errors must require non-zero units",
-                );
-                CodecDecodeFailure::invalid_without_consumed(MiscCodecError::Incomplete {
-                    required,
-                    available,
-                })
-            }
+        MiscCodecError::Incomplete { required, .. } => {
+            CodecDecodeFailure::incomplete(required)
         }
         error => CodecDecodeFailure::invalid_without_consumed(error),
     }
