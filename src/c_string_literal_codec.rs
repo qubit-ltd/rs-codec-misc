@@ -134,15 +134,16 @@ impl Codec for CStringLiteralCodec {
     unsafe fn decode(
         &mut self,
         input: &[u8],
-        index: usize,
+        input_index: usize,
     ) -> Result<
         (u8, core::num::NonZeroUsize),
         qubit_codec::CodecDecodeFailure<Self::DecodeError>,
     > {
-        debug_assert!(index < input.len());
+        debug_assert!(input_index < input.len());
 
-        let (value, consumed) = decode_c_string_literal_byte(input, index)
-            .map_err(map_misc_decode_failure)?;
+        let (value, consumed) =
+            decode_c_string_literal_byte(input, input_index)
+                .map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -156,12 +157,12 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         value: &u8,
         output: &mut [u8],
-        index: usize,
+        output_index: usize,
     ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
         let required = encoded_byte_len(*value);
-        debug_assert!(index + required.get() <= output.len());
+        debug_assert!(output_index + required.get() <= output.len());
 
-        let written = write_encoded_byte(*value, output, index);
+        let written = write_encoded_byte(*value, output, output_index);
         debug_assert_eq!(written, required.get());
         Ok(required)
     }

@@ -119,14 +119,14 @@ impl Codec for FormUrlencodedCodec {
     unsafe fn decode(
         &mut self,
         input: &[u8],
-        index: usize,
+        input_index: usize,
     ) -> Result<
         (u8, core::num::NonZeroUsize),
         qubit_codec::CodecDecodeFailure<Self::DecodeError>,
     > {
-        debug_assert!(index < input.len());
+        debug_assert!(input_index < input.len());
 
-        let (value, consumed) = percent_decode_byte(input, index, true)
+        let (value, consumed) = percent_decode_byte(input, input_index, true)
             .map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
@@ -141,10 +141,10 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         value: &u8,
         output: &mut [u8],
-        index: usize,
+        output_index: usize,
     ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
         debug_assert!(
-            index
+            output_index
                 + if *value == b' '
                     || value.is_ascii_alphanumeric()
                     || matches!(*value, b'-' | b'.' | b'_' | b'~')
@@ -156,7 +156,7 @@ impl Codec for FormUrlencodedCodec {
                 <= output.len()
         );
 
-        let written = percent_encode_byte(*value, output, index, true);
+        let written = percent_encode_byte(*value, output, output_index, true);
         let required = <Self as Codec>::encode_len(self, value);
         debug_assert_eq!(written, required.get());
         Ok(required)
