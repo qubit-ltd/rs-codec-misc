@@ -112,24 +112,24 @@ impl Codec for Base64QuantumCodec {
     unsafe fn decode(
         &mut self,
         input: &[u8],
-        index: usize,
+        input_index: usize,
     ) -> Result<
         ([u8; 3], core::num::NonZeroUsize),
         qubit_codec::CodecDecodeFailure<Self::DecodeError>,
     > {
-        debug_assert!(index + 4 <= input.len());
+        debug_assert!(input_index + 4 <= input.len());
 
         let first = self
-            .decode_unit(input[index], index)
+            .decode_unit(input[input_index], input_index)
             .map_err(map_misc_decode_failure)?;
         let second = self
-            .decode_unit(input[index + 1], index + 1)
+            .decode_unit(input[input_index + 1], input_index + 1)
             .map_err(map_misc_decode_failure)?;
         let third = self
-            .decode_unit(input[index + 2], index + 2)
+            .decode_unit(input[input_index + 2], input_index + 2)
             .map_err(map_misc_decode_failure)?;
         let fourth = self
-            .decode_unit(input[index + 3], index + 3)
+            .decode_unit(input[input_index + 3], input_index + 3)
             .map_err(map_misc_decode_failure)?;
         Ok((
             [
@@ -147,17 +147,17 @@ impl Codec for Base64QuantumCodec {
         &mut self,
         value: &[u8; 3],
         output: &mut [u8],
-        index: usize,
+        output_index: usize,
     ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
-        debug_assert!(index + 4 <= output.len());
+        debug_assert!(output_index + 4 <= output.len());
 
         let alphabet = self.alphabet();
-        output[index] = alphabet[(value[0] >> 2) as usize];
-        output[index + 1] =
+        output[output_index] = alphabet[(value[0] >> 2) as usize];
+        output[output_index + 1] =
             alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[index + 2] =
+        output[output_index + 2] =
             alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
-        output[index + 3] = alphabet[(value[2] & 0x3f) as usize];
+        output[output_index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(qubit_io::nz!(4))
     }
 }

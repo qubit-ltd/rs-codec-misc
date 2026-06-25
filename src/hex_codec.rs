@@ -712,20 +712,20 @@ impl Codec for HexByteCodec {
     unsafe fn decode(
         &mut self,
         input: &[u8],
-        index: usize,
+        input_index: usize,
     ) -> Result<
         (u8, core::num::NonZeroUsize),
         qubit_codec::CodecDecodeFailure<Self::DecodeError>,
     > {
-        debug_assert!(index + 2 <= input.len());
+        debug_assert!(input_index + 2 <= input.len());
 
-        let high_char = char::from(input[index]);
-        let low_char = char::from(input[index + 1]);
+        let high_char = char::from(input[input_index]);
+        let low_char = char::from(input[input_index + 1]);
         let high = hex_value(high_char)
-            .ok_or_else(|| invalid_hex_digit(index, high_char))
+            .ok_or_else(|| invalid_hex_digit(input_index, high_char))
             .map_err(map_misc_decode_failure)?;
         let low = hex_value(low_char)
-            .ok_or_else(|| invalid_hex_digit(index + 1, low_char))
+            .ok_or_else(|| invalid_hex_digit(input_index + 1, low_char))
             .map_err(map_misc_decode_failure)?;
         Ok(((high << 4) | low, qubit_io::nz!(2)))
     }
@@ -736,12 +736,13 @@ impl Codec for HexByteCodec {
         &mut self,
         value: &u8,
         output: &mut [u8],
-        index: usize,
+        output_index: usize,
     ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
-        debug_assert!(index + 2 <= output.len());
+        debug_assert!(output_index + 2 <= output.len());
 
-        output[index] = hex_digit(*value >> 4, self.uppercase) as u8;
-        output[index + 1] = hex_digit(*value & 0x0f, self.uppercase) as u8;
+        output[output_index] = hex_digit(*value >> 4, self.uppercase) as u8;
+        output[output_index + 1] =
+            hex_digit(*value & 0x0f, self.uppercase) as u8;
         Ok(qubit_io::nz!(2))
     }
 }

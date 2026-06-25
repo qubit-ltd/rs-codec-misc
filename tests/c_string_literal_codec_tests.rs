@@ -318,22 +318,24 @@ fn decode_complete_fragment_through_codec_trait(
 ) -> Result<Vec<u8>, MiscCodecError> {
     let mut output = Vec::with_capacity(input.len());
     let bytes = input.as_bytes();
-    let mut index = 0;
-    while index < bytes.len() {
-        let (decoded, consumed) = unsafe { Codec::decode(codec, bytes, index) }
-            .map_err(|failure| match failure {
-                qubit_codec::CodecDecodeFailure::Invalid { source, .. } => {
-                    source
-                }
-                qubit_codec::CodecDecodeFailure::Incomplete {
-                    required_total,
-                } => MiscCodecError::Incomplete {
-                    required: required_total,
-                    available: bytes.len().saturating_sub(index),
+    let mut input_index = 0;
+    while input_index < bytes.len() {
+        let (decoded, consumed) =
+            unsafe { Codec::decode(codec, bytes, input_index) }.map_err(
+                |failure| match failure {
+                    qubit_codec::CodecDecodeFailure::Invalid {
+                        source, ..
+                    } => source,
+                    qubit_codec::CodecDecodeFailure::Incomplete {
+                        required_total,
+                    } => MiscCodecError::Incomplete {
+                        required: required_total,
+                        available: bytes.len().saturating_sub(input_index),
+                    },
                 },
-            })?;
+            )?;
         output.push(decoded);
-        index += consumed.get();
+        input_index += consumed.get();
     }
     Ok(output)
 }
