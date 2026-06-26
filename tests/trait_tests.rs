@@ -18,6 +18,7 @@ use qubit_codec::{
     TranscodeDecoder,
     TranscodeEncodeEngine,
     TranscodeEncoder,
+    TranscodeError,
 };
 use qubit_codec_misc::{
     FormUrlencodedCodec,
@@ -46,7 +47,9 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         T: ValueEncoder<
                 u8,
                 Output = Vec<u8>,
-                Error = CodecEncodeError<qubit_codec_misc::MiscCodecError>,
+                Error = TranscodeError<
+                    CodecEncodeError<qubit_codec_misc::MiscCodecError>,
+                >,
             >,
     >() {
     }
@@ -66,20 +69,19 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         EncodeOutcome::Consumed { written: 1 }
     );
     let encode_error =
-        CodecEncodeError::<core::convert::Infallible>::invalid_input_index(
-            2, 1,
-        );
+        CodecEncodeError::<core::convert::Infallible>::unencodable_value(2);
     assert!(matches!(
         encode_error,
-        CodecEncodeError::InvalidInputIndex { .. }
+        CodecEncodeError::UnencodableValue { .. }
     ));
     let decode_error =
-        CodecDecodeError::<core::convert::Infallible>::invalid_input_index(
-            2, 1,
-        );
+        CodecDecodeError::<core::convert::Infallible>::incomplete(2, 3, 1);
+    assert!(matches!(decode_error, CodecDecodeError::Incomplete { .. }));
+    let transcode_error =
+        TranscodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
     assert!(matches!(
-        decode_error,
-        CodecDecodeError::InvalidInputIndex { .. }
+        transcode_error,
+        TranscodeError::InvalidInputIndex { .. }
     ));
 }
 

@@ -323,10 +323,10 @@ fn decode_complete_fragment_through_codec_trait(
         let (decoded, consumed) =
             unsafe { Codec::decode(codec, bytes, input_index) }.map_err(
                 |failure| match failure {
-                    qubit_codec::CodecDecodeFailure::Invalid {
-                        source, ..
-                    } => source,
-                    qubit_codec::CodecDecodeFailure::Incomplete {
+                    qubit_codec::DecodeFailure::Invalid { source, .. } => {
+                        source
+                    }
+                    qubit_codec::DecodeFailure::Incomplete {
                         required_total,
                     } => MiscCodecError::Incomplete {
                         required: required_total,
