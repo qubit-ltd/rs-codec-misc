@@ -10,7 +10,7 @@
 use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
-use qubit_codec::CodecDecodeFailure;
+use qubit_codec::DecodeFailure;
 use thiserror::Error;
 
 /// Result alias returned by codec operations.
@@ -104,7 +104,7 @@ impl MiscCodecError {
     /// [`qubit_codec::Codec::decode`].
     #[must_use]
     #[inline]
-    pub fn into_codec_failure(self) -> CodecDecodeFailure<Self> {
+    pub fn into_codec_failure(self) -> DecodeFailure<Self> {
         map_misc_decode_failure(self)
     }
 }
@@ -112,11 +112,11 @@ impl MiscCodecError {
 #[inline]
 pub(crate) fn map_misc_decode_failure(
     error: MiscCodecError,
-) -> CodecDecodeFailure<MiscCodecError> {
+) -> DecodeFailure<MiscCodecError> {
     match error {
         MiscCodecError::Incomplete { required, .. } => {
-            CodecDecodeFailure::incomplete(required)
+            DecodeFailure::incomplete(required)
         }
-        error => CodecDecodeFailure::invalid_without_consumed(error),
+        error => DecodeFailure::invalid_without_consumed(error),
     }
 }
