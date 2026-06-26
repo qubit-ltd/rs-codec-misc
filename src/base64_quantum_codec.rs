@@ -115,7 +115,7 @@ impl Codec for Base64QuantumCodec {
         input_index: usize,
     ) -> Result<
         ([u8; 3], core::num::NonZeroUsize),
-        qubit_codec::CodecDecodeFailure<Self::DecodeError>,
+        qubit_codec::DecodeFailure<Self::DecodeError>,
     > {
         debug_assert!(input_index + 4 <= input.len());
 
