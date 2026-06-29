@@ -9,10 +9,7 @@
 
 use std::error::Error;
 
-use qubit_codec_misc::{
-    MiscCodecError,
-    MiscCodecResult,
-};
+use qubit_codec_misc::{MiscCodecError, MiscCodecResult};
 
 #[test]
 fn test_misc_misc_codec_error_display_messages_include_context() {
@@ -71,8 +68,7 @@ fn test_misc_misc_codec_error_display_messages_include_context() {
 
 #[test]
 fn test_misc_misc_codec_error_wraps_utf8_source_error() {
-    let error =
-        String::from_utf8(vec![0xff]).expect_err("invalid utf-8 should fail");
+    let error = String::from_utf8(vec![0xff]).expect_err("invalid utf-8 should fail");
     let error = MiscCodecError::from(error);
 
     assert_eq!(
@@ -92,9 +88,7 @@ fn test_misc_codec_result_alias_uses_misc_codec_error() {
 
     let error = decode_stub().expect_err("stub should return misc codec error");
 
-    assert!(
-        matches!(error, MiscCodecError::MissingPrefix { prefix } if prefix == "#")
-    );
+    assert!(matches!(error, MiscCodecError::MissingPrefix { prefix } if prefix == "#"));
 }
 
 #[test]
