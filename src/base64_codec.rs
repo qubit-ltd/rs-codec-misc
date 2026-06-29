@@ -8,19 +8,9 @@
 //! Base64 byte codec.
 
 use ::base64::Engine;
-use ::base64::engine::general_purpose::{
-    STANDARD,
-    STANDARD_NO_PAD,
-    URL_SAFE,
-    URL_SAFE_NO_PAD,
-};
+use ::base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::{MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder};
 
 /// Encodes and decodes Base64 byte strings.
 ///
@@ -106,12 +96,12 @@ impl Base64Codec {
     /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine().decode(text).map_err(|source| {
-            MiscCodecError::InvalidInput {
+        self.engine()
+            .decode(text)
+            .map_err(|source| MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: source.to_string(),
-            }
-        })
+            })
     }
 
     /// Selects the concrete Base64 engine.
@@ -139,7 +129,14 @@ impl Default for Base64Codec {
 
 impl ValueEncoder<[u8]> for Base64Codec {
     type Error = MiscCodecError;
+    type DomainError = MiscCodecError;
     type Output = String;
+
+    /// Maps Base64 domain errors to the public value-encoder error.
+    #[inline(always)]
+    fn map_error(&self, error: Self::DomainError) -> Self::Error {
+        error
+    }
 
     /// Encodes bytes into Base64 text.
     #[inline]
@@ -150,7 +147,14 @@ impl ValueEncoder<[u8]> for Base64Codec {
 
 impl ValueDecoder<str> for Base64Codec {
     type Error = MiscCodecError;
+    type DomainError = MiscCodecError;
     type Output = Vec<u8>;
+
+    /// Maps Base64 domain errors to the public value-decoder error.
+    #[inline(always)]
+    fn map_error(&self, error: Self::DomainError) -> Self::Error {
+        error
+    }
 
     /// Decodes Base64 text into bytes.
     #[inline]
