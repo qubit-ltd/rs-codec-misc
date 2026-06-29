@@ -20,9 +20,7 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
     /// Input ended before a complete codec value was available.
-    #[error(
-        "incomplete input: required {required} units, available {available}"
-    )]
+    #[error("incomplete input: required {required} units, available {available}")]
     Incomplete {
         /// Total units required from the current decode start.
         required: NonZeroUsize,
@@ -110,13 +108,9 @@ impl MiscCodecError {
 }
 
 #[inline]
-pub(crate) fn map_misc_decode_failure(
-    error: MiscCodecError,
-) -> DecodeFailure<MiscCodecError> {
+pub(crate) fn map_misc_decode_failure(error: MiscCodecError) -> DecodeFailure<MiscCodecError> {
     match error {
-        MiscCodecError::Incomplete { required, .. } => {
-            DecodeFailure::incomplete(required)
-        }
+        MiscCodecError::Incomplete { required, .. } => DecodeFailure::incomplete(required),
         error => DecodeFailure::invalid_without_consumed(error),
     }
 }

@@ -7,11 +7,7 @@
 // =============================================================================
 //! C integer literal decoder.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-};
+use crate::{MiscCodecError, MiscCodecResult, ValueDecoder};
 
 /// Decodes non-negative C integer literal fragments.
 ///
@@ -51,19 +47,22 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix).map_err(
-            |error| {
-                invalid_c_integer_input(&format!(
-                    "integer literal is out of range: {error}"
-                ))
-            },
-        )
+        u64::from_str_radix(components.digits, components.radix).map_err(|error| {
+            invalid_c_integer_input(&format!("integer literal is out of range: {error}"))
+        })
     }
 }
 
 impl ValueDecoder<str> for CIntegerLiteralCodec {
     type Error = MiscCodecError;
+    type DomainError = MiscCodecError;
     type Output = u64;
+
+    /// Maps C integer literal domain errors to the public decoder error.
+    #[inline(always)]
+    fn map_error(&self, error: Self::DomainError) -> Self::Error {
+        error
+    }
 
     /// Decodes a C integer literal into a `u64`.
     #[inline]
