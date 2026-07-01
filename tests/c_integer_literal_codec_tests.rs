@@ -7,11 +7,7 @@
 // =============================================================================
 //! Tests for C integer literal decoding.
 
-use qubit_codec_misc::{
-    CIntegerLiteralCodec,
-    MiscCodecError,
-    ValueDecoder,
-};
+use qubit_codec_misc::{CIntegerLiteralCodec, MiscCodecError, ValueDecoder};
 
 #[test]
 fn test_decode_decimal_octal_and_hex_literals() {
