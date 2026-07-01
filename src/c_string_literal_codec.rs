@@ -8,17 +8,12 @@
 //! C string literal byte codec.
 
 use crate::{
-    Codec,
-    MiscCodecError,
-    MiscCodecResult,
-    ValueDecoder,
-    ValueEncoder,
+    Codec, MiscCodecError, MiscCodecResult, ValueDecoder, ValueEncoder,
     misc_codec_error::map_misc_decode_failure,
 };
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-    'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
 ];
 
 /// Encodes and decodes byte-oriented C string literal fragments.
@@ -139,7 +134,7 @@ impl Codec for CStringLiteralCodec {
 
     /// Returns the exact C string literal width for one byte.
     #[inline(always)]
-    fn encode_len(&self, value: &u8) -> core::num::NonZeroUsize {
+    fn encode_len(&self, value: &u8) -> usize {
         encoded_byte_len(*value)
     }
 
@@ -149,15 +144,11 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), qubit_codec::DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) =
-            decode_c_string_literal_byte(input, input_index)
-                .map_err(map_misc_decode_failure)?;
+            decode_c_string_literal_byte(input, input_index).map_err(map_misc_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -172,12 +163,12 @@ impl Codec for CStringLiteralCodec {
         value: &u8,
         output: &mut [u8],
         output_index: usize,
-    ) -> Result<core::num::NonZeroUsize, Self::EncodeError> {
+    ) -> Result<usize, Self::EncodeError> {
         let required = encoded_byte_len(*value);
-        debug_assert!(output_index + required.get() <= output.len());
+        debug_assert!(output_index + required <= output.len());
 
         let written = write_encoded_byte(*value, output, output_index);
-        debug_assert_eq!(written, required.get());
+        debug_assert_eq!(written, required);
         Ok(required)
     }
 }
@@ -214,11 +205,7 @@ impl CStringLiteralParseContext<'_> {
     /// # Returns
     /// A malformed escape error for complete text, or an incomplete-input error
     /// for streaming byte parsing.
-    fn trailing_escape_error(
-        self,
-        marker_index: usize,
-        available: usize,
-    ) -> MiscCodecError {
+    fn trailing_escape_error(self, marker_index: usize, available: usize) -> MiscCodecError {
         match self {
             Self::CompleteText(_) => {
                 invalid_escape(marker_index, "\\", "incomplete escape sequence")
@@ -259,9 +246,7 @@ impl CStringLiteralParseContext<'_> {
             Self::CompleteText(_) => {
                 "raw source character must be printable ASCII or allowed whitespace"
             }
-            Self::StreamingBytes => {
-                "raw source byte must be printable ASCII or allowed whitespace"
-            }
+            Self::StreamingBytes => "raw source byte must be printable ASCII or allowed whitespace",
         }
     }
 
@@ -327,15 +312,8 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 /// # Errors
 /// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
 #[inline]
-fn decode_c_string_literal_byte(
-    input: &[u8],
-    index: usize,
-) -> MiscCodecResult<(u8, usize)> {
-    decode_c_string_literal_unit(
-        input,
-        index,
-        CStringLiteralParseContext::StreamingBytes,
-    )
+fn decode_c_string_literal_byte(input: &[u8], index: usize) -> MiscCodecResult<(u8, usize)> {
+    decode_c_string_literal_unit(input, index, CStringLiteralParseContext::StreamingBytes)
 }
 
 /// Decodes one C string literal unit from `input`.
@@ -637,14 +615,11 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 /// Number of units written by [`write_encoded_byte`].
 #[must_use]
 #[inline(always)]
-fn encoded_byte_len(byte: u8) -> core::num::NonZeroUsize {
+fn encoded_byte_len(byte: u8) -> usize {
     match byte {
-        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r'
-        | b'\t' | 0x0b => {
-            qubit_io::nz!(2)
-        }
-        b' '..=b'~' => qubit_io::nz!(1),
-        _ => qubit_io::nz!(4),
+        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
+        b' '..=b'~' => 1,
+        _ => 4,
     }
 }
 
