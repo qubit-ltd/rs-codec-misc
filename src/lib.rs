@@ -29,11 +29,29 @@ pub use base64_quantum_codec::Base64QuantumCodec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
-pub use hex_codec::{HexByteCodec, HexCodec};
-pub use misc_codec_error::{MiscCodecError, MiscCodecResult};
+pub use hex_codec::{
+    HexByteCodec,
+    HexCodec,
+};
+pub use misc_codec_error::{
+    MiscCodecError,
+    MiscCodecResult,
+};
 pub use percent_codec::PercentCodec;
-pub use qubit_codec::engine::{TranscodeDecodeEngine, TranscodeEncodeEngine};
+pub use qubit_codec::engine::{
+    TranscodeDecodeEngine,
+    TranscodeEncodeEngine,
+};
 pub use qubit_codec::{
-    Codec, CodecTranscodeDecoder, CodecTranscodeEncoder, CodecValueEncoder, TranscodeDecoder,
-    TranscodeEncoder, TranscodeProgress, TranscodeStatus, Transcoder, ValueDecoder, ValueEncoder,
+    Codec,
+    CodecTranscodeDecoder,
+    CodecTranscodeEncoder,
+    CodecValueEncoder,
+    TranscodeDecoder,
+    TranscodeEncoder,
+    TranscodeProgress,
+    TranscodeStatus,
+    Transcoder,
+    ValueDecoder,
+    ValueEncoder,
 };
