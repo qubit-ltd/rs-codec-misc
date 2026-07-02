@@ -7,7 +7,12 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{Codec, MiscCodecError, MiscCodecResult, misc_codec_error::map_misc_decode_failure};
+use crate::{
+    Codec,
+    MiscCodecError,
+    MiscCodecResult,
+    misc_codec_error::map_misc_decode_failure,
+};
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -99,8 +104,8 @@ impl Codec for Base64QuantumCodec {
     type DecodeError = MiscCodecError;
     type EncodeError = MiscCodecError;
 
-    const MIN_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(4);
-    const MAX_UNITS_PER_VALUE: core::num::NonZeroUsize = qubit_io::nz!(4);
+    const MIN_UNITS_PER_VALUE: usize = 4;
+    const MAX_UNITS_PER_VALUE: usize = 4;
 
     /// Decodes one complete four-unit Base64 quantum.
     #[inline]
@@ -108,8 +113,10 @@ impl Codec for Base64QuantumCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<([u8; 3], core::num::NonZeroUsize), qubit_codec::DecodeFailure<Self::DecodeError>>
-    {
+    ) -> Result<
+        ([u8; 3], core::num::NonZeroUsize),
+        qubit_codec::DecodeFailure<Self::DecodeError>,
+    > {
         debug_assert!(input_index + 4 <= input.len());
 
         let first = self
@@ -146,8 +153,10 @@ impl Codec for Base64QuantumCodec {
 
         let alphabet = self.alphabet();
         output[output_index] = alphabet[(value[0] >> 2) as usize];
-        output[output_index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[output_index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[output_index + 1] =
+            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[output_index + 2] =
+            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[output_index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(4)
     }
