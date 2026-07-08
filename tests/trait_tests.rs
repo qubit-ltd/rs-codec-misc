@@ -11,9 +11,10 @@ use qubit_codec::{
     CodecTranscodeDecoder,
     CodecTranscodeEncoder,
     CodecValueEncoder,
+    TranscodeDecodeError,
     TranscodeDecoder,
+    TranscodeEncodeError,
     TranscodeEncoder,
-    TranscodeError,
     TranscodeFailure,
     engine::{
         EncodeOutcome,
@@ -21,17 +22,15 @@ use qubit_codec::{
         TranscodeEncodeEngine,
     },
 };
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
 use qubit_codec_misc::{
-    Base64Codec,
-    CIntegerLiteralCodec,
-    CStringLiteralCodec,
     FormUrlencodedCodec,
     HexByteCodec,
     HexCodec,
-    MiscCodecError,
     PercentCodec,
-    ValueDecoder,
-    ValueEncoder,
 };
 
 #[test]
@@ -52,7 +51,10 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         T: ValueEncoder<
                 u8,
                 Output = Vec<u8>,
-                Error = TranscodeError<qubit_codec_misc::MiscCodecError, u8>,
+                Error = TranscodeEncodeError<
+                    qubit_codec_misc::MiscCodecError,
+                    u8,
+                >,
             >,
     >() {
     }
@@ -78,24 +80,30 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         EncodeOutcome::Consumed { written: 1 }
     );
     let encode_error =
-        TranscodeError::<core::convert::Infallible, u8>::unencodable_value(
+        TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(
             2, 0xff,
         );
     assert!(matches!(
         encode_error,
-        TranscodeError::Failure(TranscodeFailure::UnencodableValue { .. })
+        TranscodeEncodeError::Unencodable { .. }
     ));
     let decode_error =
-        TranscodeError::<core::convert::Infallible>::incomplete_input(2, 3, 1);
+        TranscodeDecodeError::<core::convert::Infallible>::incomplete_input(
+            2, 3, 1,
+        );
     assert!(matches!(
         decode_error,
-        TranscodeError::Failure(TranscodeFailure::IncompleteInput { .. })
+        TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput { .. })
     ));
     let transcode_error =
-        TranscodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
+        TranscodeDecodeError::<core::convert::Infallible>::invalid_input_index(
+            2, 1,
+        );
     assert!(matches!(
         transcode_error,
-        TranscodeError::Failure(TranscodeFailure::InvalidInputIndex { .. })
+        TranscodeDecodeError::Failure(
+            TranscodeFailure::InvalidInputIndex { .. }
+        )
     ));
 }
 
@@ -121,91 +129,4 @@ fn test_value_traits_accept_text_codecs() {
 
     assert_eq!("a b", roundtrip(PercentCodec::new(), "a b"));
     assert_eq!("a b", roundtrip(FormUrlencodedCodec::new(), "a b"));
-}
-
-#[test]
-fn test_value_trait_map_error_methods_return_domain_errors() {
-    fn sample_error() -> MiscCodecError {
-        MiscCodecError::InvalidInput {
-            codec: "test",
-            reason: "sample".to_owned(),
-        }
-    }
-
-    assert_eq!(
-        "invalid test input: sample",
-        ValueEncoder::<[u8]>::map_error(
-            &Base64Codec::standard(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(
-            &Base64Codec::standard(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueEncoder::<[u8]>::map_error(
-            &CStringLiteralCodec::new(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(
-            &CStringLiteralCodec::new(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(
-            &CIntegerLiteralCodec::new(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueEncoder::<str>::map_error(&PercentCodec::new(), sample_error())
-            .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(&PercentCodec::new(), sample_error())
-            .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueEncoder::<str>::map_error(
-            &FormUrlencodedCodec::new(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(
-            &FormUrlencodedCodec::new(),
-            sample_error()
-        )
-        .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueEncoder::<[u8]>::map_error(&HexCodec::new(), sample_error())
-            .to_string(),
-    );
-    assert_eq!(
-        "invalid test input: sample",
-        ValueDecoder::<str>::map_error(&HexCodec::new(), sample_error())
-            .to_string(),
-    );
 }

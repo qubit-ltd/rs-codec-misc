@@ -7,10 +7,10 @@
 // =============================================================================
 //! Tests for C integer literal decoding.
 
+use qubit_codec::ValueDecoder;
 use qubit_codec_misc::{
     CIntegerLiteralCodec,
     MiscCodecError,
-    ValueDecoder,
 };
 
 #[test]

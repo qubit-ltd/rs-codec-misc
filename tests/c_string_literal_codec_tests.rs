@@ -7,12 +7,14 @@
 // =============================================================================
 //! Tests for C string literal byte encoding.
 
-use qubit_codec_misc::{
-    CStringLiteralCodec,
+use qubit_codec::{
     Codec,
-    MiscCodecError,
     ValueDecoder,
     ValueEncoder,
+};
+use qubit_codec_misc::{
+    CStringLiteralCodec,
+    MiscCodecError,
 };
 
 #[test]
@@ -324,9 +326,6 @@ fn decode_complete_fragment_through_codec_trait(
             unsafe { Codec::decode(codec, bytes, input_index) }.map_err(
                 |failure| match failure {
                     qubit_codec::DecodeFailure::Invalid { source, .. } => {
-                        source
-                    }
-                    qubit_codec::DecodeFailure::InvalidUnknown { source } => {
                         source
                     }
                     qubit_codec::DecodeFailure::Incomplete {
