@@ -7,17 +7,19 @@
 // =============================================================================
 //! Tests for the bidirectional codec trait.
 
+use qubit_codec::{
+    Codec,
+    ValueDecoder,
+    ValueEncoder,
+};
 use qubit_codec_misc::{
     Base64QuantumCodec,
     CStringLiteralCodec,
-    Codec,
     FormUrlencodedCodec,
     HexByteCodec,
     HexCodec,
     MiscCodecError,
     PercentCodec,
-    ValueDecoder,
-    ValueEncoder,
 };
 
 #[test]

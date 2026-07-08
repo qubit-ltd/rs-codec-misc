@@ -8,12 +8,14 @@
 //! Percent text codec.
 
 use crate::{
-    Codec,
     MiscCodecError,
     MiscCodecResult,
+    misc_codec_error::map_misc_decode_failure,
+};
+use qubit_codec::{
+    Codec,
     ValueDecoder,
     ValueEncoder,
-    misc_codec_error::map_misc_decode_failure,
 };
 
 const UPPER_HEX_DIGITS: [char; 16] = [
@@ -71,14 +73,7 @@ impl PercentCodec {
 
 impl ValueEncoder<str> for PercentCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps percent-encoding domain errors to the public encoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Encodes text using percent encoding.
     #[inline]
@@ -89,14 +84,7 @@ impl ValueEncoder<str> for PercentCodec {
 
 impl ValueDecoder<str> for PercentCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps percent-encoding domain errors to the public decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Decodes percent-encoded text.
     #[inline]

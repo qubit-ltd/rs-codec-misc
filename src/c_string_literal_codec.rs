@@ -8,12 +8,14 @@
 //! C string literal byte codec.
 
 use crate::{
-    Codec,
     MiscCodecError,
     MiscCodecResult,
+    misc_codec_error::map_misc_decode_failure,
+};
+use qubit_codec::{
+    Codec,
     ValueDecoder,
     ValueEncoder,
-    misc_codec_error::map_misc_decode_failure,
 };
 
 const UPPER_HEX_DIGITS: [char; 16] = [
@@ -94,14 +96,7 @@ impl CStringLiteralCodec {
 
 impl ValueEncoder<[u8]> for CStringLiteralCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps C string literal domain errors to the public encoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Encodes bytes into a C string literal fragment.
     #[inline]
@@ -112,14 +107,7 @@ impl ValueEncoder<[u8]> for CStringLiteralCodec {
 
 impl ValueDecoder<str> for CStringLiteralCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = Vec<u8>;
-
-    /// Maps C string literal domain errors to the public decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Decodes a C string literal fragment into bytes.
     #[inline]

@@ -9,12 +9,14 @@
 // qubit-style: allow multiple-public-types
 
 use crate::{
-    Codec,
     MiscCodecError,
     MiscCodecResult,
+    misc_codec_error::map_misc_decode_failure,
+};
+use qubit_codec::{
+    Codec,
     ValueDecoder,
     ValueEncoder,
-    misc_codec_error::map_misc_decode_failure,
 };
 
 const LOWER_HEX_DIGITS: [char; 16] = [
@@ -678,14 +680,7 @@ impl Default for HexCodec {
 
 impl ValueEncoder<[u8]> for HexCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps hexadecimal domain errors to the public encoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Encodes bytes into hexadecimal text.
     #[inline]
@@ -696,14 +691,7 @@ impl ValueEncoder<[u8]> for HexCodec {
 
 impl ValueDecoder<str> for HexCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = Vec<u8>;
-
-    /// Maps hexadecimal domain errors to the public decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Decodes hexadecimal text into bytes.
     #[inline]

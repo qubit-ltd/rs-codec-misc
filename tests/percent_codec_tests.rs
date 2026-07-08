@@ -7,11 +7,13 @@
 // =============================================================================
 //! Tests for percent encoding.
 
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
 use qubit_codec_misc::{
     MiscCodecError,
     PercentCodec,
-    ValueDecoder,
-    ValueEncoder,
 };
 
 #[test]
