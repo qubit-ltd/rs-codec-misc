@@ -18,6 +18,8 @@ use ::base64::engine::general_purpose::{
 use crate::{
     MiscCodecError,
     MiscCodecResult,
+};
+use qubit_codec::{
     ValueDecoder,
     ValueEncoder,
 };
@@ -27,11 +29,19 @@ use crate::{
 /// This facade intentionally remains a whole-value codec backed by the
 /// `base64` crate. Final partial quantum handling and optional `=` padding are
 /// facade/transcoder responsibilities, not part of the low-level quantum codec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Base64Codec {
-    url_safe: bool,
-    padding: bool,
+    engine: &'static ::base64::engine::GeneralPurpose,
 }
+
+impl PartialEq for Base64Codec {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        core::ptr::eq(self.engine, other.engine)
+    }
+}
+
+impl Eq for Base64Codec {}
 
 impl Base64Codec {
     /// Creates a standard Base64 codec with padding.
@@ -40,10 +50,7 @@ impl Base64Codec {
     /// Standard Base64 codec.
     #[inline]
     pub fn standard() -> Self {
-        Self {
-            url_safe: false,
-            padding: true,
-        }
+        Self { engine: &STANDARD }
     }
 
     /// Creates a standard Base64 codec without padding.
@@ -53,8 +60,7 @@ impl Base64Codec {
     #[inline]
     pub fn standard_no_pad() -> Self {
         Self {
-            url_safe: false,
-            padding: false,
+            engine: &STANDARD_NO_PAD,
         }
     }
 
@@ -64,10 +70,7 @@ impl Base64Codec {
     /// URL-safe Base64 codec.
     #[inline]
     pub fn url_safe() -> Self {
-        Self {
-            url_safe: true,
-            padding: true,
-        }
+        Self { engine: &URL_SAFE }
     }
 
     /// Creates a URL-safe Base64 codec without padding.
@@ -77,8 +80,7 @@ impl Base64Codec {
     #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self {
-            url_safe: true,
-            padding: false,
+            engine: &URL_SAFE_NO_PAD,
         }
     }
 
@@ -91,7 +93,7 @@ impl Base64Codec {
     /// Encoded Base64 text.
     #[inline]
     pub fn encode(&self, bytes: &[u8]) -> String {
-        self.engine().encode(bytes)
+        self.engine.encode(bytes)
     }
 
     /// Decodes Base64 text into bytes.
@@ -106,26 +108,12 @@ impl Base64Codec {
     /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine().decode(text).map_err(|source| {
+        self.engine.decode(text).map_err(|source| {
             MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: source.to_string(),
             }
         })
-    }
-
-    /// Selects the concrete Base64 engine.
-    ///
-    /// # Returns
-    /// Base64 engine matching this codec's alphabet and padding settings.
-    #[inline(always)]
-    fn engine(&self) -> &'static ::base64::engine::GeneralPurpose {
-        match (self.url_safe, self.padding) {
-            (false, true) => &STANDARD,
-            (false, false) => &STANDARD_NO_PAD,
-            (true, true) => &URL_SAFE,
-            (true, false) => &URL_SAFE_NO_PAD,
-        }
     }
 }
 
@@ -139,17 +127,10 @@ impl Default for Base64Codec {
 
 impl ValueEncoder<[u8]> for Base64Codec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
 
-    /// Maps Base64 domain errors to the public value-encoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
-
     /// Encodes bytes into Base64 text.
-    #[inline]
+    #[inline(always)]
     fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(Base64Codec::encode(self, input))
     }
@@ -157,17 +138,10 @@ impl ValueEncoder<[u8]> for Base64Codec {
 
 impl ValueDecoder<str> for Base64Codec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = Vec<u8>;
 
-    /// Maps Base64 domain errors to the public value-decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
-
     /// Decodes Base64 text into bytes.
-    #[inline]
+    #[inline(always)]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         Base64Codec::decode(self, input)
     }

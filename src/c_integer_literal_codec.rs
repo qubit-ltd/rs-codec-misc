@@ -10,8 +10,8 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
-    ValueDecoder,
 };
+use qubit_codec::ValueDecoder;
 
 /// Decodes non-negative C integer literal fragments.
 ///
@@ -63,14 +63,7 @@ impl CIntegerLiteralCodec {
 
 impl ValueDecoder<str> for CIntegerLiteralCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = u64;
-
-    /// Maps C integer literal domain errors to the public decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Decodes a C integer literal into a `u64`.
     #[inline]

@@ -14,12 +14,14 @@ use crate::percent_codec::{
     percent_encode_bytes,
 };
 use crate::{
-    Codec,
     MiscCodecError,
     MiscCodecResult,
+    misc_codec_error::map_misc_decode_failure,
+};
+use qubit_codec::{
+    Codec,
     ValueDecoder,
     ValueEncoder,
-    misc_codec_error::map_misc_decode_failure,
 };
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
@@ -72,14 +74,7 @@ impl FormUrlencodedCodec {
 
 impl ValueEncoder<str> for FormUrlencodedCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps form-url-encoded domain errors to the public encoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Encodes text, using `+` for spaces.
     #[inline]
@@ -90,14 +85,7 @@ impl ValueEncoder<str> for FormUrlencodedCodec {
 
 impl ValueDecoder<str> for FormUrlencodedCodec {
     type Error = MiscCodecError;
-    type DomainError = MiscCodecError;
     type Output = String;
-
-    /// Maps form-url-encoded domain errors to the public decoder error.
-    #[inline(always)]
-    fn map_error(&self, error: Self::DomainError) -> Self::Error {
-        error
-    }
 
     /// Decodes form-url-encoded text.
     #[inline]

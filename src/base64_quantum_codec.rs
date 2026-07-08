@@ -8,10 +8,14 @@
 //! Base64 quantum codec.
 
 use crate::{
-    Codec,
     MiscCodecError,
     MiscCodecResult,
     misc_codec_error::map_misc_decode_failure,
+};
+use core::num::NonZeroUsize;
+use qubit_codec::{
+    Codec,
+    DecodeFailure,
 };
 
 /// Encodes and decodes one complete Base64 quantum.
@@ -68,7 +72,6 @@ impl Base64QuantumCodec {
     /// # Errors
     /// Returns [`MiscCodecError::InvalidInput`] when `unit` is not valid for
     /// this quantum codec's alphabet.
-    #[inline]
     fn decode_unit(&self, unit: u8, index: usize) -> MiscCodecResult<u8> {
         match unit {
             b'A'..=b'Z' => Ok(unit - b'A'),
@@ -108,15 +111,11 @@ impl Codec for Base64QuantumCodec {
     const MAX_UNITS_PER_VALUE: usize = 4;
 
     /// Decodes one complete four-unit Base64 quantum.
-    #[inline]
     unsafe fn decode(
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        ([u8; 3], core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<([u8; 3], NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index + 4 <= input.len());
 
         let first = self
@@ -142,7 +141,6 @@ impl Codec for Base64QuantumCodec {
     }
 
     /// Encodes one complete three-byte Base64 quantum.
-    #[inline]
     unsafe fn encode(
         &mut self,
         value: &[u8; 3],

@@ -7,11 +7,13 @@
 // =============================================================================
 //! Tests for Base64 encoding variants.
 
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
 use qubit_codec_misc::{
     Base64Codec,
     MiscCodecError,
-    ValueDecoder,
-    ValueEncoder,
 };
 
 #[test]
@@ -64,6 +66,17 @@ fn test_base64_constructors_cover_padding_and_alphabet_variants() {
             .decode("aGk=")
             .expect("default base64 should decode")
     );
+}
+
+#[test]
+fn test_base64_codec_equality_distinguishes_engine_variants() {
+    assert_eq!(Base64Codec::standard(), Base64Codec::default());
+    assert_eq!(
+        Base64Codec::url_safe_no_pad(),
+        Base64Codec::url_safe_no_pad()
+    );
+    assert_ne!(Base64Codec::standard(), Base64Codec::standard_no_pad());
+    assert_ne!(Base64Codec::standard(), Base64Codec::url_safe());
 }
 
 #[test]

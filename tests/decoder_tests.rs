@@ -7,11 +7,11 @@
 // =============================================================================
 //! Tests for the decoder trait contract.
 
+use qubit_codec::ValueDecoder;
 use qubit_codec_misc::{
     Base64Codec,
     HexCodec,
     MiscCodecError,
-    ValueDecoder,
 };
 
 #[test]
