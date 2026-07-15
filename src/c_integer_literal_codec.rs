@@ -7,10 +7,7 @@
 // =============================================================================
 //! C integer literal decoder.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-};
+use crate::{MiscCodecError, MiscCodecResult};
 use qubit_codec::ValueDecoder;
 
 /// Decodes non-negative C integer literal fragments.
@@ -51,13 +48,9 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix).map_err(
-            |error| {
-                invalid_c_integer_input(&format!(
-                    "integer literal is out of range: {error}"
-                ))
-            },
-        )
+        u64::from_str_radix(components.digits, components.radix).map_err(|error| {
+            invalid_c_integer_input(&format!("integer literal is out of range: {error}"))
+        })
     }
 }
 
