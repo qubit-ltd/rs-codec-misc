@@ -7,16 +7,9 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    misc_codec_error::map_misc_decode_failure,
-};
+use crate::{MiscCodecError, MiscCodecResult, misc_codec_error::map_misc_decode_failure};
 use core::num::NonZeroUsize;
-use qubit_codec::{
-    Codec,
-    DecodeFailure,
-};
+use qubit_codec::{Codec, DecodeFailure};
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -151,10 +144,8 @@ impl Codec for Base64QuantumCodec {
 
         let alphabet = self.alphabet();
         output[output_index] = alphabet[(value[0] >> 2) as usize];
-        output[output_index + 1] =
-            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[output_index + 2] =
-            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[output_index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[output_index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[output_index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(4)
     }
