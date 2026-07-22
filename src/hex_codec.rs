@@ -729,7 +729,7 @@ impl Codec for HexByteCodec {
         let low = hex_value(low_char)
             .ok_or_else(|| invalid_hex_digit(input_index + 1, low_char))
             .map_err(map_misc_decode_failure)?;
-        Ok(((high << 4) | low, qubit_io::nz!(2)))
+        Ok(((high << 4) | low, qubit_codec::nz!(2)))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.

@@ -149,7 +149,7 @@ impl Codec for CStringLiteralCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
-        let consumed = qubit_io::nz!(consumed);
+        let consumed = qubit_codec::nz!(consumed);
         Ok((value, consumed))
     }
 
@@ -212,7 +212,7 @@ impl CStringLiteralParseContext<'_> {
                 invalid_escape(marker_index, "\\", "incomplete escape sequence")
             }
             Self::StreamingBytes => MiscCodecError::Incomplete {
-                required: qubit_io::nz!(2),
+                required: qubit_codec::nz!(2),
                 available,
             },
         }
@@ -347,7 +347,7 @@ fn decode_c_string_literal_unit(
     let available = input.len().saturating_sub(index);
     if available == 0 {
         return Err(MiscCodecError::Incomplete {
-            required: qubit_io::nz!(1),
+            required: qubit_codec::nz!(1),
             available,
         });
     }
@@ -381,13 +381,13 @@ fn decode_c_string_literal_unit(
         }
         b'u' => {
             if !context.is_complete_text() {
-                ensure_fixed_escape_complete(available, qubit_io::nz!(6))?;
+                ensure_fixed_escape_complete(available, qubit_codec::nz!(6))?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
         }
         b'U' => {
             if !context.is_complete_text() {
-                ensure_fixed_escape_complete(available, qubit_io::nz!(10))?;
+                ensure_fixed_escape_complete(available, qubit_codec::nz!(10))?;
             }
             parse_fixed_hex_escape_units(input, index, 8, context)
         }
@@ -420,7 +420,7 @@ fn ensure_variable_hex_escape_complete(
 ) -> MiscCodecResult<()> {
     if available < 3 {
         return Err(MiscCodecError::Incomplete {
-            required: qubit_io::nz!(3),
+            required: qubit_codec::nz!(3),
             available,
         });
     }
