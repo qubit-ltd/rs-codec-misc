@@ -43,7 +43,7 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         MiscCodecError::Incomplete {
             required,
             available: 1
-        } if required == qubit_io::nz!(3)
+        } if required == qubit_codec::nz!(3)
     ));
 
     let bad_hex = PercentCodec::new()

@@ -133,7 +133,7 @@ impl Codec for FormUrlencodedCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = qubit_io::nz!(consumed);
+        let consumed = qubit_codec::nz!(consumed);
         Ok((value, consumed))
     }
 

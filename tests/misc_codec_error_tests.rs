@@ -100,10 +100,10 @@ fn test_misc_codec_result_alias_uses_misc_codec_error() {
 #[test]
 fn test_misc_codec_error_maps_decode_failures() {
     let incomplete = MiscCodecError::Incomplete {
-        required: qubit_io::nz!(3),
+        required: qubit_codec::nz!(3),
         available: 1,
     }
     .into_codec_failure();
 
-    assert_eq!(Some(qubit_io::nz!(3)), incomplete.required_total());
+    assert_eq!(Some(qubit_codec::nz!(3)), incomplete.required_total());
 }

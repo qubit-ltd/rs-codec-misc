@@ -136,7 +136,7 @@ impl Codec for Base64QuantumCodec {
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            qubit_io::nz!(4),
+            qubit_codec::nz!(4),
         ))
     }
 
