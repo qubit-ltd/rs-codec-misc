@@ -125,7 +125,7 @@ impl Codec for PercentCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
-        let consumed = qubit_io::nz!(consumed);
+        let consumed = qubit_codec::nz!(consumed);
         Ok((value, consumed))
     }
 
@@ -257,7 +257,7 @@ pub(crate) fn percent_decode_byte(
     let available = input.len().saturating_sub(index);
     if available == 0 {
         return Err(MiscCodecError::Incomplete {
-            required: qubit_io::nz!(1),
+            required: qubit_codec::nz!(1),
             available,
         });
     }
@@ -265,7 +265,7 @@ pub(crate) fn percent_decode_byte(
         b'%' => {
             if available < 3 {
                 return Err(MiscCodecError::Incomplete {
-                    required: qubit_io::nz!(3),
+                    required: qubit_codec::nz!(3),
                     available,
                 });
             }

@@ -372,8 +372,11 @@ Codec 实现直接操作借用的 byte slice 或字符串，只在目标格式�
 ### 运行测试
 
 ```bash
-# 运行所有测试
+# 使用默认 feature 集运行测试
 cargo test
+
+# 使用项目声明的全部 feature 运行测试
+cargo test --all-features
 
 # 运行覆盖率报告
 ./coverage.sh
