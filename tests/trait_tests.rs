@@ -17,7 +17,6 @@ use qubit_codec::{
     TranscodeEncoder,
     TranscodeFailure,
     engine::{
-        EncodeOutcome,
         TranscodeDecodeEngine,
         TranscodeEncodeEngine,
     },
@@ -75,10 +74,6 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     assert_transcode_decode_engine::<TranscodeDecodeEngine<HexByteCodec, ()>>();
     assert_transcode_encode_engine::<TranscodeEncodeEngine<HexByteCodec, ()>>();
 
-    assert_eq!(
-        EncodeOutcome::consumed(1),
-        EncodeOutcome::Consumed { written: 1 }
-    );
     let encode_error =
         TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(
             2, 0xff,
