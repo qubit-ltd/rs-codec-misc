@@ -123,7 +123,9 @@ impl Codec for CStringLiteralCodec {
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 1;
-    const MAX_UNITS_PER_VALUE: usize = 10;
+    const MAX_ENCODE_UNITS_PER_VALUE: usize = 4;
+
+    const MAX_DECODE_UNITS_PER_VALUE: usize = 10;
 
     /// Returns the exact C string literal width for one byte.
     #[inline(always)]

@@ -108,7 +108,9 @@ impl Codec for Base64QuantumCodec {
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 4;
-    const MAX_UNITS_PER_VALUE: usize = 4;
+    const MAX_ENCODE_UNITS_PER_VALUE: usize = 4;
+
+    const MAX_DECODE_UNITS_PER_VALUE: usize = 4;
 
     /// Decodes one complete four-unit Base64 quantum.
     unsafe fn decode(
