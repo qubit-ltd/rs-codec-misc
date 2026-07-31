@@ -100,7 +100,9 @@ impl Codec for PercentCodec {
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 1;
-    const MAX_UNITS_PER_VALUE: usize = 3;
+    const MAX_ENCODE_UNITS_PER_VALUE: usize = 3;
+
+    const MAX_DECODE_UNITS_PER_VALUE: usize = 3;
 
     /// Returns the exact percent-encoded width for one byte.
     #[inline(always)]
