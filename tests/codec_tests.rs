@@ -42,7 +42,8 @@ fn test_hex_byte_codec_decodes_and_encodes_single_hex_byte() {
     assert_eq!(2, written);
     assert_eq!(b"AF", &output);
     assert_eq!(2, <HexByteCodec as Codec>::MIN_UNITS_PER_VALUE);
-    assert_eq!(2, <HexByteCodec as Codec>::MAX_UNITS_PER_VALUE);
+    assert_eq!(2, <HexByteCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE);
+    assert_eq!(2, <HexByteCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE);
     assert!(codec.is_uppercase());
     assert!(!lower.is_uppercase());
 }
@@ -108,7 +109,8 @@ fn test_codec_trait_decodes_and_encodes_percent_byte() {
     assert_eq!(1, unreserved_units);
     assert_eq!(b"~", &raw);
     assert_eq!(1, <PercentCodec as Codec>::MIN_UNITS_PER_VALUE);
-    assert_eq!(3, <PercentCodec as Codec>::MAX_UNITS_PER_VALUE);
+    assert_eq!(3, <PercentCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE);
+    assert_eq!(3, <PercentCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE);
 }
 
 #[test]
@@ -177,7 +179,14 @@ fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
     assert_eq!(3, escaped_written);
     assert_eq!(b"%E4", &escaped_output);
     assert_eq!(1, <FormUrlencodedCodec as Codec>::MIN_UNITS_PER_VALUE,);
-    assert_eq!(3, <FormUrlencodedCodec as Codec>::MAX_UNITS_PER_VALUE,);
+    assert_eq!(
+        3,
+        <FormUrlencodedCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE,
+    );
+    assert_eq!(
+        3,
+        <FormUrlencodedCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE,
+    );
 }
 
 #[test]
@@ -227,7 +236,14 @@ fn test_codec_trait_decodes_and_encodes_c_string_literal_byte() {
     assert_eq!(2, simple_units);
     assert_eq!(br"\n", &simple);
     assert_eq!(1, <CStringLiteralCodec as Codec>::MIN_UNITS_PER_VALUE,);
-    assert_eq!(10, <CStringLiteralCodec as Codec>::MAX_UNITS_PER_VALUE,);
+    assert_eq!(
+        4,
+        <CStringLiteralCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE,
+    );
+    assert_eq!(
+        10,
+        <CStringLiteralCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE,
+    );
 }
 
 #[test]
@@ -418,7 +434,8 @@ fn test_codec_trait_decodes_and_encodes_base64_quantum() {
     assert_eq!(4, written);
     assert_eq!(b"YWJj", &output);
     assert_eq!(4, <Base64QuantumCodec as Codec>::MIN_UNITS_PER_VALUE,);
-    assert_eq!(4, <Base64QuantumCodec as Codec>::MAX_UNITS_PER_VALUE,);
+    assert_eq!(4, <Base64QuantumCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE,);
+    assert_eq!(4, <Base64QuantumCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE,);
 }
 
 #[test]

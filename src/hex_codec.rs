@@ -707,7 +707,9 @@ impl Codec for HexByteCodec {
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 2;
-    const MAX_UNITS_PER_VALUE: usize = 2;
+    const MAX_ENCODE_UNITS_PER_VALUE: usize = 2;
+
+    const MAX_DECODE_UNITS_PER_VALUE: usize = 2;
 
     /// Decodes one byte from two ASCII hexadecimal digits.
     #[inline]
