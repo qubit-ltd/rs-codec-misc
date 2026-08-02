@@ -53,13 +53,14 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         encode_error,
         TranscodeEncodeError::Unencodable { .. }
     ));
-    let decode_error = TranscodeDecodeError::<core::convert::Infallible>::incomplete_input(2, 3, 1);
+    let decode_error: TranscodeDecodeError<core::convert::Infallible> =
+        TranscodeFailure::incomplete_input(2, 3, 1).into();
     assert!(matches!(
         decode_error,
         TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput { .. })
     ));
-    let transcode_error =
-        TranscodeDecodeError::<core::convert::Infallible>::invalid_input_index(2, 1);
+    let transcode_error: TranscodeDecodeError<core::convert::Infallible> =
+        TranscodeFailure::invalid_input_index(2, 1).into();
     assert!(matches!(
         transcode_error,
         TranscodeDecodeError::Failure(TranscodeFailure::InvalidInputIndex { .. })
