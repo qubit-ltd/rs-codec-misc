@@ -93,11 +93,16 @@ fn test_misc_codec_result_alias_uses_misc_codec_error() {
 
 #[test]
 fn test_misc_codec_error_maps_decode_failures() {
-    let incomplete = MiscCodecError::Incomplete {
+    let source = MiscCodecError::Incomplete {
         required: qubit_codec::nz!(3),
         available: 1,
-    }
-    .into_codec_failure();
+    };
+    let incomplete = source.into_codec_failure();
 
     assert_eq!(Some(qubit_codec::nz!(3)), incomplete.required_total());
+    assert!(matches!(
+        incomplete.incomplete_source(),
+        Some(MiscCodecError::Incomplete { required, available })
+            if *required == qubit_codec::nz!(3) && *available == 1
+    ));
 }
