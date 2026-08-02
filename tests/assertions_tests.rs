@@ -13,7 +13,7 @@ pub(crate) fn incomplete_required(
     failure: qubit_codec::DecodeFailure<qubit_codec_misc::MiscCodecError>,
 ) -> usize {
     match failure {
-        qubit_codec::DecodeFailure::Incomplete { required_total } => required_total.get(),
+        qubit_codec::DecodeFailure::Incomplete { required_total, .. } => required_total.get(),
         other => {
             panic!("expected incomplete misc codec decode failure: {other:?}")
         }
