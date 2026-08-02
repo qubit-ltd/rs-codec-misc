@@ -110,7 +110,9 @@ impl MiscCodecError {
 #[inline]
 pub(crate) fn map_misc_decode_failure(error: MiscCodecError) -> DecodeFailure<MiscCodecError> {
     match error {
-        MiscCodecError::Incomplete { required, .. } => DecodeFailure::incomplete(required),
+        error @ MiscCodecError::Incomplete { required, .. } => {
+            DecodeFailure::incomplete_with_source(error, required)
+        }
         error => DecodeFailure::invalid_unknown(error),
     }
 }
