@@ -8,10 +8,21 @@
 //! Base64 byte codec.
 
 use ::base64::Engine;
-use ::base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use ::base64::engine::general_purpose::{
+    STANDARD,
+    STANDARD_NO_PAD,
+    URL_SAFE,
+    URL_SAFE_NO_PAD,
+};
 
-use crate::{MiscCodecError, MiscCodecResult};
-use qubit_codec::{ValueDecoder, ValueEncoder};
+use crate::{
+    MiscCodecError,
+    MiscCodecResult,
+};
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
 
 /// Encodes and decodes Base64 byte strings.
 ///
@@ -97,12 +108,12 @@ impl Base64Codec {
     /// Returns [`MiscCodecError::InvalidInput`] when `text` is malformed.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine
-            .decode(text)
-            .map_err(|source| MiscCodecError::InvalidInput {
+        self.engine.decode(text).map_err(|source| {
+            MiscCodecError::InvalidInput {
                 codec: "base64",
                 reason: source.to_string(),
-            })
+            }
+        })
     }
 }
 
