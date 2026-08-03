@@ -14,7 +14,7 @@ use crate::{
         ParseError,
         PercentEncodingMode,
     },
-    misc_codec_error::map_misc_decode_failure,
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use percent_encoding::percent_encode_byte as encode_percent_byte;
 use qubit_codec::{
@@ -28,6 +28,7 @@ use qubit_codec::{
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte to either one unreserved ASCII unit or a `%XX` escape. UTF-8 validation
 /// remains part of the owned [`decode`](Self::decode) helper.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PercentCodec;
 
@@ -49,6 +50,7 @@ impl PercentCodec {
     /// # Returns
     /// Percent-encoded text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, text: &str) -> String {
         percent_encode_bytes(text.as_bytes(), PercentEncodingMode::Rfc3986)
     }
@@ -127,7 +129,12 @@ impl Codec for PercentCodec {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, false)
-            .map_err(ParseError::into_decode_failure)?;
+            .map_err(|error| {
+                ParseError::into_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(3),
+                )
+            })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
@@ -176,9 +183,14 @@ impl Codec for PercentCodec {
     > {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) =
-            percent_decode_byte_eof(input, input_index, false)
-                .map_err(map_misc_decode_failure)?;
+        let (value, consumed) = percent_decode_byte_eof(
+            input,
+            input_index,
+            false,
+        )
+        .map_err(|error| {
+            map_misc_decode_failure_with_consumed(error, qubit_codec::nz!(3))
+        })?;
         debug_assert!(consumed > 0);
         let consumed = qubit_codec::nz!(consumed);
         Ok((value, consumed))

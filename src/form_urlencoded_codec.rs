@@ -21,7 +21,7 @@ use crate::{
         ParseError,
         PercentEncodingMode,
     },
-    misc_codec_error::map_misc_decode_failure,
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use qubit_codec::{
     Codec,
@@ -34,6 +34,7 @@ use qubit_codec::{
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte at a time, including the form-specific space and `+` mapping. UTF-8
 /// validation remains part of the owned [`decode`](Self::decode) helper.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FormUrlencodedCodec;
 
@@ -55,6 +56,7 @@ impl FormUrlencodedCodec {
     /// # Returns
     /// Form-url-encoded text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, text: &str) -> String {
         percent_encode_bytes(
             text.as_bytes(),
@@ -136,7 +138,12 @@ impl Codec for FormUrlencodedCodec {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(ParseError::into_decode_failure)?;
+            .map_err(|error| {
+            ParseError::into_decode_failure_with_consumed(
+                error,
+                qubit_codec::nz!(3),
+            )
+        })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
@@ -189,14 +196,22 @@ impl Codec for FormUrlencodedCodec {
         let (value, consumed) = percent_decode_byte(input, input_index, true)
             .map_err(|error| match error {
             ParseError::Incomplete { .. } => {
-                map_misc_decode_failure(MiscCodecError::InvalidEscape {
-                    index: input_index,
-                    escape: String::from_utf8_lossy(&input[input_index..])
-                        .into_owned(),
-                    reason: "expected two hexadecimal digits".to_owned(),
-                })
+                map_misc_decode_failure_with_consumed(
+                    MiscCodecError::InvalidEscape {
+                        index: input_index,
+                        escape: String::from_utf8_lossy(&input[input_index..])
+                            .into_owned(),
+                        reason: "expected two hexadecimal digits".to_owned(),
+                    },
+                    qubit_codec::nz!(3),
+                )
             }
-            ParseError::Invalid(error) => map_misc_decode_failure(error),
+            ParseError::Invalid(error) => {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(3),
+                )
+            }
         })?;
         debug_assert!(consumed > 0);
         let consumed = qubit_codec::nz!(consumed);

@@ -372,3 +372,17 @@ fn test_decode_reports_precise_hex_errors() {
         MiscCodecError::MissingPrefix { .. }
     ));
 }
+
+#[test]
+fn test_decode_rejects_byte_prefix_without_a_hex_byte() {
+    let codec = HexCodec::new().with_byte_prefix("0x");
+
+    let error = codec
+        .decode("0x")
+        .expect_err("a byte prefix must be followed by two hex digits");
+
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidInput { codec: "hex", .. }
+    ));
+}

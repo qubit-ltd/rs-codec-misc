@@ -25,5 +25,6 @@ mod trait_tests;
 
 pub(crate) use assertions_tests::{
     incomplete_required,
+    invalid_consumed,
     invalid_source,
 };
