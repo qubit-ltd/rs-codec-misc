@@ -113,6 +113,9 @@ impl Codec for Base64QuantumCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 4;
 
     /// Decodes one complete four-unit Base64 quantum.
+    ///
+    /// # Safety
+    /// The caller must provide four readable units at `input_index`.
     unsafe fn decode(
         &mut self,
         input: &[u8],
@@ -143,6 +146,9 @@ impl Codec for Base64QuantumCodec {
     }
 
     /// Encodes one complete three-byte Base64 quantum.
+    ///
+    /// # Safety
+    /// The caller must provide four writable output units at `output_index`.
     unsafe fn encode(
         &mut self,
         value: &[u8; 3],
