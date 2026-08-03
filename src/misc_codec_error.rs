@@ -7,6 +7,7 @@
 // =============================================================================
 //! Shared codec error type.
 
+use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
 use qubit_codec::DecodeFailure;
@@ -87,9 +88,11 @@ pub enum MiscCodecError {
     },
 }
 
+/// Maps a malformed value to a decode failure with a known input width.
 #[inline]
-pub(crate) fn map_misc_decode_failure(
+pub(crate) fn map_misc_decode_failure_with_consumed(
     error: MiscCodecError,
+    consumed: NonZeroUsize,
 ) -> DecodeFailure<MiscCodecError> {
-    DecodeFailure::invalid_unknown(error)
+    DecodeFailure::invalid(error, consumed)
 }

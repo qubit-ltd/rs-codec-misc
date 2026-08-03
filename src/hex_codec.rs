@@ -34,6 +34,7 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// [`crate::HexByteCodec`] when a low-level
 /// [`qubit_codec::Codec<Value = u8, Unit = u8>`] is
 /// required.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexCodec {
     /// Whether to use uppercase hexadecimal digits.
@@ -173,6 +174,7 @@ impl HexCodec {
     /// # Returns
     /// Hexadecimal text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, bytes: &[u8]) -> String {
         let separator_len = self.separator.as_ref().map_or(0, String::len);
         let prefix_len = self.prefix.as_ref().map_or(0, String::len);
@@ -523,9 +525,12 @@ impl HexCodec {
                 }
                 return Err(invalid_hex_digit(index, ch));
             }
-            if pair_count == 2 {
-                output.push(decode_hex_pair(pair[0].1, pair[1].1));
+            if pair_count != 2 {
+                return Err(invalid_hex_input(
+                    "byte prefix must be followed by two hex digits",
+                ));
             }
+            output.push(decode_hex_pair(pair[0].1, pair[1].1));
         }
         if !digit_count.is_multiple_of(2) {
             return Err(invalid_hex_length(digit_count));

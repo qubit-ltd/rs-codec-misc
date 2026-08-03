@@ -5,9 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for private parser support modules.
+//! Indirect coverage for C integer literal component parsing.
 
-mod c_string_literal_parse_context_tests;
-mod literal_components_tests;
-mod parse_error_tests;
-mod percent_encoding_mode_tests;
+// The private component parser is exercised through the public C integer codec
+// tests, including decimal, octal, hexadecimal, and invalid-prefix paths.

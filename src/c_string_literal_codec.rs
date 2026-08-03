@@ -10,8 +10,11 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
-    internal::ParseError,
-    misc_codec_error::map_misc_decode_failure,
+    internal::{
+        CStringLiteralParseContext,
+        ParseError,
+    },
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use qubit_codec::{
     Codec,
@@ -33,6 +36,7 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one
 /// raw byte or one C escape fragment. Whole-fragment iteration remains part of
 /// the owned [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CStringLiteralCodec;
 
@@ -54,6 +58,7 @@ impl CStringLiteralCodec {
     /// # Returns
     /// A C string literal fragment without surrounding quotes.
     #[inline]
+    #[must_use]
     pub fn encode(&self, bytes: &[u8]) -> String {
         let mut output = String::with_capacity(bytes.len());
         for byte in bytes {
@@ -154,8 +159,15 @@ impl Codec for CStringLiteralCodec {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) =
-            decode_c_string_literal_byte(input, input_index)
-                .map_err(ParseError::into_decode_failure)?;
+            decode_c_string_literal_byte(input, input_index).map_err(
+                |error| {
+                    map_c_string_parse_error_to_decode_failure(
+                        error,
+                        input,
+                        input_index,
+                    )
+                },
+            )?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -185,11 +197,11 @@ impl Codec for CStringLiteralCodec {
             CStringLiteralParseContext::EofBytes,
         )
         .map_err(|error| {
-            map_misc_decode_failure(c_string_parse_error_to_misc(
+            map_c_string_parse_error_to_decode_failure(
                 error,
                 input,
                 input_index,
-            ))
+            )
         })?;
         debug_assert!(consumed > 0);
         let consumed = qubit_codec::nz!(consumed);
@@ -214,120 +226,6 @@ impl Codec for CStringLiteralCodec {
         let written = write_encoded_byte(*value, output, output_index);
         debug_assert_eq!(written, required);
         Ok(required)
-    }
-}
-
-/// Parsing context for one C string literal unit.
-///
-/// Complete text parsing preserves owned decoder diagnostics, while streaming
-/// byte parsing reports incomplete fragments so buffered callers can retry.
-#[derive(Debug, Clone, Copy)]
-enum CStringLiteralParseContext<'a> {
-    /// Parsing a complete UTF-8 literal fragment.
-    CompleteText(&'a str),
-    /// Parsing one byte value after EOF has been confirmed.
-    EofBytes,
-    /// Parsing one byte unit for a streaming codec caller.
-    StreamingBytes,
-}
-
-impl CStringLiteralParseContext<'_> {
-    /// Tests whether parsing is for a complete text fragment.
-    ///
-    /// # Returns
-    /// `true` when incomplete trailing escapes should be reported as malformed
-    /// complete input instead of as retryable incomplete input.
-    #[inline(always)]
-    fn is_complete_text(self) -> bool {
-        matches!(self, Self::CompleteText(_) | Self::EofBytes)
-    }
-
-    /// Tests whether parsing is for an open stream.
-    #[inline(always)]
-    fn is_streaming(self) -> bool {
-        matches!(self, Self::StreamingBytes)
-    }
-
-    /// Builds the error for a trailing escape marker.
-    ///
-    /// # Parameters
-    /// - `marker_index`: Byte index of the escape marker.
-    /// - `available`: Available unit count from `marker_index`.
-    ///
-    /// # Returns
-    /// A malformed escape error for complete text, or an incomplete-input error
-    /// for streaming byte parsing.
-    fn trailing_escape_error(
-        self,
-        marker_index: usize,
-        _available: usize,
-    ) -> ParseError {
-        match self {
-            Self::CompleteText(_) | Self::EofBytes => {
-                invalid_escape(marker_index, "\\", "incomplete escape sequence")
-                    .into()
-            }
-            Self::StreamingBytes => ParseError::Incomplete {
-                required: qubit_codec::nz!(2),
-            },
-        }
-    }
-
-    /// Gets the source character at a byte index for diagnostics.
-    ///
-    /// # Parameters
-    /// - `input`: Encoded byte units.
-    /// - `index`: Byte index to inspect.
-    ///
-    /// # Returns
-    /// The UTF-8 source character for complete text, or the byte mapped to a
-    /// Unicode scalar value for byte parsing.
-    fn source_character(self, input: &[u8], index: usize) -> char {
-        match self {
-            Self::CompleteText(text) => text
-                .get(index..)
-                .and_then(|rest| rest.chars().next())
-                .unwrap_or(char::from(input[index])),
-            Self::EofBytes | Self::StreamingBytes => char::from(input[index]),
-        }
-    }
-
-    /// Builds a raw source character rejection reason.
-    ///
-    /// # Returns
-    /// The diagnostic reason matching the parsing context.
-    #[inline(always)]
-    fn raw_source_reason(self) -> &'static str {
-        match self {
-            Self::CompleteText(_) | Self::EofBytes => {
-                "raw source character must be printable ASCII or allowed whitespace"
-            }
-            Self::StreamingBytes => {
-                "raw source byte must be printable ASCII or allowed whitespace"
-            }
-        }
-    }
-
-    /// Builds an escape fragment for diagnostics.
-    ///
-    /// # Parameters
-    /// - `input`: Encoded byte units.
-    /// - `start`: Start byte index.
-    /// - `end`: Exclusive fallback byte end index for byte parsing.
-    ///
-    /// # Returns
-    /// A displayable escape fragment.
-    fn escape_fragment(self, input: &[u8], start: usize, end: usize) -> String {
-        match self {
-            Self::CompleteText(text) => text
-                .get(start..end)
-                .or(text.get(start..))
-                .unwrap_or("\\")
-                .to_owned(),
-            Self::EofBytes | Self::StreamingBytes => {
-                escape_fragment(input, start, end)
-            }
-        }
     }
 }
 
@@ -863,6 +761,41 @@ fn c_string_parse_error_to_misc(
     }
 }
 
+/// Maps a C string parser outcome while retaining the malformed fragment width.
+#[inline]
+fn map_c_string_parse_error_to_decode_failure(
+    error: ParseError,
+    input: &[u8],
+    index: usize,
+) -> qubit_codec::DecodeFailure<MiscCodecError> {
+    match error {
+        ParseError::Incomplete { required, .. } => {
+            qubit_codec::DecodeFailure::incomplete(required)
+        }
+        ParseError::Invalid(error) => map_misc_decode_failure_with_consumed(
+            error,
+            c_string_invalid_consumed(input, index),
+        ),
+    }
+}
+
+/// Returns the number of units belonging to a malformed C string fragment.
+#[inline]
+fn c_string_invalid_consumed(
+    input: &[u8],
+    index: usize,
+) -> core::num::NonZeroUsize {
+    let available = input.len().saturating_sub(index);
+    let width = match input.get(index..index.saturating_add(2)) {
+        Some([b'\\', b'u']) => 6,
+        Some([b'\\', b'U']) => 10,
+        Some([b'\\', _]) => 2,
+        _ => 1,
+    };
+    core::num::NonZeroUsize::new(width.min(available).max(1))
+        .expect("malformed C string input has at least one unit")
+}
+
 /// Builds an invalid escape error.
 ///
 /// # Parameters
@@ -872,7 +805,11 @@ fn c_string_parse_error_to_misc(
 ///
 /// # Returns
 /// An invalid escape error.
-fn invalid_escape(index: usize, escape: &str, reason: &str) -> MiscCodecError {
+pub(crate) fn invalid_escape(
+    index: usize,
+    escape: &str,
+    reason: &str,
+) -> MiscCodecError {
     MiscCodecError::InvalidEscape {
         index,
         escape: escape.to_owned(),

@@ -5,9 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Tests for private parser support modules.
+//! Indirect coverage for C string parser context behavior.
 
-mod c_string_literal_parse_context_tests;
-mod literal_components_tests;
-mod parse_error_tests;
-mod percent_encoding_mode_tests;
+// The private parser context is exercised through the public C string codec
+// tests, including complete-input, EOF, and streaming paths.

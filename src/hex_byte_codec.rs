@@ -3,17 +3,7 @@
 //
 //    SPDX-License-Identifier: Apache-2.0
 //
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-//
-//        http://www.apache.org/licenses/LICENSE-2.0
-//
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Low-level hexadecimal byte codec.
 
@@ -24,7 +14,7 @@ use crate::{
         hex_value,
         invalid_hex_digit,
     },
-    misc_codec_error::map_misc_decode_failure,
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use qubit_codec::Codec;
 
@@ -99,10 +89,20 @@ impl Codec for HexByteCodec {
         let low_char = char::from(input[input_index + 1]);
         let high = hex_value(high_char)
             .ok_or_else(|| invalid_hex_digit(input_index, high_char))
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(2),
+                )
+            })?;
         let low = hex_value(low_char)
             .ok_or_else(|| invalid_hex_digit(input_index + 1, low_char))
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(2),
+                )
+            })?;
         Ok(((high << 4) | low, qubit_codec::nz!(2)))
     }
 
