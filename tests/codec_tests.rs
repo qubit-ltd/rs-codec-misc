@@ -72,6 +72,9 @@ fn test_codec_trait_decodes_available_percent_byte() {
 
     let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }
         .expect_err("malformed percent escape should fail");
+    assert_eq!(Some(3), super::invalid_consumed(malformed));
+    let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }
+        .expect_err("malformed percent escape should fail");
     let malformed = super::invalid_source(malformed);
     assert!(matches!(
         malformed,
@@ -190,6 +193,9 @@ fn test_form_codec_uses_exact_widths_and_eof_rules() {
 
     let invalid = unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }
         .expect_err("EOF malformed form escape should fail");
+    assert_eq!(Some(3), super::invalid_consumed(invalid));
+    let invalid = unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }
+        .expect_err("EOF malformed form escape should fail");
     assert!(matches!(
         super::invalid_source(invalid),
         MiscCodecError::InvalidEscape { index: 0, .. }
@@ -278,6 +284,9 @@ fn test_codec_trait_decodes_available_c_string_literal_byte() {
     assert_eq!(0o12, decoded);
     assert_eq!(3, consumed.get());
 
+    let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }
+        .expect_err("unsupported C escape should fail");
+    assert_eq!(Some(2), super::invalid_consumed(malformed));
     let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }
         .expect_err("unsupported C escape should fail");
     let malformed = super::invalid_source(malformed);

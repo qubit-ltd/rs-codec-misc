@@ -10,7 +10,7 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
-    misc_codec_error::map_misc_decode_failure,
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use core::num::NonZeroUsize;
 use qubit_codec::{
@@ -23,6 +23,7 @@ use qubit_codec::{
 /// A quantum maps exactly three raw bytes to four Base64 units. It does not
 /// handle final short input groups or `=` padding; callers that process streams
 /// must finalize those cases in a transcoder or facade layer.
+#[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Base64QuantumCodec {
     url_safe: bool,
@@ -123,18 +124,35 @@ impl Codec for Base64QuantumCodec {
     ) -> Result<([u8; 3], NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index + 4 <= input.len());
 
-        let first = self
-            .decode_unit(input[input_index], input_index)
-            .map_err(map_misc_decode_failure)?;
+        let first = self.decode_unit(input[input_index], input_index).map_err(
+            |error| {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(4),
+                )
+            },
+        )?;
         let second = self
             .decode_unit(input[input_index + 1], input_index + 1)
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(4),
+                )
+            })?;
         let third = self
             .decode_unit(input[input_index + 2], input_index + 2)
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+            map_misc_decode_failure_with_consumed(error, qubit_codec::nz!(4))
+        })?;
         let fourth = self
             .decode_unit(input[input_index + 3], input_index + 3)
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(4),
+                )
+            })?;
         Ok((
             [
                 (first << 2) | (second >> 4),
