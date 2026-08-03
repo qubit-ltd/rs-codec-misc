@@ -13,69 +13,12 @@ use qubit_codec::{
     ValueEncoder,
 };
 use qubit_codec_misc::{
-    Base64QuantumCodec,
     CStringLiteralCodec,
     FormUrlencodedCodec,
-    HexByteCodec,
     HexCodec,
     MiscCodecError,
     PercentCodec,
 };
-
-#[test]
-fn test_hex_byte_codec_decodes_and_encodes_single_hex_byte() {
-    let mut codec = HexByteCodec::upper();
-    let mut output = [0u8; 2];
-    let lower = HexByteCodec::upper().with_uppercase(false);
-
-    let (decoded, consumed) = unsafe {
-        Codec::decode(&mut codec, b"Af", 0)
-            .expect("single hex byte should decode")
-    };
-    let written = unsafe {
-        Codec::encode(&mut codec, &0xaf, &mut output, 0)
-            .expect("single hex byte should encode")
-    };
-
-    assert_eq!(0xaf, decoded);
-    assert_eq!(2, consumed.get());
-    assert_eq!(2, written);
-    assert_eq!(b"AF", &output);
-    assert_eq!(2, <HexByteCodec as Codec>::MIN_UNITS_PER_VALUE);
-    assert_eq!(2, <HexByteCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE);
-    assert_eq!(2, <HexByteCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE);
-    assert!(codec.is_uppercase());
-    assert!(!lower.is_uppercase());
-}
-
-#[test]
-fn test_hex_byte_codec_reports_single_hex_byte_errors() {
-    let mut codec = HexByteCodec::new();
-
-    let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }
-        .expect_err("invalid high hex digit should fail");
-    let low = unsafe { Codec::decode(&mut codec, b"fx", 0) }
-        .expect_err("invalid low hex digit should fail");
-
-    let high = super::invalid_source(high);
-    let low = super::invalid_source(low);
-    assert!(matches!(
-        high,
-        MiscCodecError::InvalidDigit {
-            radix: 16,
-            index: 0,
-            character: 'x'
-        }
-    ));
-    assert!(matches!(
-        low,
-        MiscCodecError::InvalidDigit {
-            radix: 16,
-            index: 1,
-            character: 'x'
-        }
-    ));
-}
 
 #[test]
 fn test_codec_trait_decodes_and_encodes_percent_byte() {
@@ -129,6 +72,9 @@ fn test_codec_trait_decodes_available_percent_byte() {
 
     let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }
         .expect_err("malformed percent escape should fail");
+    assert_eq!(Some(3), super::invalid_consumed(malformed));
+    let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }
+        .expect_err("malformed percent escape should fail");
     let malformed = super::invalid_source(malformed);
     assert!(matches!(
         malformed,
@@ -137,10 +83,31 @@ fn test_codec_trait_decodes_available_percent_byte() {
 }
 
 #[test]
+fn test_codec_trait_uses_exact_percent_widths_and_eof_rules() {
+    let mut percent = PercentCodec::new();
+    assert_eq!(1, Codec::encode_len(&percent, &b'A'));
+    assert_eq!(3, Codec::encode_len(&percent, &0xe4));
+
+    let (decoded, consumed) = unsafe {
+        Codec::decode_eof(&mut percent, b"A", 0)
+            .expect("EOF raw percent byte should decode")
+    };
+    assert_eq!(b'A', decoded);
+    assert_eq!(1, consumed.get());
+
+    let invalid = unsafe { Codec::decode_eof(&mut percent, b"%A", 0) }
+        .expect_err("EOF truncated percent escape should fail");
+    assert!(matches!(
+        super::invalid_source(invalid),
+        MiscCodecError::InvalidEscape { index: 0, .. }
+    ));
+}
+
+#[test]
 fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
     let mut codec = FormUrlencodedCodec::new();
     let mut plus_output = [0u8; 1];
-    let mut raw_output = [0u8; 1];
+    let mut raw_output = [0u8; 3];
     let mut escaped_output = [0u8; 3];
 
     let (decoded_plus, consumed) = unsafe {
@@ -174,8 +141,8 @@ fn test_codec_trait_decodes_and_encodes_form_urlencoded_byte() {
     assert_eq!(1, raw_consumed.get());
     assert_eq!(1, plus_written);
     assert_eq!(b"+", &plus_output);
-    assert_eq!(1, raw_written);
-    assert_eq!(b"~", &raw_output);
+    assert_eq!(3, raw_written);
+    assert_eq!(b"%7E", &raw_output);
     assert_eq!(3, escaped_written);
     assert_eq!(b"%E4", &escaped_output);
     assert_eq!(1, <FormUrlencodedCodec as Codec>::MIN_UNITS_PER_VALUE,);
@@ -202,6 +169,37 @@ fn test_codec_trait_decodes_available_form_urlencoded_byte() {
     let incomplete = unsafe { Codec::decode(&mut codec, b"%", 0) }
         .expect_err("partial form escape should be incomplete");
     assert_eq!(3, super::incomplete_required(incomplete));
+
+    let eof = unsafe { Codec::decode_eof(&mut codec, b"%", 0) }
+        .expect_err("EOF form escape should be invalid");
+    assert!(matches!(
+        super::invalid_source(eof),
+        MiscCodecError::InvalidEscape { index: 0, .. }
+    ));
+}
+
+#[test]
+fn test_form_codec_uses_exact_widths_and_eof_rules() {
+    let mut codec = FormUrlencodedCodec::new();
+    assert_eq!(1, Codec::encode_len(&codec, &b'*'));
+    assert_eq!(3, Codec::encode_len(&codec, &b'~'));
+
+    let (decoded, consumed) = unsafe {
+        Codec::decode_eof(&mut codec, b"+", 0)
+            .expect("EOF form plus should decode")
+    };
+    assert_eq!(b' ', decoded);
+    assert_eq!(1, consumed.get());
+
+    let invalid = unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }
+        .expect_err("EOF malformed form escape should fail");
+    assert_eq!(Some(3), super::invalid_consumed(invalid));
+    let invalid = unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }
+        .expect_err("EOF malformed form escape should fail");
+    assert!(matches!(
+        super::invalid_source(invalid),
+        MiscCodecError::InvalidEscape { index: 0, .. }
+    ));
 }
 
 #[test]
@@ -262,7 +260,7 @@ fn test_codec_trait_decodes_available_c_string_literal_byte() {
     assert_eq!(b'\n', decoded);
     assert_eq!(2, consumed.get());
 
-    let eof_hex = unsafe { Codec::decode(&mut codec, br"\xA", 0) }
+    let eof_hex = unsafe { Codec::decode_eof(&mut codec, br"\xA", 0) }
         .expect("EOF-closed hex escape should decode");
     let (decoded, consumed) = eof_hex;
     assert_eq!(0x0a, decoded);
@@ -274,7 +272,7 @@ fn test_codec_trait_decodes_available_c_string_literal_byte() {
     assert_eq!(0x0a, decoded);
     assert_eq!(3, consumed.get());
 
-    let eof_octal = unsafe { Codec::decode(&mut codec, br"\12", 0) }
+    let eof_octal = unsafe { Codec::decode_eof(&mut codec, br"\12", 0) }
         .expect("EOF-closed octal escape should decode");
     let (decoded, consumed) = eof_octal;
     assert_eq!(0o12, decoded);
@@ -286,6 +284,9 @@ fn test_codec_trait_decodes_available_c_string_literal_byte() {
     assert_eq!(0o12, decoded);
     assert_eq!(3, consumed.get());
 
+    let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }
+        .expect_err("unsupported C escape should fail");
+    assert_eq!(Some(2), super::invalid_consumed(malformed));
     let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }
         .expect_err("unsupported C escape should fail");
     let malformed = super::invalid_source(malformed);
@@ -311,12 +312,10 @@ fn test_codec_trait_decodes_c_string_literal_escape_variants() {
         (br"\r", b'\r', 2),
         (br"\t", b'\t', 2),
         (br"\v", 0x0b, 2),
-        (br"\xA", 0x0a, 3),
         (br"\x1Z", 0x01, 3),
         (br"\u0022", b'"', 6),
         (br"\U00000021", b'!', 10),
         (br"\377", 0xff, 4),
-        (br"\7", 0x07, 2),
     ];
 
     for (input, expected, expected_units) in cases {
@@ -325,6 +324,17 @@ fn test_codec_trait_decodes_c_string_literal_escape_variants() {
         };
         assert_eq!(*expected, decoded, "input {input:?}");
         assert_eq!(*expected_units, consumed.get(), "input {input:?}");
+    }
+
+    for (input, expected, expected_units) in
+        [(br"\xA" as &[u8], 0x0a, 3), (br"\7" as &[u8], 0x07, 2)]
+    {
+        let (decoded, consumed) = unsafe {
+            Codec::decode_eof(&mut codec, input, 0)
+                .expect("EOF C escape should decode")
+        };
+        assert_eq!(expected, decoded, "input {input:?}");
+        assert_eq!(expected_units, consumed.get(), "input {input:?}");
     }
 }
 
@@ -344,12 +354,18 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let incomplete_universal =
         unsafe { Codec::decode(&mut codec, br"\u12", 0) }
             .expect_err("incomplete universal escape should fail");
+    let incomplete_hex = unsafe { Codec::decode(&mut codec, br"\xA", 0) }
+        .expect_err("extendable hex escape should be incomplete");
+    let incomplete_octal = unsafe { Codec::decode(&mut codec, br"\7", 0) }
+        .expect_err("extendable octal escape should be incomplete");
     let invalid_universal_digit =
         unsafe { Codec::decode(&mut codec, br"\u00zz", 0) }
             .expect_err("invalid universal digit should fail");
     let oversized_universal =
         unsafe { Codec::decode(&mut codec, br"\u0100", 0) }
             .expect_err("oversized universal escape should fail");
+    let eof_invalid = unsafe { Codec::decode_eof(&mut codec, br"\z", 0) }
+        .expect_err("EOF unsupported C escape should fail");
 
     let invalid_raw = super::invalid_source(invalid_raw);
     let unsupported = super::invalid_source(unsupported);
@@ -357,6 +373,7 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let invalid_universal_digit =
         super::invalid_source(invalid_universal_digit);
     let oversized_universal = super::invalid_source(oversized_universal);
+    let eof_invalid = super::invalid_source(eof_invalid);
     assert!(matches!(
         invalid_raw,
         MiscCodecError::InvalidCharacter { index: 0, .. }
@@ -372,6 +389,8 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
     assert_eq!(6, super::incomplete_required(incomplete_universal));
+    assert_eq!(4, super::incomplete_required(incomplete_hex));
+    assert_eq!(3, super::incomplete_required(incomplete_octal));
     assert!(matches!(
         invalid_universal_digit,
         MiscCodecError::InvalidDigit {
@@ -382,6 +401,10 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     ));
     assert!(matches!(
         oversized_universal,
+        MiscCodecError::InvalidEscape { index: 0, .. }
+    ));
+    assert!(matches!(
+        eof_invalid,
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
 }
@@ -413,73 +436,6 @@ fn test_codec_trait_encodes_c_string_literal_escape_variants() {
         assert_eq!(expected.len(), codec.encode_len(byte));
         assert_eq!(*expected, &output[..written], "byte {byte:#04x}");
     }
-}
-
-#[test]
-fn test_codec_trait_decodes_and_encodes_base64_quantum() {
-    let mut codec = Base64QuantumCodec::standard();
-    let mut output = [0u8; 4];
-
-    let (decoded, consumed) = unsafe {
-        Codec::decode(&mut codec, b"YWJj", 0)
-            .expect("base64 quantum should decode")
-    };
-    let written = unsafe {
-        Codec::encode(&mut codec, b"abc", &mut output, 0)
-            .expect("base64 quantum should encode")
-    };
-
-    assert_eq!(*b"abc", decoded);
-    assert_eq!(4, consumed.get());
-    assert_eq!(4, written);
-    assert_eq!(b"YWJj", &output);
-    assert_eq!(4, <Base64QuantumCodec as Codec>::MIN_UNITS_PER_VALUE,);
-    assert_eq!(4, <Base64QuantumCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE,);
-    assert_eq!(4, <Base64QuantumCodec as Codec>::MAX_DECODE_UNITS_PER_VALUE,);
-}
-
-#[test]
-fn test_codec_trait_decodes_and_encodes_url_safe_base64_quantum() {
-    let mut codec = Base64QuantumCodec::url_safe();
-    let mut output = [0u8; 4];
-
-    let (decoded, consumed) = unsafe {
-        Codec::decode(&mut codec, b"-__u", 0)
-            .expect("URL-safe quantum should decode")
-    };
-    let written = unsafe {
-        Codec::encode(&mut codec, &[0xfb, 0xff, 0xee], &mut output, 0)
-            .expect("URL-safe quantum should encode")
-    };
-
-    assert_eq!([0xfb, 0xff, 0xee], decoded);
-    assert_eq!(4, consumed.get());
-    assert_eq!(4, written);
-    assert_eq!(b"-__u", &output);
-}
-
-#[test]
-fn test_codec_trait_covers_base64_quantum_alphabet_and_errors() {
-    let mut standard = Base64QuantumCodec::default();
-    let mut url_safe = Base64QuantumCodec::url_safe();
-
-    let (decoded, _) = unsafe { Codec::decode(&mut standard, b"++//", 0) }
-        .expect("standard symbols should decode");
-    assert_eq!([0xfb, 0xef, 0xff], decoded);
-
-    let (decoded, _) = unsafe { Codec::decode(&mut standard, b"0123", 0) }
-        .expect("digit symbols should decode");
-    assert_eq!([0xd3, 0x5d, 0xb7], decoded);
-    assert!(matches!(
-        super::invalid_source(
-            unsafe { Codec::decode(&mut url_safe, b"@@@@", 0) }
-                .expect_err("invalid Base64 quantum should fail")
-        ),
-        MiscCodecError::InvalidInput {
-            codec: "base64-quantum",
-            ..
-        }
-    ));
 }
 
 #[test]

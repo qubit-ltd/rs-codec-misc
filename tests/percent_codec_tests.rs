@@ -40,10 +40,11 @@ fn test_percent_codec_reports_bad_escape_and_utf8() {
         .expect_err("truncated escape should fail");
     assert!(matches!(
         short,
-        MiscCodecError::Incomplete {
-            required,
-            available: 1
-        } if required == qubit_codec::nz!(3)
+        MiscCodecError::InvalidEscape {
+            index: 3,
+            escape,
+            reason: _
+        } if escape == "%"
     ));
 
     let bad_hex = PercentCodec::new()
