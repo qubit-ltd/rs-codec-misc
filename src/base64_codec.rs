@@ -29,6 +29,7 @@ use qubit_codec::{
 /// This facade intentionally remains a whole-value codec backed by the
 /// `base64` crate. Final partial quantum handling and optional `=` padding are
 /// facade/transcoder responsibilities, not part of the low-level quantum codec.
+#[must_use]
 #[derive(Debug, Clone, Copy)]
 pub struct Base64Codec {
     engine: &'static ::base64::engine::GeneralPurpose,
@@ -92,6 +93,7 @@ impl Base64Codec {
     /// # Returns
     /// Encoded Base64 text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, bytes: &[u8]) -> String {
         self.engine.encode(bytes)
     }
