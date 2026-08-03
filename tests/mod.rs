@@ -9,18 +9,22 @@
 
 mod assertions_tests;
 mod base64_codec_tests;
+mod base64_quantum_codec_tests;
 mod c_integer_literal_codec_tests;
 mod c_string_literal_codec_tests;
 mod codec_tests;
 mod decoder_tests;
 mod encoder_tests;
 mod form_urlencoded_codec_tests;
+mod hex_byte_codec_tests;
 mod hex_codec_tests;
+mod internal;
 mod misc_codec_error_tests;
 mod percent_codec_tests;
 mod trait_tests;
 
 pub(crate) use assertions_tests::{
     incomplete_required,
+    invalid_consumed,
     invalid_source,
 };

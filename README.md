@@ -104,6 +104,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **Form Fragment Codec**: handles `application/x-www-form-urlencoded` text
   fragments.
 - **Space as Plus**: encodes spaces as `+` and decodes `+` back to spaces.
+- **WHATWG Character Set**: leaves only ASCII letters, digits, `*`, `-`, `.`,
+  and `_` unescaped.
 - **Percent Compatibility**: shares the same UTF-8 and `%XX` validation behavior
   as `PercentCodec`.
 
@@ -390,17 +392,35 @@ Bundled decoders return `MiscCodecResult<T>`, an alias for
 | `InvalidInput` | Input was rejected by a codec-specific validator |
 | `InvalidUtf8` | Decoded bytes were not valid UTF-8 |
 
+Complete-value helpers report truncated `%XX` and C escapes as
+`InvalidEscape`. Low-level `Codec::decode` calls use
+`qubit_codec::DecodeFailure::Incomplete` for open-stream tails; callers that
+have confirmed EOF should call `Codec::decode_eof` so format-specific short
+escapes can be resolved.
+
 ## Performance Considerations
 
 Codec implementations operate on borrowed byte slices or strings and return
 owned output only when the target format requires it. Configuration is stored in
 small value types, and generic trait use does not require dynamic dispatch.
 
-## Testing & Code Coverage
+Run `cargo bench --all-features` to measure representative text and Hex
+workloads. The fuzz targets under `fuzz/` can be compiled with
+`cargo +nightly fuzz build` and run with `cargo +nightly fuzz run
+percent_and_form` (or the other target names).
 
-This project keeps codec behavior covered by integration tests under `tests/`.
+## Dependencies
 
-### Running Tests
+Runtime dependencies are intentionally small:
+
+- `base64` provides the Base64 engines.
+- `percent-encoding` provides the percent escape byte table.
+- `thiserror` provides the public error type implementation.
+
+The `form_urlencoded` crate is used only by differential tests and fuzz targets;
+it is not part of the runtime API.
+
+## Testing
 
 ```bash
 # Run tests with the default feature set
@@ -409,64 +429,28 @@ cargo test
 # Run tests with all declared features
 cargo test --all-features
 
-# Run with coverage report
-./coverage.sh
-
-# Generate text format report
-./coverage.sh text
-
-# Align code with CI requirements
-./align-ci.sh
-
-# Run CI checks (format, clippy, test, coverage, audit)
+# Project CI checks
 ./ci-check.sh
+
+# Check code coverage
+./coverage.sh
 ```
-
-## Dependencies
-
-Runtime dependencies are intentionally small:
-
-- `base64` provides the Base64 engines.
-- `thiserror` provides the public error type implementation.
 
 ## License
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-See [LICENSE](LICENSE) for the full license text.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full license text.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Guidelines
-
-- Follow Rust API Guidelines.
-- Keep tests comprehensive and deterministic.
-- Document public APIs and behavior changes.
-- Ensure all checks pass before submitting a PR.
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
-**Haixing Hu**
-
-## Related Projects
-
-More Rust libraries from Qubit are available under the
-[qubit-ltd](https://github.com/qubit-ltd) GitHub organization.
-
----
+**Haixing Hu** - *Qubit Co. Ltd.*
 
 Repository: [https://github.com/qubit-ltd/rs-codec-misc](https://github.com/qubit-ltd/rs-codec-misc)

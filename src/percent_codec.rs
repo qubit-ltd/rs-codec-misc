@@ -10,24 +10,25 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
-    misc_codec_error::map_misc_decode_failure,
+    internal::{
+        ParseError,
+        PercentEncodingMode,
+    },
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
+use percent_encoding::percent_encode_byte as encode_percent_byte;
 use qubit_codec::{
     Codec,
     ValueDecoder,
     ValueEncoder,
 };
 
-const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-    'F',
-];
-
 /// Encodes and decodes percent-encoded UTF-8 text.
 ///
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte to either one unreserved ASCII unit or a `%XX` escape. UTF-8 validation
 /// remains part of the owned [`decode`](Self::decode) helper.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PercentCodec;
 
@@ -49,8 +50,9 @@ impl PercentCodec {
     /// # Returns
     /// Percent-encoded text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, text: &str) -> String {
-        percent_encode_bytes(text.as_bytes(), false)
+        percent_encode_bytes(text.as_bytes(), PercentEncodingMode::Rfc3986)
     }
 
     /// Decodes percent-encoded UTF-8 text.
@@ -107,10 +109,14 @@ impl Codec for PercentCodec {
     /// Returns the exact percent-encoded width for one byte.
     #[inline(always)]
     fn encode_len(&self, value: &u8) -> usize {
-        if is_unreserved(*value) { 1 } else { 3 }
+        percent_encode_len(*value, PercentEncodingMode::Rfc3986)
     }
 
     /// Decodes one raw byte or `%XX` escape.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's decode preconditions.
     #[inline]
     unsafe fn decode(
         &mut self,
@@ -123,7 +129,12 @@ impl Codec for PercentCodec {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, false)
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+                ParseError::into_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(3),
+                )
+            })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
@@ -132,6 +143,10 @@ impl Codec for PercentCodec {
     }
 
     /// Encodes one byte using percent encoding.
+    ///
+    /// # Safety
+    /// The caller must provide enough writable output units for
+    /// [`Self::encode_len`].
     #[inline]
     unsafe fn encode(
         &mut self,
@@ -139,15 +154,46 @@ impl Codec for PercentCodec {
         output: &mut [u8],
         output_index: usize,
     ) -> Result<usize, Self::EncodeError> {
-        debug_assert!(
-            output_index + if is_unreserved(*value) { 1 } else { 3 }
-                <= output.len()
-        );
+        let required = percent_encode_len(*value, PercentEncodingMode::Rfc3986);
+        debug_assert!(output_index + required <= output.len());
 
-        let written = percent_encode_byte(*value, output, output_index, false);
-        let required = <Self as Codec>::encode_len(self, value);
+        let written = percent_encode_byte(
+            *value,
+            output,
+            output_index,
+            PercentEncodingMode::Rfc3986,
+        );
         debug_assert_eq!(written, required);
         Ok(required)
+    }
+
+    /// Decodes one value after end of input has been confirmed.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's EOF decode preconditions.
+    #[inline]
+    unsafe fn decode_eof(
+        &mut self,
+        input: &[u8],
+        input_index: usize,
+    ) -> Result<
+        (u8, core::num::NonZeroUsize),
+        qubit_codec::DecodeFailure<Self::DecodeError>,
+    > {
+        debug_assert!(input_index < input.len());
+
+        let (value, consumed) = percent_decode_byte_eof(
+            input,
+            input_index,
+            false,
+        )
+        .map_err(|error| {
+            map_misc_decode_failure_with_consumed(error, qubit_codec::nz!(3))
+        })?;
+        debug_assert!(consumed > 0);
+        let consumed = qubit_codec::nz!(consumed);
+        Ok((value, consumed))
     }
 }
 
@@ -155,25 +201,27 @@ impl Codec for PercentCodec {
 ///
 /// # Parameters
 /// - `bytes`: Bytes to encode.
-/// - `space_as_plus`: Whether spaces should be encoded as `+`.
+/// - `mode`: Encoding policy selecting the unescaped set and space handling.
 ///
 /// # Returns
 /// Encoded text.
 #[inline]
 pub(crate) fn percent_encode_bytes(
     bytes: &[u8],
-    space_as_plus: bool,
+    mode: PercentEncodingMode,
 ) -> String {
-    let mut output = String::with_capacity(bytes.len());
+    let capacity = bytes
+        .iter()
+        .map(|byte| percent_encode_len(*byte, mode))
+        .sum();
+    let mut output = String::with_capacity(capacity);
     for byte in bytes {
-        if *byte == b' ' && space_as_plus {
+        if mode.is_space_plus(*byte) {
             output.push('+');
-        } else if is_unreserved(*byte) {
+        } else if mode.is_unescaped(*byte) {
             output.push(*byte as char);
         } else {
-            output.push('%');
-            output.push(percent_hex_digit(byte >> 4));
-            output.push(percent_hex_digit(byte & 0x0f));
+            output.push_str(encode_percent_byte(*byte));
         }
     }
     output
@@ -200,7 +248,9 @@ pub(crate) fn percent_decode_bytes(
     let mut index = 0;
     while index < bytes.len() {
         let (decoded, consumed) =
-            percent_decode_byte(bytes, index, plus_as_space)?;
+            percent_decode_byte(bytes, index, plus_as_space).map_err(
+                |error| percent_parse_error_to_misc(error, bytes, index),
+            )?;
         output.push(decoded);
         index += consumed;
     }
@@ -213,7 +263,7 @@ pub(crate) fn percent_decode_bytes(
 /// - `byte`: Byte to encode.
 /// - `output`: Destination unit buffer.
 /// - `index`: Start index in `output`.
-/// - `space_as_plus`: Whether spaces should be encoded as `+`.
+/// - `mode`: Encoding policy selecting the unescaped set and space handling.
 ///
 /// # Returns
 /// Number of units written.
@@ -222,20 +272,29 @@ pub(crate) fn percent_encode_byte(
     byte: u8,
     output: &mut [u8],
     index: usize,
-    space_as_plus: bool,
+    mode: PercentEncodingMode,
 ) -> usize {
-    if byte == b' ' && space_as_plus {
+    if mode.is_space_plus(byte) {
         output[index] = b'+';
         return 1;
     }
-    if is_unreserved(byte) {
+    if mode.is_unescaped(byte) {
         output[index] = byte;
         return 1;
     }
-    output[index] = b'%';
-    output[index + 1] = percent_hex_digit(byte >> 4) as u8;
-    output[index + 2] = percent_hex_digit(byte & 0x0f) as u8;
+    output[index..index + 3]
+        .copy_from_slice(encode_percent_byte(byte).as_bytes());
     3
+}
+
+/// Returns the encoded width for one byte under `mode`.
+#[inline(always)]
+pub(crate) fn percent_encode_len(byte: u8, mode: PercentEncodingMode) -> usize {
+    if mode.is_space_plus(byte) || mode.is_unescaped(byte) {
+        1
+    } else {
+        3
+    }
 }
 
 /// Decodes one raw byte or `%XX` escape from `input`.
@@ -255,35 +314,50 @@ pub(crate) fn percent_decode_byte(
     input: &[u8],
     index: usize,
     plus_as_space: bool,
-) -> MiscCodecResult<(u8, usize)> {
-    let available = input.len().saturating_sub(index);
-    if available == 0 {
-        return Err(MiscCodecError::Incomplete {
-            required: qubit_codec::nz!(1),
-            available,
-        });
-    }
+) -> Result<(u8, usize), ParseError> {
+    debug_assert!(index < input.len());
+    let available = input.len() - index;
     match input[index] {
         b'%' => {
             if available < 3 {
-                return Err(MiscCodecError::Incomplete {
+                return Err(ParseError::Incomplete {
                     required: qubit_codec::nz!(3),
-                    available,
                 });
             }
-            let (Some(&high_byte), Some(&low_byte)) =
-                (input.get(index + 1), input.get(index + 2))
-            else {
-                return Err(invalid_percent_escape(index));
-            };
+            let high_byte = input[index + 1];
+            let low_byte = input[index + 2];
             let high = percent_hex_value(high_byte)
-                .ok_or_else(|| invalid_percent_escape(index))?;
+                .ok_or_else(|| invalid_percent_escape(input, index))?;
             let low = percent_hex_value(low_byte)
-                .ok_or_else(|| invalid_percent_escape(index))?;
+                .ok_or_else(|| invalid_percent_escape(input, index))?;
             Ok(((high << 4) | low, 3))
         }
         b'+' if plus_as_space => Ok((b' ', 1)),
         byte => Ok((byte, 1)),
+    }
+}
+
+/// Decodes one percent value using EOF rules.
+#[inline]
+fn percent_decode_byte_eof(
+    input: &[u8],
+    index: usize,
+    plus_as_space: bool,
+) -> Result<(u8, usize), MiscCodecError> {
+    percent_decode_byte(input, index, plus_as_space)
+        .map_err(|error| percent_parse_error_to_misc(error, input, index))
+}
+
+/// Converts an open-stream parse result into a complete-input error.
+#[inline]
+fn percent_parse_error_to_misc(
+    error: ParseError,
+    input: &[u8],
+    index: usize,
+) -> MiscCodecError {
+    match error {
+        ParseError::Incomplete { .. } => invalid_percent_escape(input, index),
+        ParseError::Invalid(error) => error,
     }
 }
 
@@ -294,27 +368,13 @@ pub(crate) fn percent_decode_byte(
 ///
 /// # Returns
 /// An invalid escape error for a `%XX` sequence.
-fn invalid_percent_escape(index: usize) -> MiscCodecError {
+fn invalid_percent_escape(input: &[u8], index: usize) -> MiscCodecError {
+    let end = index.saturating_add(3).min(input.len());
     MiscCodecError::InvalidEscape {
         index,
-        escape: "%".to_owned(),
+        escape: String::from_utf8_lossy(&input[index..end]).into_owned(),
         reason: "expected two hexadecimal digits".to_owned(),
     }
-}
-
-/// Tests whether a byte may be left unescaped.
-///
-/// # Parameters
-/// - `byte`: Byte to inspect.
-///
-/// # Returns
-/// `true` for RFC 3986 unreserved bytes.
-#[inline(always)]
-fn is_unreserved(byte: u8) -> bool {
-    matches!(
-        byte,
-        b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~'
-    )
 }
 
 /// Converts one ASCII hex byte to its nibble value.
@@ -332,17 +392,4 @@ fn percent_hex_value(byte: u8) -> Option<u8> {
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
     }
-}
-
-/// Converts one nibble to an uppercase hexadecimal digit.
-///
-/// # Parameters
-/// - `value`: Nibble value.
-///
-/// # Returns
-/// Uppercase hexadecimal digit. Values above `0x0f` are masked to their low
-/// nibble.
-#[inline(always)]
-fn percent_hex_digit(value: u8) -> char {
-    UPPER_HEX_DIGITS[(value & 0x0f) as usize]
 }
