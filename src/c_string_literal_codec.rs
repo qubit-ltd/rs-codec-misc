@@ -10,6 +10,7 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
+    internal::ParseError,
     misc_codec_error::map_misc_decode_failure,
 };
 use qubit_codec::{
@@ -85,7 +86,10 @@ impl CStringLiteralCodec {
                 input,
                 index,
                 CStringLiteralParseContext::CompleteText(text),
-            )?;
+            )
+            .map_err(|error| {
+                c_string_parse_error_to_misc(error, input, index)
+            })?;
             debug_assert!(consumed > 0);
             output.push(decoded);
             index += consumed;
@@ -134,6 +138,10 @@ impl Codec for CStringLiteralCodec {
     }
 
     /// Decodes one raw byte or one C escape fragment.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's decode preconditions.
     #[inline]
     unsafe fn decode(
         &mut self,
@@ -147,7 +155,7 @@ impl Codec for CStringLiteralCodec {
 
         let (value, consumed) =
             decode_c_string_literal_byte(input, input_index)
-                .map_err(map_misc_decode_failure)?;
+                .map_err(ParseError::into_decode_failure)?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -155,7 +163,44 @@ impl Codec for CStringLiteralCodec {
         Ok((value, consumed))
     }
 
+    /// Decodes one value after end of input has been confirmed.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's EOF decode preconditions.
+    #[inline]
+    unsafe fn decode_eof(
+        &mut self,
+        input: &[u8],
+        input_index: usize,
+    ) -> Result<
+        (u8, core::num::NonZeroUsize),
+        qubit_codec::DecodeFailure<Self::DecodeError>,
+    > {
+        debug_assert!(input_index < input.len());
+
+        let (value, consumed) = decode_c_string_literal_unit(
+            input,
+            input_index,
+            CStringLiteralParseContext::EofBytes,
+        )
+        .map_err(|error| {
+            map_misc_decode_failure(c_string_parse_error_to_misc(
+                error,
+                input,
+                input_index,
+            ))
+        })?;
+        debug_assert!(consumed > 0);
+        let consumed = qubit_codec::nz!(consumed);
+        Ok((value, consumed))
+    }
+
     /// Encodes one byte as a raw byte or C escape fragment.
+    ///
+    /// # Safety
+    /// The caller must provide enough writable output units for
+    /// [`Self::encode_len`].
     #[inline]
     unsafe fn encode(
         &mut self,
@@ -180,6 +225,8 @@ impl Codec for CStringLiteralCodec {
 enum CStringLiteralParseContext<'a> {
     /// Parsing a complete UTF-8 literal fragment.
     CompleteText(&'a str),
+    /// Parsing one byte value after EOF has been confirmed.
+    EofBytes,
     /// Parsing one byte unit for a streaming codec caller.
     StreamingBytes,
 }
@@ -192,7 +239,13 @@ impl CStringLiteralParseContext<'_> {
     /// complete input instead of as retryable incomplete input.
     #[inline(always)]
     fn is_complete_text(self) -> bool {
-        matches!(self, Self::CompleteText(_))
+        matches!(self, Self::CompleteText(_) | Self::EofBytes)
+    }
+
+    /// Tests whether parsing is for an open stream.
+    #[inline(always)]
+    fn is_streaming(self) -> bool {
+        matches!(self, Self::StreamingBytes)
     }
 
     /// Builds the error for a trailing escape marker.
@@ -207,15 +260,15 @@ impl CStringLiteralParseContext<'_> {
     fn trailing_escape_error(
         self,
         marker_index: usize,
-        available: usize,
-    ) -> MiscCodecError {
+        _available: usize,
+    ) -> ParseError {
         match self {
-            Self::CompleteText(_) => {
+            Self::CompleteText(_) | Self::EofBytes => {
                 invalid_escape(marker_index, "\\", "incomplete escape sequence")
+                    .into()
             }
-            Self::StreamingBytes => MiscCodecError::Incomplete {
+            Self::StreamingBytes => ParseError::Incomplete {
                 required: qubit_codec::nz!(2),
-                available,
             },
         }
     }
@@ -235,7 +288,7 @@ impl CStringLiteralParseContext<'_> {
                 .get(index..)
                 .and_then(|rest| rest.chars().next())
                 .unwrap_or(char::from(input[index])),
-            Self::StreamingBytes => char::from(input[index]),
+            Self::EofBytes | Self::StreamingBytes => char::from(input[index]),
         }
     }
 
@@ -246,7 +299,7 @@ impl CStringLiteralParseContext<'_> {
     #[inline(always)]
     fn raw_source_reason(self) -> &'static str {
         match self {
-            Self::CompleteText(_) => {
+            Self::CompleteText(_) | Self::EofBytes => {
                 "raw source character must be printable ASCII or allowed whitespace"
             }
             Self::StreamingBytes => {
@@ -271,7 +324,9 @@ impl CStringLiteralParseContext<'_> {
                 .or(text.get(start..))
                 .unwrap_or("\\")
                 .to_owned(),
-            Self::StreamingBytes => escape_fragment(input, start, end),
+            Self::EofBytes | Self::StreamingBytes => {
+                escape_fragment(input, start, end)
+            }
         }
     }
 }
@@ -320,7 +375,7 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 fn decode_c_string_literal_byte(
     input: &[u8],
     index: usize,
-) -> MiscCodecResult<(u8, usize)> {
+) -> Result<(u8, usize), ParseError> {
     decode_c_string_literal_unit(
         input,
         index,
@@ -345,14 +400,9 @@ fn decode_c_string_literal_unit(
     input: &[u8],
     index: usize,
     context: CStringLiteralParseContext<'_>,
-) -> MiscCodecResult<(u8, usize)> {
-    let available = input.len().saturating_sub(index);
-    if available == 0 {
-        return Err(MiscCodecError::Incomplete {
-            required: qubit_codec::nz!(1),
-            available,
-        });
-    }
+) -> Result<(u8, usize), ParseError> {
+    debug_assert!(index < input.len());
+    let available = input.len() - index;
     let byte = input[index];
     if byte != b'\\' {
         validate_source_unit(input, index, byte, context)?;
@@ -394,14 +444,17 @@ fn decode_c_string_literal_unit(
             parse_fixed_hex_escape_units(input, index, 8, context)
         }
         b'0'..=b'7' => {
-            ensure_octal_escape_complete(input, index, available)?;
+            if context.is_streaming() {
+                ensure_octal_escape_complete(input, index, available)?;
+            }
             Ok(parse_octal_escape_units(input, index))
         }
         _ => Err(invalid_escape(
             index,
             &context.escape_fragment(input, index, index + 2),
             "unsupported escape sequence",
-        )),
+        )
+        .into()),
     }
 }
 
@@ -413,17 +466,31 @@ fn decode_c_string_literal_unit(
 /// - `available`: Available unit count from `index`.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::Incomplete`] when more units are required.
+/// Returns an internal incomplete parser outcome when more units are required.
 #[inline]
 fn ensure_variable_hex_escape_complete(
-    _input: &[u8],
-    _index: usize,
+    input: &[u8],
+    index: usize,
     available: usize,
-) -> MiscCodecResult<()> {
+) -> Result<(), ParseError> {
     if available < 3 {
-        return Err(MiscCodecError::Incomplete {
+        return Err(ParseError::Incomplete {
             required: qubit_codec::nz!(3),
-            available,
+        });
+    }
+    let mut digit_count = 0usize;
+    while digit_count < 2 {
+        let Some(&byte) = input.get(index + 2 + digit_count) else {
+            break;
+        };
+        if hex_value(char::from(byte)).is_none() {
+            break;
+        }
+        digit_count += 1;
+    }
+    if digit_count == 1 && index + 3 == input.len() {
+        return Err(ParseError::Incomplete {
+            required: qubit_codec::nz!(4),
         });
     }
     Ok(())
@@ -436,17 +503,14 @@ fn ensure_variable_hex_escape_complete(
 /// - `required`: Required unit count for this escape form.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::Incomplete`] when more units are required.
+/// Returns an internal incomplete parser outcome when more units are required.
 #[inline]
 fn ensure_fixed_escape_complete(
     available: usize,
     required: core::num::NonZeroUsize,
-) -> MiscCodecResult<()> {
+) -> Result<(), ParseError> {
     if available < required.get() {
-        return Err(MiscCodecError::Incomplete {
-            required,
-            available,
-        });
+        return Err(ParseError::Incomplete { required });
     }
     Ok(())
 }
@@ -459,13 +523,28 @@ fn ensure_fixed_escape_complete(
 /// - `available`: Available unit count from `index`.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::Incomplete`] when more units are required.
+/// Returns an internal incomplete parser outcome when more units are required.
 #[inline]
 fn ensure_octal_escape_complete(
-    _input: &[u8],
-    _index: usize,
+    input: &[u8],
+    index: usize,
     _available: usize,
-) -> MiscCodecResult<()> {
+) -> Result<(), ParseError> {
+    let mut digit_count = 0usize;
+    while digit_count < 3 {
+        let Some(&byte) = input.get(index + 1 + digit_count) else {
+            break;
+        };
+        if octal_value(char::from(byte)).is_none() {
+            break;
+        }
+        digit_count += 1;
+    }
+    if digit_count < 3 && index + 1 + digit_count == input.len() {
+        return Err(ParseError::Incomplete {
+            required: qubit_codec::nz!(2 + digit_count),
+        });
+    }
     Ok(())
 }
 
@@ -486,7 +565,7 @@ fn validate_source_unit(
     index: usize,
     byte: u8,
     context: CStringLiteralParseContext<'_>,
-) -> MiscCodecResult<()> {
+) -> Result<(), ParseError> {
     if matches!(byte, b'\t' | b'\n' | 0x0b | 0x0c | b' '..=b'~') {
         return Ok(());
     }
@@ -494,7 +573,8 @@ fn validate_source_unit(
         index,
         character: context.source_character(input, index),
         reason: context.raw_source_reason().to_owned(),
-    })
+    }
+    .into())
 }
 
 /// Parses a byte-oriented `\x` escape from `input`.
@@ -513,7 +593,7 @@ fn validate_source_unit(
 fn parse_variable_hex_escape_units(
     input: &[u8],
     marker_index: usize,
-) -> MiscCodecResult<(u8, usize)> {
+) -> Result<(u8, usize), ParseError> {
     let mut value = 0u8;
     let mut digit_count = 0usize;
     let mut index = marker_index + 2;
@@ -533,7 +613,8 @@ fn parse_variable_hex_escape_units(
             marker_index,
             "\\x",
             "expected at least one hexadecimal digit",
-        ));
+        )
+        .into());
     }
     Ok((value, 2 + digit_count))
 }
@@ -558,7 +639,7 @@ fn parse_fixed_hex_escape_units(
     marker_index: usize,
     digits: usize,
     context: CStringLiteralParseContext<'_>,
-) -> MiscCodecResult<(u8, usize)> {
+) -> Result<(u8, usize), ParseError> {
     let mut value = 0u32;
     let mut index = marker_index + 2;
     for _ in 0..digits {
@@ -567,7 +648,8 @@ fn parse_fixed_hex_escape_units(
                 marker_index,
                 &context.escape_fragment(input, marker_index, input.len()),
                 "incomplete universal character escape",
-            ));
+            )
+            .into());
         };
         let character = context.source_character(input, index);
         let Some(digit) = hex_value(character) else {
@@ -575,7 +657,8 @@ fn parse_fixed_hex_escape_units(
                 radix: 16,
                 index,
                 character,
-            });
+            }
+            .into());
         };
         value = (value << 4) | u32::from(digit);
         index += 1;
@@ -585,7 +668,8 @@ fn parse_fixed_hex_escape_units(
             marker_index,
             &context.escape_fragment(input, marker_index, index),
             "universal character value must fit in one byte",
-        ));
+        )
+        .into());
     }
     Ok((value as u8, 2 + digits))
 }
@@ -748,6 +832,35 @@ fn octal_value(character: char) -> Option<u8> {
 #[inline(always)]
 fn uppercase_hex_digit(value: u8) -> char {
     UPPER_HEX_DIGITS[(value & 0x0f) as usize]
+}
+
+/// Converts a parser outcome into an owned complete-input error.
+///
+/// # Parameters
+/// - `error`: Parser outcome to convert.
+/// - `input`: Encoded source units.
+/// - `index`: Start index of the current value.
+///
+/// # Returns
+/// A concrete codec error suitable for complete or EOF-confirmed input.
+#[inline]
+fn c_string_parse_error_to_misc(
+    error: ParseError,
+    input: &[u8],
+    index: usize,
+) -> MiscCodecError {
+    match error {
+        ParseError::Incomplete { required, .. } => {
+            MiscCodecError::InvalidEscape {
+                index,
+                escape: escape_fragment(input, index, input.len()),
+                reason: format!(
+                    "incomplete escape sequence; expected at least {required} units"
+                ),
+            }
+        }
+        ParseError::Invalid(error) => error,
+    }
 }
 
 /// Builds an invalid escape error.

@@ -7,7 +7,6 @@
 // =============================================================================
 //! Shared codec error type.
 
-use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
 use qubit_codec::DecodeFailure;
@@ -19,17 +18,6 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 /// Error returned by codec operations.
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
-    /// Input ended before a complete codec value was available.
-    #[error(
-        "incomplete input: required {required} units, available {available}"
-    )]
-    Incomplete {
-        /// Total units required from the current decode start.
-        required: NonZeroUsize,
-        /// Units currently available from the current decode start.
-        available: usize,
-    },
-
     /// A configured prefix was required but missing.
     #[error("missing required prefix '{prefix}'")]
     MissingPrefix {
@@ -99,24 +87,9 @@ pub enum MiscCodecError {
     },
 }
 
-impl MiscCodecError {
-    /// Converts this error into the failure type returned by
-    /// [`qubit_codec::Codec::decode`].
-    #[must_use]
-    #[inline]
-    pub fn into_codec_failure(self) -> DecodeFailure<Self> {
-        map_misc_decode_failure(self)
-    }
-}
-
 #[inline]
 pub(crate) fn map_misc_decode_failure(
     error: MiscCodecError,
 ) -> DecodeFailure<MiscCodecError> {
-    match error {
-        error @ MiscCodecError::Incomplete { required, .. } => {
-            DecodeFailure::incomplete_with_source(error, required)
-        }
-        error => DecodeFailure::invalid_unknown(error),
-    }
+    DecodeFailure::invalid_unknown(error)
 }
