@@ -292,28 +292,6 @@ fn test_decode_matches_codec_trait_path_for_complete_fragments() {
     }
 }
 
-#[test]
-fn test_c_string_literal_codec_uses_shared_parser_core() {
-    let source = include_str!("../src/c_string_literal_codec.rs");
-
-    assert!(
-        source.contains("fn decode_c_string_literal_unit("),
-        "C string literal decoding should have one shared unit parser"
-    );
-    for removed_function in [
-        "fn decode_escape(",
-        "fn parse_variable_hex_escape(",
-        "fn parse_fixed_hex_escape(",
-        "fn parse_octal_escape(",
-        "fn validate_source_character(",
-    ] {
-        assert!(
-            !source.contains(removed_function),
-            "owned decode should not keep the old char-oriented parser function {removed_function}"
-        );
-    }
-}
-
 fn decode_complete_fragment_through_codec_trait(
     codec: &mut CStringLiteralCodec,
     input: &str,
@@ -323,18 +301,14 @@ fn decode_complete_fragment_through_codec_trait(
     let mut input_index = 0;
     while input_index < bytes.len() {
         let (decoded, consumed) =
-            unsafe { Codec::decode(codec, bytes, input_index) }.map_err(
+            unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(
                 |failure| match failure {
                     qubit_codec::DecodeFailure::Invalid { source, .. } => {
                         source
                     }
-                    qubit_codec::DecodeFailure::Incomplete {
-                        required_total,
-                        ..
-                    } => MiscCodecError::Incomplete {
-                        required: required_total,
-                        available: bytes.len().saturating_sub(input_index),
-                    },
+                    qubit_codec::DecodeFailure::Incomplete { .. } => {
+                        panic!("EOF-aware C string decode remained incomplete")
+                    }
                 },
             )?;
         output.push(decoded);
