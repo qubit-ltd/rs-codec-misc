@@ -1,0 +1,44 @@
+[package]
+name = "qubit-codec-misc-fuzz"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+base64 = "0.22"
+form_urlencoded = "1.2"
+libfuzzer-sys = "0.4"
+qubit-codec = { version = "0.10" }
+qubit-codec-misc = { path = ".." }
+
+[[bin]]
+name = "percent_and_form"
+path = "fuzz_targets/percent_and_form.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hex"
+path = "fuzz_targets/hex.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "c_literals"
+path = "fuzz_targets/c_literals.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "base64_quantum"
+path = "fuzz_targets/base64_quantum.rs"
+test = false
+doc = false
+bench = false

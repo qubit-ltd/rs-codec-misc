@@ -12,11 +12,16 @@ use crate::percent_codec::{
     percent_decode_bytes,
     percent_encode_byte,
     percent_encode_bytes,
+    percent_encode_len,
 };
 use crate::{
     MiscCodecError,
     MiscCodecResult,
-    misc_codec_error::map_misc_decode_failure,
+    internal::{
+        ParseError,
+        PercentEncodingMode,
+    },
+    misc_codec_error::map_misc_decode_failure_with_consumed,
 };
 use qubit_codec::{
     Codec,
@@ -29,6 +34,7 @@ use qubit_codec::{
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte at a time, including the form-specific space and `+` mapping. UTF-8
 /// validation remains part of the owned [`decode`](Self::decode) helper.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FormUrlencodedCodec;
 
@@ -50,8 +56,12 @@ impl FormUrlencodedCodec {
     /// # Returns
     /// Form-url-encoded text.
     #[inline]
+    #[must_use]
     pub fn encode(&self, text: &str) -> String {
-        percent_encode_bytes(text.as_bytes(), true)
+        percent_encode_bytes(
+            text.as_bytes(),
+            PercentEncodingMode::FormUrlencoded,
+        )
     }
 
     /// Decodes text, treating `+` as space.
@@ -108,17 +118,14 @@ impl Codec for FormUrlencodedCodec {
     /// Returns the exact form-url-encoded width for one byte.
     #[inline(always)]
     fn encode_len(&self, value: &u8) -> usize {
-        if *value == b' '
-            || value.is_ascii_alphanumeric()
-            || matches!(*value, b'-' | b'.' | b'_' | b'~')
-        {
-            1
-        } else {
-            3
-        }
+        percent_encode_len(*value, PercentEncodingMode::FormUrlencoded)
     }
 
     /// Decodes one raw byte, `+`, or `%XX` escape.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's decode preconditions.
     #[inline]
     unsafe fn decode(
         &mut self,
@@ -131,7 +138,12 @@ impl Codec for FormUrlencodedCodec {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(map_misc_decode_failure)?;
+            .map_err(|error| {
+            ParseError::into_decode_failure_with_consumed(
+                error,
+                qubit_codec::nz!(3),
+            )
+        })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
@@ -140,6 +152,10 @@ impl Codec for FormUrlencodedCodec {
     }
 
     /// Encodes one byte using form URL encoding.
+    ///
+    /// # Safety
+    /// The caller must provide enough writable output units for
+    /// [`Self::encode_len`].
     #[inline]
     unsafe fn encode(
         &mut self,
@@ -147,22 +163,58 @@ impl Codec for FormUrlencodedCodec {
         output: &mut [u8],
         output_index: usize,
     ) -> Result<usize, Self::EncodeError> {
-        debug_assert!(
-            output_index
-                + if *value == b' '
-                    || value.is_ascii_alphanumeric()
-                    || matches!(*value, b'-' | b'.' | b'_' | b'~')
-                {
-                    1
-                } else {
-                    3
-                }
-                <= output.len()
-        );
+        let required =
+            percent_encode_len(*value, PercentEncodingMode::FormUrlencoded);
+        debug_assert!(output_index + required <= output.len());
 
-        let written = percent_encode_byte(*value, output, output_index, true);
-        let required = <Self as Codec>::encode_len(self, value);
+        let written = percent_encode_byte(
+            *value,
+            output,
+            output_index,
+            PercentEncodingMode::FormUrlencoded,
+        );
         debug_assert_eq!(written, required);
         Ok(required)
+    }
+
+    /// Decodes one value after end of input has been confirmed.
+    ///
+    /// # Safety
+    /// The caller must provide an input index with at least one readable unit
+    /// and a slice satisfying the codec trait's EOF decode preconditions.
+    #[inline]
+    unsafe fn decode_eof(
+        &mut self,
+        input: &[u8],
+        input_index: usize,
+    ) -> Result<
+        (u8, core::num::NonZeroUsize),
+        qubit_codec::DecodeFailure<Self::DecodeError>,
+    > {
+        debug_assert!(input_index < input.len());
+
+        let (value, consumed) = percent_decode_byte(input, input_index, true)
+            .map_err(|error| match error {
+            ParseError::Incomplete { .. } => {
+                map_misc_decode_failure_with_consumed(
+                    MiscCodecError::InvalidEscape {
+                        index: input_index,
+                        escape: String::from_utf8_lossy(&input[input_index..])
+                            .into_owned(),
+                        reason: "expected two hexadecimal digits".to_owned(),
+                    },
+                    qubit_codec::nz!(3),
+                )
+            }
+            ParseError::Invalid(error) => {
+                map_misc_decode_failure_with_consumed(
+                    error,
+                    qubit_codec::nz!(3),
+                )
+            }
+        })?;
+        debug_assert!(consumed > 0);
+        let consumed = qubit_codec::nz!(consumed);
+        Ok((value, consumed))
     }
 }
