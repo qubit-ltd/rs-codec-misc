@@ -10,6 +10,7 @@
 use crate::{
     MiscCodecError,
     MiscCodecResult,
+    internal::LiteralComponents,
 };
 use qubit_codec::ValueDecoder;
 
@@ -18,6 +19,7 @@ use qubit_codec::ValueDecoder;
 /// This codec accepts decimal literals such as `123`, octal literals such as
 /// `0123`, and hexadecimal literals such as `0x123` or `0X123`. It trims
 /// surrounding whitespace and returns a `u64`.
+#[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CIntegerLiteralCodec;
 
@@ -69,61 +71,6 @@ impl ValueDecoder<str> for CIntegerLiteralCodec {
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         CIntegerLiteralCodec::decode(self, input)
-    }
-}
-
-/// Parsed C integer literal components.
-#[derive(Debug, Clone, Copy)]
-struct LiteralComponents<'a> {
-    radix: u32,
-    digits: &'a str,
-    digits_offset: usize,
-}
-
-impl<'a> LiteralComponents<'a> {
-    /// Parses radix and digit slice from trimmed input.
-    ///
-    /// # Parameters
-    /// - `trimmed`: Input after surrounding whitespace has been removed.
-    /// - `trim_offset`: Byte offset of `trimmed` in the original input.
-    ///
-    /// # Returns
-    /// Literal components used by validation and numeric parsing.
-    ///
-    /// # Errors
-    /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present
-    /// without any digits after it.
-    #[inline]
-    fn parse(trimmed: &'a str, trim_offset: usize) -> MiscCodecResult<Self> {
-        if let Some(digits) = trimmed
-            .strip_prefix("0x")
-            .or_else(|| trimmed.strip_prefix("0X"))
-        {
-            if digits.is_empty() {
-                return Err(invalid_c_integer_input(
-                    "hexadecimal literal requires at least one digit",
-                ));
-            }
-            return Ok(Self {
-                radix: 16,
-                digits,
-                digits_offset: trim_offset + 2,
-            });
-        }
-        if trimmed.len() > 1
-            && let Some(digits) = trimmed.strip_prefix('0')
-        {
-            return Ok(Self {
-                radix: 8,
-                digits,
-                digits_offset: trim_offset + 1,
-            });
-        }
-        Ok(Self {
-            radix: 10,
-            digits: trimmed,
-            digits_offset: trim_offset,
-        })
     }
 }
 

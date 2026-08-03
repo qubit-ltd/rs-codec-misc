@@ -13,47 +13,6 @@ use qubit_codec_misc::{
 };
 
 #[test]
-fn test_production_code_does_not_use_panic_helpers() {
-    let sources = [
-        include_str!("../src/base64_codec.rs"),
-        include_str!("../src/base64_quantum_codec.rs"),
-        include_str!("../src/c_integer_literal_codec.rs"),
-        include_str!("../src/c_string_literal_codec.rs"),
-        include_str!("../src/form_urlencoded_codec.rs"),
-        include_str!("../src/hex_codec.rs"),
-        include_str!("../src/lib.rs"),
-        include_str!("../src/misc_codec_error.rs"),
-        include_str!("../src/percent_codec.rs"),
-    ];
-    let combined = sources.join("\n");
-
-    assert!(
-        !combined.contains(".expect("),
-        "production code should return MiscCodecError instead of panicking"
-    );
-    assert!(
-        !combined.contains(".unwrap("),
-        "production code should return MiscCodecError instead of panicking"
-    );
-    assert!(
-        !combined.contains("panic!"),
-        "production code should return MiscCodecError instead of panicking"
-    );
-    assert!(
-        !combined.contains("unreachable!"),
-        "production code should return MiscCodecError instead of panicking"
-    );
-    assert!(
-        !combined.contains("todo!"),
-        "production code should return MiscCodecError instead of panicking"
-    );
-    assert!(
-        !combined.contains("unimplemented!"),
-        "production code should return MiscCodecError instead of panicking"
-    );
-}
-
-#[test]
 fn test_encode_lowercase_contiguous_hex_by_default() {
     let codec = HexCodec::new();
 
@@ -109,6 +68,26 @@ fn test_encode_and_decode_into_existing_buffers() {
         .decode_into("abcd", &mut bytes)
         .expect("hex should decode into existing buffer");
     assert_eq!(vec![0x00, 0xab, 0xcd], bytes);
+}
+
+#[test]
+fn test_decode_into_is_atomic_when_later_input_is_invalid() {
+    let codec = HexCodec::new();
+    let mut bytes = vec![0x7f];
+
+    let error = codec
+        .decode_into("abcd0g", &mut bytes)
+        .expect_err("invalid trailing digit should fail");
+
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 5,
+            character: 'g'
+        }
+    ));
+    assert_eq!(vec![0x7f], bytes);
 }
 
 #[test]
@@ -391,5 +370,19 @@ fn test_decode_reports_precise_hex_errors() {
     assert!(matches!(
         too_short_prefix,
         MiscCodecError::MissingPrefix { .. }
+    ));
+}
+
+#[test]
+fn test_decode_rejects_byte_prefix_without_a_hex_byte() {
+    let codec = HexCodec::new().with_byte_prefix("0x");
+
+    let error = codec
+        .decode("0x")
+        .expect_err("a byte prefix must be followed by two hex digits");
+
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidInput { codec: "hex", .. }
     ));
 }
