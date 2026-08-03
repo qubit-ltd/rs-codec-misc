@@ -3,17 +3,7 @@
 //
 //    SPDX-License-Identifier: Apache-2.0
 //
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-//
-//        http://www.apache.org/licenses/LICENSE-2.0
-//
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Representative codec throughput benchmarks.
 
@@ -26,6 +16,9 @@ use criterion::{
     criterion_main,
 };
 use qubit_codec_misc::{
+    Base64Codec,
+    CIntegerLiteralCodec,
+    CStringLiteralCodec,
     FormUrlencodedCodec,
     HexCodec,
     PercentCodec,
@@ -33,6 +26,7 @@ use qubit_codec_misc::{
 
 const TEXT: &str = "field=value with spaces + punctuation / 中间文本";
 const HEX_BYTES: &[u8] = b"benchmark bytes with a representative payload";
+const INTEGER_LITERAL: &str = "0xBEEFC0DE";
 
 fn benchmark_percent_and_form(c: &mut Criterion) {
     let percent = PercentCodec::new();
@@ -73,5 +67,38 @@ fn benchmark_hex(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_percent_and_form, benchmark_hex);
+fn benchmark_base64_and_c_literals(c: &mut Criterion) {
+    let base64 = Base64Codec::standard();
+    let c_literals = CStringLiteralCodec::new();
+    let integers = CIntegerLiteralCodec::new();
+    let base64_encoded = base64.encode(HEX_BYTES);
+    let c_literal_encoded = c_literals.encode(HEX_BYTES);
+    let mut group = c.benchmark_group("misc-codecs");
+    group.throughput(Throughput::Bytes(HEX_BYTES.len() as u64));
+    group.bench_function("base64_encode", |bencher| {
+        bencher.iter(|| black_box(base64.encode(black_box(HEX_BYTES))));
+    });
+    group.bench_function("base64_decode", |bencher| {
+        bencher.iter(|| black_box(base64.decode(black_box(&base64_encoded))));
+    });
+    group.bench_function("c_string_encode", |bencher| {
+        bencher.iter(|| black_box(c_literals.encode(black_box(HEX_BYTES))));
+    });
+    group.bench_function("c_string_decode", |bencher| {
+        bencher.iter(|| {
+            black_box(c_literals.decode(black_box(&c_literal_encoded)))
+        });
+    });
+    group.bench_function("c_integer_decode", |bencher| {
+        bencher.iter(|| black_box(integers.decode(black_box(INTEGER_LITERAL))));
+    });
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    benchmark_percent_and_form,
+    benchmark_hex,
+    benchmark_base64_and_c_literals
+);
 criterion_main!(benches);
