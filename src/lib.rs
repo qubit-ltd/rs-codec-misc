@@ -20,7 +20,9 @@ mod base64_quantum_codec;
 mod c_integer_literal_codec;
 mod c_string_literal_codec;
 mod form_urlencoded_codec;
+mod hex_byte_codec;
 mod hex_codec;
+mod internal;
 mod misc_codec_error;
 mod percent_codec;
 
@@ -29,10 +31,8 @@ pub use base64_quantum_codec::Base64QuantumCodec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
-pub use hex_codec::{
-    HexByteCodec,
-    HexCodec,
-};
+pub use hex_byte_codec::HexByteCodec;
+pub use hex_codec::HexCodec;
 pub use misc_codec_error::{
     MiscCodecError,
     MiscCodecResult,
