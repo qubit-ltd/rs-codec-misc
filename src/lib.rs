@@ -32,9 +32,6 @@ pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
 pub use hex_byte_codec::HexByteCodec;
-pub use hex_codec::HexCodec;
-pub use misc_codec_error::{
-    MiscCodecError,
-    MiscCodecResult,
-};
+pub use hex_codec::{HexCodec, HexCodecConfig};
+pub use misc_codec_error::{Base64ErrorKind, MiscCodecError, MiscCodecResult};
 pub use percent_codec::PercentCodec;
