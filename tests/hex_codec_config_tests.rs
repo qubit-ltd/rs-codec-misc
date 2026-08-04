@@ -12,6 +12,7 @@ use qubit_codec_misc::HexCodecConfig;
 #[test]
 fn test_hex_codec_config_defaults_are_empty_and_lowercase() {
     let config = HexCodecConfig::new();
+    assert_eq!(config, HexCodecConfig::default());
 
     assert!(!config.is_uppercase());
     assert_eq!(None, config.prefix());
