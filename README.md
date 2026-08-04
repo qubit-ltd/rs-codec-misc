@@ -273,14 +273,20 @@ fn main() {
 Use the traits when application code should depend on an encoding capability
 instead of a concrete codec type.
 
+These traits are defined by the `qubit-codec` crate, so generic call sites
+should declare that crate as a direct dependency.
+
 ```rust
+use qubit_codec::ValueEncoder;
 use qubit_codec_misc::{
     MiscCodecError,
-    ValueEncoder,
     HexCodec,
 };
 
-fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, MiscCodecError>
+fn encode_payload<C>(
+    codec: &mut C,
+    payload: &[u8],
+) -> Result<String, MiscCodecError>
 where
     C: ValueEncoder<[u8], Output = String, Error = MiscCodecError>,
 {
@@ -288,7 +294,8 @@ where
 }
 
 fn main() {
-    let text = encode_payload(&HexCodec::new(), &[0xab, 0xcd])
+    let mut codec = HexCodec::new();
+    let text = encode_payload(&mut codec, &[0xab, 0xcd])
         .expect("hex encoding should not fail");
     assert_eq!("abcd", text);
 }
