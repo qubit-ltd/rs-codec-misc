@@ -13,6 +13,7 @@ use crate::percent_codec::{
     percent_encode_byte,
     percent_encode_bytes,
     percent_encode_len,
+    percent_invalid_consumed,
 };
 use crate::{
     MiscCodecError,
@@ -203,13 +204,13 @@ impl Codec for FormUrlencodedCodec {
                             .into_owned(),
                         reason: "expected two hexadecimal digits".to_owned(),
                     },
-                    qubit_codec::nz!(3),
+                    percent_invalid_consumed(input, input_index),
                 )
             }
             ParseError::Invalid(error) => {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_codec::nz!(3),
+                    percent_invalid_consumed(input, input_index),
                 )
             }
         })?;
