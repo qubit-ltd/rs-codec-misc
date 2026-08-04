@@ -36,3 +36,26 @@ fn test_encoder_trait_dispatches_to_text_codecs() {
 
     assert_eq!("a%20b%2F%E4%B8%AD", encoded);
 }
+
+#[test]
+fn test_generic_value_encoder_example_accepts_mutable_codec() {
+    fn encode_payload<C>(
+        codec: &mut C,
+        payload: &[u8],
+    ) -> Result<String, qubit_codec_misc::MiscCodecError>
+    where
+        C: ValueEncoder<
+                [u8],
+                Output = String,
+                Error = qubit_codec_misc::MiscCodecError,
+            >,
+    {
+        codec.encode(payload)
+    }
+
+    let mut codec = HexCodec::new();
+    let encoded = encode_payload(&mut codec, &[0xab, 0xcd])
+        .expect("generic hex encoding should succeed");
+
+    assert_eq!("abcd", encoded);
+}
