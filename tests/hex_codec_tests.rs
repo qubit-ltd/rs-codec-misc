@@ -7,10 +7,32 @@
 // =============================================================================
 //! Tests for hexadecimal byte encoding.
 
-use qubit_codec_misc::{
-    HexCodec,
-    MiscCodecError,
-};
+use qubit_codec_misc::{HexCodec, HexCodecConfig, MiscCodecError};
+
+#[test]
+fn test_hex_codec_reuses_named_configuration() {
+    let config = HexCodecConfig::new()
+        .with_uppercase(true)
+        .with_prefix("0x")
+        .with_separator(" ")
+        .with_ignored_ascii_whitespace(true)
+        .with_ignore_prefix_case(true);
+    let codec = HexCodec::from_config(config.clone());
+
+    assert_eq!(&config, codec.config());
+    assert!(config.is_uppercase());
+    assert_eq!(Some("0x"), config.prefix());
+    assert_eq!(Some(" "), config.separator());
+    assert!(config.ignores_ascii_whitespace());
+    assert!(config.ignores_prefix_case());
+    assert_eq!("0x1F 8B", codec.encode(&[0x1f, 0x8b]));
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        codec
+            .decode(" 0X1F 8B ")
+            .expect("configured hex should decode")
+    );
+}
 
 #[test]
 fn test_encode_lowercase_contiguous_hex_by_default() {
@@ -168,9 +190,7 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_prefix("0x")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1f")
-            .expect(
-                "whole prefix should tolerate configured leading whitespace"
-            )
+            .expect("whole prefix should tolerate configured leading whitespace")
     );
 }
 
@@ -180,9 +200,9 @@ fn test_decode_requires_configured_separator_between_bytes() {
 
     assert_eq!(
         vec![0x1f, 0x8b, 0x00],
-        codec.decode("1f:8b:00").expect(
-            "configured separator should decode between complete bytes"
-        )
+        codec
+            .decode("1f:8b:00")
+            .expect("configured separator should decode between complete bytes")
     );
     assert_eq!(
         Vec::<u8>::new(),
@@ -244,9 +264,9 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     );
     assert_eq!(
         vec![0x1f, 0x8b],
-        space_codec.decode(" \t0x1F 0x8B ").expect(
-            "space separator should still work with ignored edge whitespace"
-        )
+        space_codec
+            .decode(" \t0x1F 0x8B ")
+            .expect("space separator should still work with ignored edge whitespace")
     );
     assert!(
         colon_codec.decode("1 f:8b").is_err(),
