@@ -192,6 +192,19 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
             reason: _
         }
     ));
+    let incomplete_universal_reason =
+        CStringLiteralCodec::new().decode(r"\u12").expect_err(
+            "incomplete universal escape should report its required width",
+        );
+    match incomplete_universal_reason {
+        MiscCodecError::InvalidEscape { reason, .. } => assert_eq!(
+            "incomplete escape sequence; expected at least 6 units",
+            reason
+        ),
+        error => {
+            panic!("unexpected incomplete universal escape error: {error:?}")
+        }
+    }
 
     let invalid_universal_digit = CStringLiteralCodec::new()
         .decode(r"\u00zz")
