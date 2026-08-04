@@ -16,22 +16,29 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod base64_codec;
+mod base64_error_kind;
 mod base64_quantum_codec;
 mod c_integer_literal_codec;
 mod c_string_literal_codec;
 mod form_urlencoded_codec;
 mod hex_byte_codec;
 mod hex_codec;
+mod hex_codec_config;
 mod internal;
 mod misc_codec_error;
 mod percent_codec;
 
 pub use base64_codec::Base64Codec;
+pub use base64_error_kind::Base64ErrorKind;
 pub use base64_quantum_codec::Base64QuantumCodec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;
 pub use c_string_literal_codec::CStringLiteralCodec;
 pub use form_urlencoded_codec::FormUrlencodedCodec;
 pub use hex_byte_codec::HexByteCodec;
-pub use hex_codec::{HexCodec, HexCodecConfig};
-pub use misc_codec_error::{Base64ErrorKind, MiscCodecError, MiscCodecResult};
+pub use hex_codec::HexCodec;
+pub use hex_codec_config::HexCodecConfig;
+pub use misc_codec_error::{
+    MiscCodecError,
+    MiscCodecResult,
+};
 pub use percent_codec::PercentCodec;

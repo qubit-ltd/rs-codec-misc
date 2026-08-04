@@ -16,6 +16,7 @@ use crate::{
     },
     misc_codec_error::map_misc_decode_failure_with_consumed,
 };
+use core::num::NonZeroUsize;
 use percent_encoding::percent_encode_byte as encode_percent_byte;
 use qubit_codec::{
     Codec,
@@ -183,18 +184,37 @@ impl Codec for PercentCodec {
     > {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) = percent_decode_byte_eof(
-            input,
-            input_index,
-            false,
-        )
-        .map_err(|error| {
-            map_misc_decode_failure_with_consumed(error, qubit_codec::nz!(3))
-        })?;
+        let (value, consumed) =
+            percent_decode_byte_eof(input, input_index, false).map_err(
+                |error| {
+                    map_misc_decode_failure_with_consumed(
+                        error,
+                        percent_invalid_consumed(input, input_index),
+                    )
+                },
+            )?;
         debug_assert!(consumed > 0);
         let consumed = qubit_codec::nz!(consumed);
         Ok((value, consumed))
     }
+}
+
+/// Returns the available width of a malformed percent escape.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `index`: Start index of the percent marker.
+///
+/// # Returns
+/// The non-zero number of available units, capped at the three-unit escape
+/// width.
+#[inline(always)]
+pub(crate) fn percent_invalid_consumed(
+    input: &[u8],
+    index: usize,
+) -> NonZeroUsize {
+    NonZeroUsize::new(input.len().saturating_sub(index).clamp(1, 3))
+        .expect("percent decode errors have at least one available unit")
 }
 
 /// Percent-encodes UTF-8 bytes.
