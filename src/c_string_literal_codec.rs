@@ -330,13 +330,17 @@ fn decode_c_string_literal_unit(
             parse_variable_hex_escape_units(input, index)
         }
         b'u' => {
-            if !context.is_complete_text() {
+            if matches!(context, CStringLiteralParseContext::CompleteText(_))
+                || context.is_streaming()
+            {
                 ensure_fixed_escape_complete(available, qubit_codec::nz!(6))?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
         }
         b'U' => {
-            if !context.is_complete_text() {
+            if matches!(context, CStringLiteralParseContext::CompleteText(_))
+                || context.is_streaming()
+            {
                 ensure_fixed_escape_complete(available, qubit_codec::nz!(10))?;
             }
             parse_fixed_hex_escape_units(input, index, 8, context)

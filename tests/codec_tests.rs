@@ -373,6 +373,9 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let invalid_universal_digit =
         unsafe { Codec::decode(&mut codec, br"\u00zz", 0) }
             .expect_err("invalid universal digit should fail");
+    let invalid_long_universal_digit =
+        unsafe { Codec::decode(&mut codec, br"\U0000000z", 0) }
+            .expect_err("invalid long universal digit should fail");
     let oversized_universal =
         unsafe { Codec::decode(&mut codec, br"\u0100", 0) }
             .expect_err("oversized universal escape should fail");
@@ -384,6 +387,8 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let missing_hex = super::invalid_source(missing_hex);
     let invalid_universal_digit =
         super::invalid_source(invalid_universal_digit);
+    let invalid_long_universal_digit =
+        super::invalid_source(invalid_long_universal_digit);
     let oversized_universal = super::invalid_source(oversized_universal);
     let eof_invalid = super::invalid_source(eof_invalid);
     assert!(matches!(
@@ -408,6 +413,14 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
         MiscCodecError::InvalidDigit {
             radix: 16,
             index: 4,
+            character: 'z'
+        }
+    ));
+    assert!(matches!(
+        invalid_long_universal_digit,
+        MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 9,
             character: 'z'
         }
     ));
