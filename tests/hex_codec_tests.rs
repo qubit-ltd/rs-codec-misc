@@ -7,7 +7,11 @@
 // =============================================================================
 //! Tests for hexadecimal byte encoding.
 
-use qubit_codec_misc::{HexCodec, HexCodecConfig, MiscCodecError};
+use qubit_codec_misc::{
+    HexCodec,
+    HexCodecConfig,
+    MiscCodecError,
+};
 
 #[test]
 fn test_hex_codec_reuses_named_configuration() {
@@ -190,7 +194,9 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_prefix("0x")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1f")
-            .expect("whole prefix should tolerate configured leading whitespace")
+            .expect(
+                "whole prefix should tolerate configured leading whitespace"
+            )
     );
 }
 
@@ -200,9 +206,9 @@ fn test_decode_requires_configured_separator_between_bytes() {
 
     assert_eq!(
         vec![0x1f, 0x8b, 0x00],
-        codec
-            .decode("1f:8b:00")
-            .expect("configured separator should decode between complete bytes")
+        codec.decode("1f:8b:00").expect(
+            "configured separator should decode between complete bytes"
+        )
     );
     assert_eq!(
         Vec::<u8>::new(),
@@ -264,9 +270,9 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     );
     assert_eq!(
         vec![0x1f, 0x8b],
-        space_codec
-            .decode(" \t0x1F 0x8B ")
-            .expect("space separator should still work with ignored edge whitespace")
+        space_codec.decode(" \t0x1F 0x8B ").expect(
+            "space separator should still work with ignored edge whitespace"
+        )
     );
     assert!(
         colon_codec.decode("1 f:8b").is_err(),
@@ -299,6 +305,33 @@ fn test_decode_ignores_configured_whitespace_without_separator() {
             .with_ignored_ascii_whitespace(true)
             .decode("0x1 f \t")
             .expect("byte-prefixed hex should ignore configured whitespace")
+    );
+}
+
+#[test]
+fn test_hex_roundtrip_preserves_whitespace_in_structural_tokens() {
+    let prefixed = HexCodec::new()
+        .with_prefix(" 0x")
+        .with_ignored_ascii_whitespace(true);
+    let prefixed_text = prefixed.encode(&[0x1f]);
+    assert_eq!(" 0x1f", prefixed_text);
+    assert_eq!(
+        vec![0x1f],
+        prefixed
+            .decode(&prefixed_text)
+            .expect("prefix whitespace should round-trip")
+    );
+
+    let separated = HexCodec::new()
+        .with_separator(" : ")
+        .with_ignored_ascii_whitespace(true);
+    let separated_text = separated.encode(&[0x1f, 0x8b]);
+    assert_eq!("1f : 8b", separated_text);
+    assert_eq!(
+        vec![0x1f, 0x8b],
+        separated
+            .decode(&separated_text)
+            .expect("separator whitespace should round-trip")
     );
 }
 

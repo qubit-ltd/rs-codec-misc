@@ -7,8 +7,15 @@
 // =============================================================================
 //! Tests for Base64 encoding variants.
 
-use qubit_codec::{ValueDecoder, ValueEncoder};
-use qubit_codec_misc::{Base64Codec, Base64ErrorKind, MiscCodecError};
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
+use qubit_codec_misc::{
+    Base64Codec,
+    Base64ErrorKind,
+    MiscCodecError,
+};
 
 #[test]
 fn test_standard_base64_roundtrip_with_padding() {
@@ -131,10 +138,10 @@ fn test_decode_reports_base64_error_category_and_index() {
 #[test]
 fn test_base64_codec_can_be_used_through_traits() {
     let mut codec = Base64Codec::standard();
-    let encoded =
-        ValueEncoder::<[u8]>::encode(&mut codec, b"abc").expect("base64 encode should succeed");
-    let decoded =
-        ValueDecoder::<str>::decode(&mut codec, &encoded).expect("base64 decode should succeed");
+    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"abc")
+        .expect("base64 encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
+        .expect("base64 decode should succeed");
 
     assert_eq!("YWJj", encoded);
     assert_eq!(b"abc".to_vec(), decoded);
