@@ -78,3 +78,28 @@ fn test_base64_quantum_alphabet_and_errors() {
         }
     ));
 }
+
+#[test]
+fn test_base64_quantum_reports_invalid_units_at_each_position() {
+    let invalid_inputs = [b"A@AA".as_slice(), b"AA@A", b"AAA@"];
+
+    for input in invalid_inputs {
+        let invalid = unsafe {
+            Codec::decode(&mut Base64QuantumCodec::standard(), input, 0)
+        }
+        .expect_err("invalid Base64 unit should fail");
+        assert_eq!(Some(4), super::invalid_consumed(invalid));
+
+        let invalid = unsafe {
+            Codec::decode(&mut Base64QuantumCodec::standard(), input, 0)
+        }
+        .expect_err("invalid Base64 unit should fail");
+        assert!(matches!(
+            super::invalid_source(invalid),
+            MiscCodecError::InvalidInput {
+                codec: "base64-quantum",
+                ..
+            }
+        ));
+    }
+}
