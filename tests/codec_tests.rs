@@ -101,6 +101,12 @@ fn test_codec_trait_uses_exact_percent_widths_and_eof_rules() {
         super::invalid_source(invalid),
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
+    let invalid = unsafe { Codec::decode_eof(&mut percent, b"%", 0) }
+        .expect_err("EOF percent marker should fail");
+    assert_eq!(Some(1), super::invalid_consumed(invalid));
+    let invalid = unsafe { Codec::decode_eof(&mut percent, b"%A", 0) }
+        .expect_err("EOF partial percent escape should fail");
+    assert_eq!(Some(2), super::invalid_consumed(invalid));
 }
 
 #[test]
@@ -172,10 +178,16 @@ fn test_codec_trait_decodes_available_form_urlencoded_byte() {
 
     let eof = unsafe { Codec::decode_eof(&mut codec, b"%", 0) }
         .expect_err("EOF form escape should be invalid");
+    assert_eq!(Some(1), super::invalid_consumed(eof));
+    let eof = unsafe { Codec::decode_eof(&mut codec, b"%", 0) }
+        .expect_err("EOF form escape should be invalid");
     assert!(matches!(
         super::invalid_source(eof),
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
+    let eof = unsafe { Codec::decode_eof(&mut codec, b"%A", 0) }
+        .expect_err("EOF partial form escape should be invalid");
+    assert_eq!(Some(2), super::invalid_consumed(eof));
 }
 
 #[test]
