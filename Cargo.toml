@@ -23,6 +23,7 @@ include = [
     "/doc/**/user_guide*.md",
     "/examples/**",
     "/resources/**",
+    "/benches/**",
     "/src/**",
     "/tests/**",
 ]
