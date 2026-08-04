@@ -244,14 +244,20 @@ fn main() {
 
 当应用代码只依赖“具备某种编码能力”，而不想依赖具体 codec 类型时，可以使用 trait。
 
+这些 trait 定义在 `qubit-codec` crate 中，因此泛型调用方应将该 crate
+声明为直接依赖。
+
 ```rust
+use qubit_codec::ValueEncoder;
 use qubit_codec_misc::{
     MiscCodecError,
-    ValueEncoder,
     HexCodec,
 };
 
-fn encode_payload<C>(codec: &C, payload: &[u8]) -> Result<String, MiscCodecError>
+fn encode_payload<C>(
+    codec: &mut C,
+    payload: &[u8],
+) -> Result<String, MiscCodecError>
 where
     C: ValueEncoder<[u8], Output = String, Error = MiscCodecError>,
 {
@@ -259,7 +265,8 @@ where
 }
 
 fn main() {
-    let text = encode_payload(&HexCodec::new(), &[0xab, 0xcd])
+    let mut codec = HexCodec::new();
+    let text = encode_payload(&mut codec, &[0xab, 0xcd])
         .expect("hex encoding should not fail");
     assert_eq!("abcd", text);
 }

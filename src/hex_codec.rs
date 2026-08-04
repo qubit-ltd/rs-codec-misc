@@ -7,143 +7,25 @@
 // =============================================================================
 //! Hexadecimal byte codec.
 
-use crate::{MiscCodecError, MiscCodecResult};
-use qubit_codec::{ValueDecoder, ValueEncoder};
+use crate::{
+    MiscCodecError,
+    MiscCodecResult,
+    hex_codec_config::HexCodecConfig,
+};
+use qubit_codec::{
+    ValueDecoder,
+    ValueEncoder,
+};
 
 const LOWER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e',
+    'f',
 ];
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+    'F',
 ];
-
-/// Configuration shared by [`HexCodec`] encoding and decoding operations.
-///
-/// The configuration is intentionally separate from the codec value so the
-/// same formatting and decoding policy can be reused by multiple codecs.
-#[must_use]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HexCodecConfig {
-    /// Whether to use uppercase hexadecimal digits while encoding.
-    uppercase: bool,
-    /// The prefix to use before the whole encoded string.
-    prefix: Option<String>,
-    /// The prefix to use before each encoded byte.
-    byte_prefix: Option<String>,
-    /// The separator to use between bytes in the encoded string.
-    separator: Option<String>,
-    /// Whether to ignore ASCII whitespace while decoding.
-    ignore_ascii_whitespace: bool,
-    /// Whether to ignore ASCII case when matching configured prefixes.
-    ignore_prefix_case: bool,
-}
-
-impl HexCodecConfig {
-    /// Creates a lowercase configuration without prefixes or separators.
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            uppercase: false,
-            prefix: None,
-            byte_prefix: None,
-            separator: None,
-            ignore_ascii_whitespace: false,
-            ignore_prefix_case: false,
-        }
-    }
-
-    /// Sets whether encoded digits should be uppercase.
-    #[inline]
-    pub fn with_uppercase(mut self, uppercase: bool) -> Self {
-        self.uppercase = uppercase;
-        self
-    }
-
-    /// Sets a whole-output prefix.
-    #[inline]
-    pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.prefix = Some(prefix.into());
-        self
-    }
-
-    /// Sets a per-byte prefix.
-    #[inline]
-    pub fn with_byte_prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.byte_prefix = Some(prefix.into());
-        self
-    }
-
-    /// Sets a separator between encoded bytes.
-    #[inline]
-    pub fn with_separator(mut self, separator: impl Into<String>) -> Self {
-        self.separator = Some(separator.into());
-        self
-    }
-
-    /// Sets whether ASCII whitespace is ignored while decoding.
-    #[inline]
-    pub fn with_ignored_ascii_whitespace(mut self, ignore: bool) -> Self {
-        self.ignore_ascii_whitespace = ignore;
-        self
-    }
-
-    /// Sets whether configured prefixes are matched case-insensitively.
-    #[inline]
-    pub fn with_ignore_prefix_case(mut self, ignore: bool) -> Self {
-        self.ignore_prefix_case = ignore;
-        self
-    }
-
-    /// Returns whether encoded digits use uppercase characters.
-    #[must_use]
-    #[inline]
-    pub fn is_uppercase(&self) -> bool {
-        self.uppercase
-    }
-
-    /// Returns the configured whole-output prefix.
-    #[must_use]
-    #[inline]
-    pub fn prefix(&self) -> Option<&str> {
-        self.prefix.as_deref()
-    }
-
-    /// Returns the configured per-byte prefix.
-    #[must_use]
-    #[inline]
-    pub fn byte_prefix(&self) -> Option<&str> {
-        self.byte_prefix.as_deref()
-    }
-
-    /// Returns the configured separator.
-    #[must_use]
-    #[inline]
-    pub fn separator(&self) -> Option<&str> {
-        self.separator.as_deref()
-    }
-
-    /// Returns whether ASCII whitespace is ignored while decoding.
-    #[must_use]
-    #[inline]
-    pub fn ignores_ascii_whitespace(&self) -> bool {
-        self.ignore_ascii_whitespace
-    }
-
-    /// Returns whether configured prefixes are matched case-insensitively.
-    #[must_use]
-    #[inline]
-    pub fn ignores_prefix_case(&self) -> bool {
-        self.ignore_prefix_case
-    }
-}
-
-impl Default for HexCodecConfig {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 /// Encodes and decodes hexadecimal byte strings.
 ///
@@ -289,14 +171,18 @@ impl HexCodec {
     #[inline]
     #[must_use]
     pub fn encode(&self, bytes: &[u8]) -> String {
-        let separator_len = self.config.separator.as_ref().map_or(0, String::len);
+        let separator_len =
+            self.config.separator.as_ref().map_or(0, String::len);
         let prefix_len = self.config.prefix.as_ref().map_or(0, String::len);
-        let byte_prefix_len = self.config.byte_prefix.as_ref().map_or(0, String::len);
+        let byte_prefix_len =
+            self.config.byte_prefix.as_ref().map_or(0, String::len);
         let capacity = prefix_len.saturating_add(
             bytes
                 .len()
                 .saturating_mul(byte_prefix_len.saturating_add(2))
-                .saturating_add(bytes.len().saturating_sub(1).saturating_mul(separator_len)),
+                .saturating_add(
+                    bytes.len().saturating_sub(1).saturating_mul(separator_len),
+                ),
         );
         let mut output = String::with_capacity(capacity);
         self.encode_into(bytes, &mut output);
@@ -359,7 +245,11 @@ impl HexCodec {
     /// or validate and reserve in a first pass, to avoid the temporary vector
     /// while preserving transactional behavior.
     #[inline]
-    pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
+    pub fn decode_into(
+        &self,
+        text: &str,
+        output: &mut Vec<u8>,
+    ) -> MiscCodecResult<()> {
         let decoded = self.decode_to_vec(text)?;
         output.reserve(decoded.len());
         output.extend(decoded);
@@ -419,7 +309,11 @@ impl HexCodec {
         else {
             return Ok(0);
         };
-        let index = self.skip_ascii_whitespace(text, 0);
+        let index = if self.starts_with_prefix(text, prefix) {
+            0
+        } else {
+            self.skip_ascii_whitespace(text, 0)
+        };
         let rest = &text[index..];
         if self.starts_with_prefix(rest, prefix) {
             Ok(index + prefix.len())
@@ -456,12 +350,15 @@ impl HexCodec {
         }
         loop {
             index = self.consume_byte_prefix(text, index)?;
-            let (_, high_char, next_index) = read_required_hex_digit(text, index)?;
-            let (_, low_char, next_index) = read_required_hex_digit(text, next_index)?;
+            let (_, high_char, next_index) =
+                read_required_hex_digit(text, index)?;
+            let (_, low_char, next_index) =
+                read_required_hex_digit(text, next_index)?;
             output.push(decode_hex_pair(high_char, low_char));
             index = next_index;
 
-            let separator_index = self.next_separator_index(text, index, separator);
+            let separator_index =
+                self.next_separator_index(text, index, separator);
             if separator_index >= text.len() {
                 return Ok(output);
             }
@@ -471,7 +368,8 @@ impl HexCodec {
                     "missing separator '{separator}' between hex bytes"
                 )));
             }
-            index = self.skip_ascii_whitespace(text, separator_index + separator.len());
+            index = self
+                .skip_ascii_whitespace(text, separator_index + separator.len());
             if index >= text.len() {
                 return Err(invalid_hex_input(
                     "separator must be followed by a hex byte",
@@ -494,7 +392,11 @@ impl HexCodec {
     /// Returns [`MiscCodecError::MissingPrefix`] when the configured per-byte
     /// prefix is absent.
     #[inline]
-    fn consume_byte_prefix(&self, text: &str, index: usize) -> MiscCodecResult<usize> {
+    fn consume_byte_prefix(
+        &self,
+        text: &str,
+        index: usize,
+    ) -> MiscCodecResult<usize> {
         let Some(prefix) = self
             .config
             .byte_prefix
@@ -502,6 +404,11 @@ impl HexCodec {
             .filter(|prefix| !prefix.is_empty())
         else {
             return Ok(index);
+        };
+        let index = if self.starts_with_prefix(&text[index..], prefix) {
+            index
+        } else {
+            self.skip_ignored(text, index)
         };
         let rest = &text[index..];
         if self.starts_with_prefix(rest, prefix) {
@@ -524,7 +431,19 @@ impl HexCodec {
     /// Index where the separator must start, or `text.len()` when only ignored
     /// trailing whitespace remains.
     #[inline]
-    fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
+    fn next_separator_index(
+        &self,
+        text: &str,
+        index: usize,
+        separator: &str,
+    ) -> usize {
+        if !separator.chars().all(|ch| ch.is_ascii_whitespace())
+            && text
+                .get(index..)
+                .is_some_and(|rest| rest.starts_with(separator))
+        {
+            return index;
+        }
         let whitespace_end = self.skip_ascii_whitespace(text, index);
         if whitespace_end >= text.len() {
             return whitespace_end;
@@ -546,7 +465,11 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
-    fn decode_unprefixed(&self, text: &str, mut index: usize) -> MiscCodecResult<Vec<u8>> {
+    fn decode_unprefixed(
+        &self,
+        text: &str,
+        mut index: usize,
+    ) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::with_capacity(text.len() / 2);
         let mut pending = None;
         let mut digit_count = 0usize;
@@ -613,8 +536,11 @@ impl HexCodec {
             let mut pair = [(0usize, '\0'); 2];
             while pair_count < 2 && index < text.len() {
                 let rest = &text[index..];
-                let ch = rest.chars().next().expect("index is below text length");
-                if self.config.ignore_ascii_whitespace && ch.is_ascii_whitespace() {
+                let ch =
+                    rest.chars().next().expect("index is below text length");
+                if self.config.ignore_ascii_whitespace
+                    && ch.is_ascii_whitespace()
+                {
                     index += ch.len_utf8();
                     continue;
                 }
@@ -652,7 +578,8 @@ impl HexCodec {
     fn skip_ignored(&self, text: &str, mut index: usize) -> usize {
         while index < text.len() {
             let byte = text.as_bytes()[index];
-            if self.config.ignore_ascii_whitespace && byte.is_ascii_whitespace() {
+            if self.config.ignore_ascii_whitespace && byte.is_ascii_whitespace()
+            {
                 index += 1;
                 continue;
             }
@@ -756,7 +683,10 @@ pub(crate) fn hex_value(ch: char) -> Option<u8> {
 ///
 /// # Returns
 /// A radix-16 digit error.
-pub(crate) fn invalid_hex_digit(index: usize, character: char) -> MiscCodecError {
+pub(crate) fn invalid_hex_digit(
+    index: usize,
+    character: char,
+) -> MiscCodecError {
     MiscCodecError::InvalidDigit {
         radix: 16,
         index,
@@ -806,7 +736,10 @@ fn invalid_hex_input(reason: &str) -> MiscCodecError {
 /// Returns [`MiscCodecError::InvalidInput`] when input ends before the digit,
 /// or [`MiscCodecError::InvalidDigit`] when the next character is not hex.
 #[inline]
-fn read_required_hex_digit(text: &str, index: usize) -> MiscCodecResult<(usize, char, usize)> {
+fn read_required_hex_digit(
+    text: &str,
+    index: usize,
+) -> MiscCodecResult<(usize, char, usize)> {
     let rest = &text[index..];
     let Some(character) = rest.chars().next() else {
         return Err(invalid_hex_input("expected a hexadecimal digit"));
