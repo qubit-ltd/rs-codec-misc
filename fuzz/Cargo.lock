@@ -15,6 +15,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
+
+[[package]]
 name = "cc"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -101,18 +107,18 @@ dependencies = [
 
 [[package]]
 name = "qubit-codec"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ddc33cb9cc395ea5ece42bd4a1a8ac97f69737ff11e2836177e9315840a0c15"
+checksum = "1158aaae7caa63ba3bf17a6ccf15e310f5099b199786f30483cd9818deb7cccb"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "qubit-codec-misc"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
- "base64",
+ "base64 0.23.0",
  "percent-encoding",
  "qubit-codec",
  "thiserror",
@@ -122,7 +128,7 @@ dependencies = [
 name = "qubit-codec-misc-fuzz"
 version = "0.0.0"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "form_urlencoded",
  "libfuzzer-sys",
  "qubit-codec",
