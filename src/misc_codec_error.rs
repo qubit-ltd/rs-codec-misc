@@ -10,15 +10,92 @@
 use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
+use ::base64::DecodeError;
 use qubit_codec::DecodeFailure;
 use thiserror::Error;
 
 /// Result alias returned by codec operations.
 pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 
+/// Structured category for an error reported by the Base64 dependency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Base64ErrorKind {
+    /// A byte outside the configured alphabet was encountered.
+    InvalidByte,
+    /// The number of Base64 symbols is invalid.
+    InvalidLength,
+    /// The final symbol contains bits that would be discarded.
+    InvalidLastSymbol,
+    /// Padding is absent, unexpected, or malformed for the configured engine.
+    InvalidPadding,
+}
+
+impl Base64ErrorKind {
+    /// Classifies a Base64 dependency error without discarding its source.
+    #[inline]
+    pub(crate) const fn from_decode_error(error: &DecodeError) -> Self {
+        match error {
+            DecodeError::InvalidByte(_, _) => Self::InvalidByte,
+            DecodeError::InvalidLength(_) => Self::InvalidLength,
+            DecodeError::InvalidLastSymbol(_, _) => Self::InvalidLastSymbol,
+            DecodeError::InvalidPadding => Self::InvalidPadding,
+        }
+    }
+
+    /// Returns the input offset carried by this Base64 error, when available.
+    #[inline]
+    pub(crate) const fn input_index(error: &DecodeError) -> Option<usize> {
+        match error {
+            DecodeError::InvalidByte(index, _) | DecodeError::InvalidLastSymbol(index, _) => {
+                Some(*index)
+            }
+            DecodeError::InvalidLength(_) | DecodeError::InvalidPadding => None,
+        }
+    }
+
+    /// Returns the invalid symbol carried by this Base64 error, when present.
+    #[inline]
+    pub(crate) const fn symbol(error: &DecodeError) -> Option<u8> {
+        match error {
+            DecodeError::InvalidByte(_, symbol) | DecodeError::InvalidLastSymbol(_, symbol) => {
+                Some(*symbol)
+            }
+            DecodeError::InvalidLength(_) | DecodeError::InvalidPadding => None,
+        }
+    }
+
+    /// Returns the invalid input length carried by this Base64 error, when
+    /// present.
+    #[inline]
+    pub(crate) const fn input_length(error: &DecodeError) -> Option<usize> {
+        match error {
+            DecodeError::InvalidLength(length) => Some(*length),
+            DecodeError::InvalidByte(_, _)
+            | DecodeError::InvalidLastSymbol(_, _)
+            | DecodeError::InvalidPadding => None,
+        }
+    }
+}
+
 /// Error returned by codec operations.
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
+    /// Base64 decoding failed in the configured dependency engine.
+    #[error("invalid Base64 input ({kind:?}): {source}")]
+    InvalidBase64 {
+        /// Structured category of the Base64 failure.
+        kind: Base64ErrorKind,
+        /// Input byte index, when the dependency reports one.
+        input_index: Option<usize>,
+        /// Invalid symbol, when the dependency reports one.
+        symbol: Option<u8>,
+        /// Invalid input length, when the dependency reports one.
+        input_length: Option<usize>,
+        /// Underlying Base64 decoding error.
+        #[source]
+        source: DecodeError,
+    },
+
     /// A configured prefix was required but missing.
     #[error("missing required prefix '{prefix}'")]
     MissingPrefix {
@@ -86,6 +163,20 @@ pub enum MiscCodecError {
         #[from]
         source: FromUtf8Error,
     },
+}
+
+impl From<DecodeError> for MiscCodecError {
+    /// Preserves a Base64 dependency error and exposes its structured fields.
+    #[inline]
+    fn from(source: DecodeError) -> Self {
+        Self::InvalidBase64 {
+            kind: Base64ErrorKind::from_decode_error(&source),
+            input_index: Base64ErrorKind::input_index(&source),
+            symbol: Base64ErrorKind::symbol(&source),
+            input_length: Base64ErrorKind::input_length(&source),
+            source,
+        }
+    }
 }
 
 /// Maps a malformed value to a decode failure with a known input width.
