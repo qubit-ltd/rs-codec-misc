@@ -7,14 +7,8 @@
 // =============================================================================
 //! Tests for Base64 encoding variants.
 
-use qubit_codec::{
-    ValueDecoder,
-    ValueEncoder,
-};
-use qubit_codec_misc::{
-    Base64Codec,
-    MiscCodecError,
-};
+use qubit_codec::{ValueDecoder, ValueEncoder};
+use qubit_codec_misc::{Base64Codec, Base64ErrorKind, MiscCodecError};
 
 #[test]
 fn test_standard_base64_roundtrip_with_padding() {
@@ -82,13 +76,53 @@ fn test_base64_codec_equality_distinguishes_engine_variants() {
 #[test]
 fn test_decode_rejects_invalid_base64() {
     let error = Base64Codec::standard()
-        .decode("not base64!")
+        .decode("@")
         .expect_err("invalid base64 should fail");
 
     assert!(matches!(
         error,
-        MiscCodecError::InvalidInput {
-            codec: "base64",
+        MiscCodecError::InvalidBase64 {
+            kind: Base64ErrorKind::InvalidByte,
+            input_index: Some(0),
+            symbol: Some(b'@'),
+            input_length: None,
+            ..
+        }
+    ));
+    let source = std::error::Error::source(&error)
+        .expect("Base64 error should retain its dependency source");
+    assert_eq!(
+        Some(&base64::DecodeError::InvalidByte(0, b'@')),
+        source.downcast_ref::<base64::DecodeError>()
+    );
+}
+
+#[test]
+fn test_decode_reports_base64_error_category_and_index() {
+    let invalid_last_symbol = Base64Codec::standard()
+        .decode("YR==")
+        .expect_err("non-canonical Base64 should fail");
+    assert!(matches!(
+        invalid_last_symbol,
+        MiscCodecError::InvalidBase64 {
+            kind: Base64ErrorKind::InvalidLastSymbol,
+            input_index: Some(1),
+            symbol: Some(b'R'),
+            input_length: None,
+            ..
+        }
+    ));
+
+    let invalid_length = Base64Codec::standard()
+        .decode("Y")
+        .expect_err("short Base64 should fail");
+    assert!(matches!(
+        invalid_length,
+        MiscCodecError::InvalidBase64 {
+            kind: Base64ErrorKind::InvalidLength,
+            input_index: None,
+            symbol: None,
+            input_length: Some(1),
             ..
         }
     ));
@@ -97,10 +131,10 @@ fn test_decode_rejects_invalid_base64() {
 #[test]
 fn test_base64_codec_can_be_used_through_traits() {
     let mut codec = Base64Codec::standard();
-    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"abc")
-        .expect("base64 encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
-        .expect("base64 decode should succeed");
+    let encoded =
+        ValueEncoder::<[u8]>::encode(&mut codec, b"abc").expect("base64 encode should succeed");
+    let decoded =
+        ValueDecoder::<str>::decode(&mut codec, &encoded).expect("base64 decode should succeed");
 
     assert_eq!("YWJj", encoded);
     assert_eq!(b"abc".to_vec(), decoded);

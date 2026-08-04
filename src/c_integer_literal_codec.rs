@@ -7,18 +7,16 @@
 // =============================================================================
 //! C integer literal decoder.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    internal::LiteralComponents,
-};
+use crate::{MiscCodecError, MiscCodecResult, internal::LiteralComponents};
 use qubit_codec::ValueDecoder;
 
-/// Decodes non-negative C integer literal fragments.
+/// Decodes restricted non-negative C integer literal fragments.
 ///
 /// This codec accepts decimal literals such as `123`, octal literals such as
 /// `0123`, and hexadecimal literals such as `0x123` or `0X123`. It trims
-/// surrounding whitespace and returns a `u64`.
+/// surrounding whitespace and returns a `u64`. It intentionally accepts only
+/// a complete unsigned token: signs, integer suffixes, digit separators, and
+/// token-stream boundaries are outside this codec's contract.
 #[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CIntegerLiteralCodec;
@@ -53,13 +51,9 @@ impl CIntegerLiteralCodec {
         }
         let components = LiteralComponents::parse(trimmed, trim_offset)?;
         validate_digits(components)?;
-        u64::from_str_radix(components.digits, components.radix).map_err(
-            |error| {
-                invalid_c_integer_input(&format!(
-                    "integer literal is out of range: {error}"
-                ))
-            },
-        )
+        u64::from_str_radix(components.digits, components.radix).map_err(|error| {
+            invalid_c_integer_input(&format!("integer literal is out of range: {error}"))
+        })
     }
 }
 
