@@ -62,6 +62,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **Whitespace Handling**: optionally ignore ASCII whitespace while decoding.
 - **Prefix Case Handling**: optionally ignore ASCII case when matching
   configured prefixes while decoding.
+- **Named Configuration**: reuse a `HexCodecConfig` through
+  `HexCodec::from_config` when several codecs share the same policy.
 - **Buffer APIs**: `encode_into` and `decode_into` append into existing buffers.
 
 ### 🔐 **Base64 Bytes**
@@ -70,7 +72,9 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
 - **Quantum Core**: `Base64QuantumCodec` handles complete three-byte to
   four-unit Base64 quanta; final padding stays in the facade/transcoder layer.
-- **Typed Errors**: malformed input is reported as `MiscCodecError::InvalidInput`.
+- **Typed Errors**: malformed input is reported as
+  `MiscCodecError::InvalidBase64`, retaining the `base64::DecodeError` source,
+  error category, and input index when available.
 
 ### 🔤 **C String Literal Bytes**
 
@@ -87,6 +91,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   integer literals.
 - **Unsigned Output**: returns `u64` for non-negative integer literal fragments.
 - **Precise Errors**: reports invalid digits with their original input index.
+- **Restricted Token Contract**: accepts complete non-negative tokens only;
+  signs, suffixes, digit separators, and token-stream parsing are not included.
 - **Value-Token Decode**: remains a `ValueDecoder<str>` convenience codec because
   integer literal encoding strategy and token boundaries are not part of the
   single-value core abstraction yet.
@@ -319,6 +325,22 @@ padding are handled by value helpers or future buffered layers.
 | `decode(text)` | Decode hexadecimal text into bytes |
 | `decode_into(text, output)` | Append decoded bytes into an existing `Vec<u8>` |
 
+### `HexCodecConfig` Operations
+
+| Method | Description |
+|--------|-------------|
+| `new()` | Create the default lowercase, contiguous-hex configuration |
+| `with_uppercase(enabled)` | Configure digit case |
+| `with_prefix(prefix)` | Configure a whole-output prefix |
+| `with_byte_prefix(prefix)` | Configure a prefix before every byte |
+| `with_separator(separator)` | Configure the separator between bytes |
+| `with_ignored_ascii_whitespace(enabled)` | Configure whitespace handling while decoding |
+| `with_ignore_prefix_case(enabled)` | Configure case-insensitive prefix matching |
+| `is_uppercase()` / `prefix()` / `byte_prefix()` | Inspect configured output formatting |
+| `separator()` / `ignores_ascii_whitespace()` / `ignores_prefix_case()` | Inspect configured decoding policy |
+| `HexCodec::from_config(config)` | Create a codec from the reusable configuration |
+| `HexCodec::config()` | Borrow the codec's configuration |
+
 ### `HexByteCodec` Operations
 
 | Method or Trait | Description |
@@ -390,6 +412,7 @@ Bundled decoders return `MiscCodecResult<T>`, an alias for
 | `InvalidEscape` | Input contained a malformed or unsupported escape sequence |
 | `InvalidCharacter` | Input contained a character that cannot appear in that context |
 | `InvalidInput` | Input was rejected by a codec-specific validator |
+| `InvalidBase64` | Base64 decoding failed; includes a structured category and preserves the underlying `base64::DecodeError` |
 | `InvalidUtf8` | Decoded bytes were not valid UTF-8 |
 
 Complete-value helpers report truncated `%XX` and C escapes as
