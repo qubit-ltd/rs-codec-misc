@@ -46,6 +46,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **可选分隔符**：在字节之间写入并接受分隔符，例如 `:` 或空格。
 - **空白处理**：解码时可选择忽略 ASCII 空白字符。
 - **前缀大小写处理**：解码匹配已配置前缀时，可选择忽略 ASCII 大小写。
+- **命名配置**：当多个 codec 共享同一策略时，可通过 `HexCodecConfig` 和
+  `HexCodec::from_config` 复用配置。
 - **缓冲区 API**：`encode_into` 和 `decode_into` 可追加写入已有缓冲区。
 
 ### 🔐 **Base64 字节**
@@ -54,7 +56,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **URL 安全字母表**：支持带 padding 和无 padding 的 URL-safe Base64。
 - **Quantum Core**：`Base64QuantumCodec` 处理完整的三字节到四 unit Base64
   quantum；final padding 留在 facade/transcoder 层。
-- **类型化错误**：畸形输入返回 `MiscCodecError::InvalidInput`。
+- **类型化错误**：畸形输入返回 `MiscCodecError::InvalidBase64`，并保留
+  `base64::DecodeError` source、错误分类以及可用的输入位置。
 
 ### 🔤 **C 字符串字面量字节**
 
@@ -67,6 +70,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **进制识别**：解码十进制、八进制和 `0x`/`0X` 十六进制整数字面量。
 - **无符号输出**：将非负整数字面量片段解析为 `u64`。
 - **精确错误**：非法数字会携带原始输入中的字节位置。
+- **受限 token 契约**：只接受完整的非负 token；不包含符号、整数后缀、数字
+  分隔符和 token 流解析。
 - **Value-token decode**：仍作为 `ValueDecoder<str>` convenience codec，因为整数字面量的
   编码策略和 token 边界尚不属于当前低层单值抽象。
 
@@ -290,6 +295,22 @@ fn main() {
 | `decode(text)` | 将十六进制文本解码为字节 |
 | `decode_into(text, output)` | 将解码字节追加到已有 `Vec<u8>` |
 
+### `HexCodecConfig` 操作
+
+| 方法 | 描述 |
+|------|------|
+| `new()` | 创建默认的小写、连续十六进制配置 |
+| `with_uppercase(enabled)` | 配置字符大小写 |
+| `with_prefix(prefix)` | 配置整体前缀 |
+| `with_byte_prefix(prefix)` | 配置每个 byte 前的前缀 |
+| `with_separator(separator)` | 配置字节之间的分隔符 |
+| `with_ignored_ascii_whitespace(enabled)` | 配置解码时的空白处理 |
+| `with_ignore_prefix_case(enabled)` | 配置前缀大小写不敏感匹配 |
+| `is_uppercase()` / `prefix()` / `byte_prefix()` | 查看输出格式配置 |
+| `separator()` / `ignores_ascii_whitespace()` / `ignores_prefix_case()` | 查看解码策略配置 |
+| `HexCodec::from_config(config)` | 使用可复用配置创建 codec |
+| `HexCodec::config()` | 借用 codec 当前配置 |
+
 ### `HexByteCodec` 操作
 
 | 方法或 Trait | 描述 |
@@ -359,6 +380,7 @@ fn main() {
 | `InvalidEscape` | 输入包含畸形或不支持的转义序列 |
 | `InvalidCharacter` | 输入包含当前位置不允许的字符 |
 | `InvalidInput` | 输入被 codec 专属校验拒绝 |
+| `InvalidBase64` | Base64 解码失败，携带结构化错误分类并保留底层 `base64::DecodeError` |
 | `InvalidUtf8` | 解码后的字节不是合法 UTF-8 |
 
 完整值辅助方法会将截断的 `%XX` 和 C 转义报告为 `InvalidEscape`。低层
