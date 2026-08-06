@@ -258,10 +258,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-codec"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1158aaae7caa63ba3bf17a6ccf15e310f5099b199786f30483cd9818deb7cccb"
+version = "0.12.0"
 dependencies = [
+ "qubit-utils",
  "thiserror",
 ]
 
@@ -274,8 +273,13 @@ dependencies = [
  "form_urlencoded",
  "percent-encoding",
  "qubit-codec",
+ "qubit-utils",
  "thiserror",
 ]
+
+[[package]]
+name = "qubit-utils"
+version = "0.2.0"
 
 [[package]]
 name = "quote"

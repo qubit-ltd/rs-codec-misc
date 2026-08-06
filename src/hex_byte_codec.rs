@@ -92,7 +92,7 @@ impl Codec for HexByteCodec {
             .map_err(|error| {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_codec::nz!(2),
+                    qubit_utils::nonzero!(2),
                 )
             })?;
         let low = hex_value(low_char)
@@ -100,10 +100,10 @@ impl Codec for HexByteCodec {
             .map_err(|error| {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_codec::nz!(2),
+                    qubit_utils::nonzero!(2),
                 )
             })?;
-        Ok(((high << 4) | low, qubit_codec::nz!(2)))
+        Ok(((high << 4) | low, qubit_utils::nonzero!(2)))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
