@@ -133,13 +133,13 @@ impl Codec for PercentCodec {
             .map_err(|error| {
                 ParseError::into_decode_failure_with_consumed(
                     error,
-                    qubit_utils::nonzero!(3),
+                    qubit_utils::nonzero(3),
                 )
             })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -194,7 +194,7 @@ impl Codec for PercentCodec {
                 },
             )?;
         debug_assert!(consumed > 0);
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 }
@@ -341,7 +341,7 @@ pub(crate) fn percent_decode_byte(
         b'%' => {
             if available < 3 {
                 return Err(ParseError::Incomplete {
-                    required: qubit_utils::nonzero!(3),
+                    required: qubit_utils::nonzero(3),
                 });
             }
             let high_byte = input[index + 1];

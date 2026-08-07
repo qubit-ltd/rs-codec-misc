@@ -128,7 +128,7 @@ impl Codec for Base64QuantumCodec {
             |error| {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_utils::nonzero!(4),
+                    qubit_utils::nonzero(4),
                 )
             },
         )?;
@@ -137,7 +137,7 @@ impl Codec for Base64QuantumCodec {
             .map_err(|error| {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_utils::nonzero!(4),
+                    qubit_utils::nonzero(4),
                 )
             })?;
         let third = self
@@ -145,7 +145,7 @@ impl Codec for Base64QuantumCodec {
             .map_err(|error| {
             map_misc_decode_failure_with_consumed(
                 error,
-                qubit_utils::nonzero!(4),
+                qubit_utils::nonzero(4),
             )
         })?;
         let fourth = self
@@ -153,7 +153,7 @@ impl Codec for Base64QuantumCodec {
             .map_err(|error| {
                 map_misc_decode_failure_with_consumed(
                     error,
-                    qubit_utils::nonzero!(4),
+                    qubit_utils::nonzero(4),
                 )
             })?;
         Ok((
@@ -162,7 +162,7 @@ impl Codec for Base64QuantumCodec {
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            qubit_utils::nonzero!(4),
+            qubit_utils::nonzero(4),
         ))
     }
 

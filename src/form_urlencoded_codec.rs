@@ -142,13 +142,13 @@ impl Codec for FormUrlencodedCodec {
             .map_err(|error| {
             ParseError::into_decode_failure_with_consumed(
                 error,
-                qubit_utils::nonzero!(3),
+                qubit_utils::nonzero(3),
             )
         })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -215,7 +215,7 @@ impl Codec for FormUrlencodedCodec {
             }
         })?;
         debug_assert!(consumed > 0);
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 }
