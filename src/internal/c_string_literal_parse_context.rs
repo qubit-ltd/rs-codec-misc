@@ -49,7 +49,7 @@ impl CStringLiteralParseContext<'_> {
                 .into()
             }
             Self::StreamingBytes => ParseError::Incomplete {
-                required: qubit_utils::nonzero!(2),
+                required: qubit_utils::nonzero(2),
             },
         }
     }
