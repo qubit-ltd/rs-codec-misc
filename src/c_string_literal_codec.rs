@@ -171,7 +171,7 @@ impl Codec for CStringLiteralCodec {
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -204,7 +204,7 @@ impl Codec for CStringLiteralCodec {
             )
         })?;
         debug_assert!(consumed > 0);
-        let consumed = qubit_utils::nonzero!(consumed);
+        let consumed = qubit_utils::nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -335,7 +335,7 @@ fn decode_c_string_literal_unit(
             {
                 ensure_fixed_escape_complete(
                     available,
-                    qubit_utils::nonzero!(6),
+                    qubit_utils::nonzero(6),
                 )?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
@@ -346,7 +346,7 @@ fn decode_c_string_literal_unit(
             {
                 ensure_fixed_escape_complete(
                     available,
-                    qubit_utils::nonzero!(10),
+                    qubit_utils::nonzero(10),
                 )?;
             }
             parse_fixed_hex_escape_units(input, index, 8, context)
@@ -383,7 +383,7 @@ fn ensure_variable_hex_escape_complete(
 ) -> Result<(), ParseError> {
     if available < 3 {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero!(3),
+            required: qubit_utils::nonzero(3),
         });
     }
     let mut digit_count = 0usize;
@@ -398,7 +398,7 @@ fn ensure_variable_hex_escape_complete(
     }
     if digit_count == 1 && index + 3 == input.len() {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero!(4),
+            required: qubit_utils::nonzero(4),
         });
     }
     Ok(())
@@ -450,7 +450,7 @@ fn ensure_octal_escape_complete(
     }
     if digit_count < 3 && index + 1 + digit_count == input.len() {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero!(2 + digit_count),
+            required: qubit_utils::nonzero(2 + digit_count),
         });
     }
     Ok(())
