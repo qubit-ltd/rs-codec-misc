@@ -37,8 +37,6 @@ pub use form_urlencoded_codec::FormUrlencodedCodec;
 pub use hex_byte_codec::HexByteCodec;
 pub use hex_codec::HexCodec;
 pub use hex_codec_config::HexCodecConfig;
-pub use misc_codec_error::{
-    MiscCodecError,
-    MiscCodecResult,
-};
+pub use misc_codec_error::MiscCodecError;
+pub use misc_codec_error::MiscCodecResult;
 pub use percent_codec::PercentCodec;

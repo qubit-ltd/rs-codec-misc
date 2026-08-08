@@ -7,11 +7,9 @@
 // =============================================================================
 //! Tests for hexadecimal byte encoding.
 
-use qubit_codec_misc::{
-    HexCodec,
-    HexCodecConfig,
-    MiscCodecError,
-};
+use qubit_codec_misc::HexCodec;
+use qubit_codec_misc::HexCodecConfig;
+use qubit_codec_misc::MiscCodecError;
 
 #[test]
 fn test_hex_codec_reuses_named_configuration() {
@@ -194,9 +192,7 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_prefix("0x")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1f")
-            .expect(
-                "whole prefix should tolerate configured leading whitespace"
-            )
+            .expect("whole prefix should tolerate configured leading whitespace")
     );
 }
 
@@ -206,9 +202,9 @@ fn test_decode_requires_configured_separator_between_bytes() {
 
     assert_eq!(
         vec![0x1f, 0x8b, 0x00],
-        codec.decode("1f:8b:00").expect(
-            "configured separator should decode between complete bytes"
-        )
+        codec
+            .decode("1f:8b:00")
+            .expect("configured separator should decode between complete bytes")
     );
     assert_eq!(
         Vec::<u8>::new(),
@@ -270,9 +266,9 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     );
     assert_eq!(
         vec![0x1f, 0x8b],
-        space_codec.decode(" \t0x1F 0x8B ").expect(
-            "space separator should still work with ignored edge whitespace"
-        )
+        space_codec
+            .decode(" \t0x1F 0x8B ")
+            .expect("space separator should still work with ignored edge whitespace")
     );
     assert!(
         colon_codec.decode("1 f:8b").is_err(),

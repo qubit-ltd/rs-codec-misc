@@ -9,8 +9,9 @@
 
 use core::num::NonZeroUsize;
 
-use crate::MiscCodecError;
 use qubit_codec::DecodeFailure;
+
+use crate::MiscCodecError;
 
 /// Distinguishes retryable stream tails from malformed codec input.
 #[derive(Debug)]
@@ -39,9 +40,7 @@ impl ParseError {
         consumed: NonZeroUsize,
     ) -> DecodeFailure<MiscCodecError> {
         match self {
-            Self::Incomplete { required, .. } => {
-                DecodeFailure::incomplete(required)
-            }
+            Self::Incomplete { required, .. } => DecodeFailure::incomplete(required),
             Self::Invalid(error) => DecodeFailure::invalid(error, consumed),
         }
     }
