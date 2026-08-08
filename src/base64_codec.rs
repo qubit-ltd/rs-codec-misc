@@ -8,21 +8,16 @@
 //! Base64 byte codec.
 
 use ::base64::Engine;
-use ::base64::engine::general_purpose::{
-    STANDARD,
-    STANDARD_NO_PAD,
-    URL_SAFE,
-    URL_SAFE_NO_PAD,
-};
+use ::base64::engine::GeneralPurpose;
+use ::base64::engine::general_purpose::STANDARD;
+use ::base64::engine::general_purpose::STANDARD_NO_PAD;
+use ::base64::engine::general_purpose::URL_SAFE;
+use ::base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use qubit_codec::ValueDecoder;
+use qubit_codec::ValueEncoder;
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-};
-use qubit_codec::{
-    ValueDecoder,
-    ValueEncoder,
-};
+use crate::MiscCodecError;
+use crate::MiscCodecResult;
 
 /// Encodes and decodes Base64 byte strings.
 ///
@@ -32,7 +27,7 @@ use qubit_codec::{
 #[must_use]
 #[derive(Debug, Clone, Copy)]
 pub struct Base64Codec {
-    engine: &'static ::base64::engine::GeneralPurpose,
+    engine: &'static GeneralPurpose,
 }
 
 impl PartialEq for Base64Codec {

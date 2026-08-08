@@ -7,24 +7,22 @@
 // =============================================================================
 //! C string literal byte codec.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    internal::{
-        CStringLiteralParseContext,
-        ParseError,
-    },
-    misc_codec_error::map_misc_decode_failure_with_consumed,
-};
-use qubit_codec::{
-    Codec,
-    ValueDecoder,
-    ValueEncoder,
-};
+use core::num::NonZeroUsize;
+
+use qubit_codec::Codec;
+use qubit_codec::DecodeFailure;
+use qubit_codec::ValueDecoder;
+use qubit_codec::ValueEncoder;
+use qubit_utils::nonzero;
+
+use crate::MiscCodecError;
+use crate::MiscCodecResult;
+use crate::internal::CStringLiteralParseContext;
+use crate::internal::ParseError;
+use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-    'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
 ];
 
 /// Encodes and decodes byte-oriented C string literal fragments.
@@ -92,9 +90,7 @@ impl CStringLiteralCodec {
                 index,
                 CStringLiteralParseContext::CompleteText(text),
             )
-            .map_err(|error| {
-                c_string_parse_error_to_misc(error, input, index)
-            })?;
+            .map_err(|error| c_string_parse_error_to_misc(error, input, index))?;
             debug_assert!(consumed > 0);
             output.push(decoded);
             index += consumed;
@@ -152,26 +148,17 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) =
-            decode_c_string_literal_byte(input, input_index).map_err(
-                |error| {
-                    map_c_string_parse_error_to_decode_failure(
-                        error,
-                        input,
-                        input_index,
-                    )
-                },
-            )?;
+            decode_c_string_literal_byte(input, input_index).map_err(|error| {
+                map_c_string_parse_error_to_decode_failure(error, input, input_index)
+            })?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
-        let consumed = qubit_utils::nonzero(consumed);
+        let consumed = nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -185,26 +172,16 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) = decode_c_string_literal_unit(
-            input,
-            input_index,
-            CStringLiteralParseContext::EofBytes,
-        )
-        .map_err(|error| {
-            map_c_string_parse_error_to_decode_failure(
-                error,
-                input,
-                input_index,
-            )
-        })?;
+        let (value, consumed) =
+            decode_c_string_literal_unit(input, input_index, CStringLiteralParseContext::EofBytes)
+                .map_err(|error| {
+                    map_c_string_parse_error_to_decode_failure(error, input, input_index)
+                })?;
         debug_assert!(consumed > 0);
-        let consumed = qubit_utils::nonzero(consumed);
+        let consumed = nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -270,15 +247,8 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 /// # Errors
 /// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
 #[inline]
-fn decode_c_string_literal_byte(
-    input: &[u8],
-    index: usize,
-) -> Result<(u8, usize), ParseError> {
-    decode_c_string_literal_unit(
-        input,
-        index,
-        CStringLiteralParseContext::StreamingBytes,
-    )
+fn decode_c_string_literal_byte(input: &[u8], index: usize) -> Result<(u8, usize), ParseError> {
+    decode_c_string_literal_unit(input, index, CStringLiteralParseContext::StreamingBytes)
 }
 
 /// Decodes one C string literal unit from `input`.
@@ -333,10 +303,7 @@ fn decode_c_string_literal_unit(
             if matches!(context, CStringLiteralParseContext::CompleteText(_))
                 || context.is_streaming()
             {
-                ensure_fixed_escape_complete(
-                    available,
-                    qubit_utils::nonzero(6),
-                )?;
+                ensure_fixed_escape_complete(available, nonzero(6))?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
         }
@@ -344,10 +311,7 @@ fn decode_c_string_literal_unit(
             if matches!(context, CStringLiteralParseContext::CompleteText(_))
                 || context.is_streaming()
             {
-                ensure_fixed_escape_complete(
-                    available,
-                    qubit_utils::nonzero(10),
-                )?;
+                ensure_fixed_escape_complete(available, nonzero(10))?;
             }
             parse_fixed_hex_escape_units(input, index, 8, context)
         }
@@ -383,7 +347,7 @@ fn ensure_variable_hex_escape_complete(
 ) -> Result<(), ParseError> {
     if available < 3 {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero(3),
+            required: nonzero(3),
         });
     }
     let mut digit_count = 0usize;
@@ -398,7 +362,7 @@ fn ensure_variable_hex_escape_complete(
     }
     if digit_count == 1 && index + 3 == input.len() {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero(4),
+            required: nonzero(4),
         });
     }
     Ok(())
@@ -450,7 +414,7 @@ fn ensure_octal_escape_complete(
     }
     if digit_count < 3 && index + 1 + digit_count == input.len() {
         return Err(ParseError::Incomplete {
-            required: qubit_utils::nonzero(2 + digit_count),
+            required: nonzero(2 + digit_count),
         });
     }
     Ok(())
@@ -621,8 +585,7 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 #[inline(always)]
 fn encoded_byte_len(byte: u8) -> usize {
     match byte {
-        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r'
-        | b'\t' | 0x0b => 2,
+        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
         b' '..=b'~' => 1,
         _ => 4,
     }
@@ -752,21 +715,13 @@ fn uppercase_hex_digit(value: u8) -> char {
 /// # Returns
 /// A concrete codec error suitable for complete or EOF-confirmed input.
 #[inline]
-fn c_string_parse_error_to_misc(
-    error: ParseError,
-    input: &[u8],
-    index: usize,
-) -> MiscCodecError {
+fn c_string_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -> MiscCodecError {
     match error {
-        ParseError::Incomplete { required, .. } => {
-            MiscCodecError::InvalidEscape {
-                index,
-                escape: escape_fragment(input, index, input.len()),
-                reason: format!(
-                    "incomplete escape sequence; expected at least {required} units"
-                ),
-            }
-        }
+        ParseError::Incomplete { required, .. } => MiscCodecError::InvalidEscape {
+            index,
+            escape: escape_fragment(input, index, input.len()),
+            reason: format!("incomplete escape sequence; expected at least {required} units"),
+        },
         ParseError::Invalid(error) => error,
     }
 }
@@ -777,24 +732,18 @@ fn map_c_string_parse_error_to_decode_failure(
     error: ParseError,
     input: &[u8],
     index: usize,
-) -> qubit_codec::DecodeFailure<MiscCodecError> {
+) -> DecodeFailure<MiscCodecError> {
     match error {
-        ParseError::Incomplete { required, .. } => {
-            qubit_codec::DecodeFailure::incomplete(required)
+        ParseError::Incomplete { required, .. } => DecodeFailure::incomplete(required),
+        ParseError::Invalid(error) => {
+            map_misc_decode_failure_with_consumed(error, c_string_invalid_consumed(input, index))
         }
-        ParseError::Invalid(error) => map_misc_decode_failure_with_consumed(
-            error,
-            c_string_invalid_consumed(input, index),
-        ),
     }
 }
 
 /// Returns the number of units belonging to a malformed C string fragment.
 #[inline]
-fn c_string_invalid_consumed(
-    input: &[u8],
-    index: usize,
-) -> core::num::NonZeroUsize {
+fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
     let available = input.len().saturating_sub(index);
     let width = match input.get(index..index.saturating_add(2)) {
         Some([b'\\', b'u']) => 6,
@@ -802,7 +751,7 @@ fn c_string_invalid_consumed(
         Some([b'\\', _]) => 2,
         _ => 1,
     };
-    core::num::NonZeroUsize::new(width.min(available).max(1))
+    NonZeroUsize::new(width.min(available).max(1))
         .expect("malformed C string input has at least one unit")
 }
 
@@ -815,11 +764,7 @@ fn c_string_invalid_consumed(
 ///
 /// # Returns
 /// An invalid escape error.
-pub(crate) fn invalid_escape(
-    index: usize,
-    escape: &str,
-    reason: &str,
-) -> MiscCodecError {
+pub(crate) fn invalid_escape(index: usize, escape: &str, reason: &str) -> MiscCodecError {
     MiscCodecError::InvalidEscape {
         index,
         escape: escape.to_owned(),

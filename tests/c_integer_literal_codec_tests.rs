@@ -8,10 +8,8 @@
 //! Tests for C integer literal decoding.
 
 use qubit_codec::ValueDecoder;
-use qubit_codec_misc::{
-    CIntegerLiteralCodec,
-    MiscCodecError,
-};
+use qubit_codec_misc::CIntegerLiteralCodec;
+use qubit_codec_misc::MiscCodecError;
 
 #[test]
 fn test_decode_decimal_octal_and_hex_literals() {
