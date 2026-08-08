@@ -7,10 +7,8 @@
 // =============================================================================
 //! Regression coverage for parser error translation.
 
-use qubit_codec_misc::{
-    MiscCodecError,
-    PercentCodec,
-};
+use qubit_codec_misc::MiscCodecError;
+use qubit_codec_misc::PercentCodec;
 
 #[test]
 fn test_complete_percent_decode_exposes_format_error_not_stream_state() {

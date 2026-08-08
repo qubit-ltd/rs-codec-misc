@@ -25,8 +25,6 @@ mod misc_codec_error_tests;
 mod percent_codec_tests;
 mod trait_tests;
 
-pub(crate) use assertions_tests::{
-    incomplete_required,
-    invalid_consumed,
-    invalid_source,
-};
+pub(crate) use assertions_tests::incomplete_required;
+pub(crate) use assertions_tests::invalid_consumed;
+pub(crate) use assertions_tests::invalid_source;
