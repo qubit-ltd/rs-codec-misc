@@ -7,16 +7,15 @@
 // =============================================================================
 //! Low-level hexadecimal byte codec.
 
-use crate::{
-    MiscCodecError,
-    hex_codec::{
-        hex_digit,
-        hex_value,
-        invalid_hex_digit,
-    },
-    misc_codec_error::map_misc_decode_failure_with_consumed,
-};
 use qubit_codec::Codec;
+use qubit_codec::DecodeFailure;
+use qubit_utils::nonzero;
+
+use crate::MiscCodecError;
+use crate::hex_codec::hex_digit;
+use crate::hex_codec::hex_value;
+use crate::hex_codec::invalid_hex_digit;
+use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 
 /// Encodes and decodes one byte as two ASCII hexadecimal units.
 ///
@@ -79,31 +78,18 @@ impl Codec for HexByteCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index + 2 <= input.len());
 
         let high_char = char::from(input[input_index]);
         let low_char = char::from(input[input_index + 1]);
         let high = hex_value(high_char)
             .ok_or_else(|| invalid_hex_digit(input_index, high_char))
-            .map_err(|error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    qubit_utils::nonzero(2),
-                )
-            })?;
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(2)))?;
         let low = hex_value(low_char)
             .ok_or_else(|| invalid_hex_digit(input_index + 1, low_char))
-            .map_err(|error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    qubit_utils::nonzero(2),
-                )
-            })?;
-        Ok(((high << 4) | low, qubit_utils::nonzero(2)))
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(2)))?;
+        Ok(((high << 4) | low, nonzero(2)))
     }
 
     /// Encodes one byte as two ASCII hexadecimal digits.
@@ -120,8 +106,7 @@ impl Codec for HexByteCodec {
         debug_assert!(output_index + 2 <= output.len());
 
         output[output_index] = hex_digit(*value >> 4, self.uppercase) as u8;
-        output[output_index + 1] =
-            hex_digit(*value & 0x0f, self.uppercase) as u8;
+        output[output_index + 1] = hex_digit(*value & 0x0f, self.uppercase) as u8;
         Ok(2)
     }
 }

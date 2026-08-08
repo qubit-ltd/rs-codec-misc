@@ -7,28 +7,23 @@
 // =============================================================================
 //! `application/x-www-form-urlencoded` text codec.
 
-use crate::percent_codec::{
-    percent_decode_byte,
-    percent_decode_bytes,
-    percent_encode_byte,
-    percent_encode_bytes,
-    percent_encode_len,
-    percent_invalid_consumed,
-};
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    internal::{
-        ParseError,
-        PercentEncodingMode,
-    },
-    misc_codec_error::map_misc_decode_failure_with_consumed,
-};
-use qubit_codec::{
-    Codec,
-    ValueDecoder,
-    ValueEncoder,
-};
+use qubit_codec::Codec;
+use qubit_codec::DecodeFailure;
+use qubit_codec::ValueDecoder;
+use qubit_codec::ValueEncoder;
+use qubit_utils::nonzero;
+
+use crate::MiscCodecError;
+use crate::MiscCodecResult;
+use crate::internal::ParseError;
+use crate::internal::PercentEncodingMode;
+use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
+use crate::percent_codec::percent_decode_byte;
+use crate::percent_codec::percent_decode_bytes;
+use crate::percent_codec::percent_encode_byte;
+use crate::percent_codec::percent_encode_bytes;
+use crate::percent_codec::percent_encode_len;
+use crate::percent_codec::percent_invalid_consumed;
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -59,10 +54,7 @@ impl FormUrlencodedCodec {
     #[inline]
     #[must_use]
     pub fn encode(&self, text: &str) -> String {
-        percent_encode_bytes(
-            text.as_bytes(),
-            PercentEncodingMode::FormUrlencoded,
-        )
+        percent_encode_bytes(text.as_bytes(), PercentEncodingMode::FormUrlencoded)
     }
 
     /// Decodes text, treating `+` as space.
@@ -78,8 +70,7 @@ impl FormUrlencodedCodec {
     /// are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?)
-            .map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
     }
 }
 
@@ -132,23 +123,15 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(|error| {
-            ParseError::into_decode_failure_with_consumed(
-                error,
-                qubit_utils::nonzero(3),
-            )
-        })?;
+            .map_err(|error| ParseError::into_decode_failure_with_consumed(error, nonzero(3)))?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
-        let consumed = qubit_utils::nonzero(consumed);
+        let consumed = nonzero(consumed);
         Ok((value, consumed))
     }
 
@@ -164,8 +147,7 @@ impl Codec for FormUrlencodedCodec {
         output: &mut [u8],
         output_index: usize,
     ) -> Result<usize, Self::EncodeError> {
-        let required =
-            percent_encode_len(*value, PercentEncodingMode::FormUrlencoded);
+        let required = percent_encode_len(*value, PercentEncodingMode::FormUrlencoded);
         debug_assert!(output_index + required <= output.len());
 
         let written = percent_encode_byte(
@@ -188,34 +170,26 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<
-        (u8, core::num::NonZeroUsize),
-        qubit_codec::DecodeFailure<Self::DecodeError>,
-    > {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(|error| match error {
-            ParseError::Incomplete { .. } => {
-                map_misc_decode_failure_with_consumed(
+        let (value, consumed) =
+            percent_decode_byte(input, input_index, true).map_err(|error| match error {
+                ParseError::Incomplete { .. } => map_misc_decode_failure_with_consumed(
                     MiscCodecError::InvalidEscape {
                         index: input_index,
-                        escape: String::from_utf8_lossy(&input[input_index..])
-                            .into_owned(),
+                        escape: String::from_utf8_lossy(&input[input_index..]).into_owned(),
                         reason: "expected two hexadecimal digits".to_owned(),
                     },
                     percent_invalid_consumed(input, input_index),
-                )
-            }
-            ParseError::Invalid(error) => {
-                map_misc_decode_failure_with_consumed(
+                ),
+                ParseError::Invalid(error) => map_misc_decode_failure_with_consumed(
                     error,
                     percent_invalid_consumed(input, input_index),
-                )
-            }
-        })?;
+                ),
+            })?;
         debug_assert!(consumed > 0);
-        let consumed = qubit_utils::nonzero(consumed);
+        let consumed = nonzero(consumed);
         Ok((value, consumed))
     }
 }

@@ -6,11 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-pub(crate) fn invalid_source(
-    failure: qubit_codec::DecodeFailure<qubit_codec_misc::MiscCodecError>,
-) -> qubit_codec_misc::MiscCodecError {
+use qubit_codec::DecodeFailure;
+use qubit_codec_misc::MiscCodecError;
+
+pub(crate) fn invalid_source(failure: DecodeFailure<MiscCodecError>) -> MiscCodecError {
     match failure {
-        qubit_codec::DecodeFailure::Invalid { source, .. } => source,
+        DecodeFailure::Invalid { source, .. } => source,
         other => {
             panic!("expected invalid misc codec decode failure: {other:?}")
         }
@@ -18,13 +19,9 @@ pub(crate) fn invalid_source(
 }
 
 /// Returns the invalid-input consumption hint from a decode failure.
-pub(crate) fn invalid_consumed(
-    failure: qubit_codec::DecodeFailure<qubit_codec_misc::MiscCodecError>,
-) -> Option<usize> {
+pub(crate) fn invalid_consumed(failure: DecodeFailure<MiscCodecError>) -> Option<usize> {
     match failure {
-        qubit_codec::DecodeFailure::Invalid { consumed, .. } => {
-            consumed.map(|width| width.get())
-        }
+        DecodeFailure::Invalid { consumed, .. } => consumed.map(|width| width.get()),
         other => {
             panic!("expected invalid misc codec decode failure: {other:?}")
         }
@@ -32,13 +29,9 @@ pub(crate) fn invalid_consumed(
 }
 
 /// Extracts the retry size from a low-level incomplete decode failure.
-pub(crate) fn incomplete_required(
-    failure: qubit_codec::DecodeFailure<qubit_codec_misc::MiscCodecError>,
-) -> usize {
+pub(crate) fn incomplete_required(failure: DecodeFailure<MiscCodecError>) -> usize {
     match failure {
-        qubit_codec::DecodeFailure::Incomplete { required_total, .. } => {
-            required_total.get()
-        }
+        DecodeFailure::Incomplete { required_total, .. } => required_total.get(),
         other => {
             panic!("expected incomplete misc codec decode failure: {other:?}")
         }
