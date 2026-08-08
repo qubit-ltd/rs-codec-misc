@@ -10,10 +10,8 @@
 #![no_main]
 
 use base64::Engine;
-use base64::engine::general_purpose::{
-    STANDARD,
-    URL_SAFE,
-};
+use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::URL_SAFE;
 use libfuzzer_sys::fuzz_target;
 use qubit_codec::Codec;
 use qubit_codec_misc::Base64QuantumCodec;

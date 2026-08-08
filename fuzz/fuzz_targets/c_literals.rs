@@ -10,14 +10,10 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use qubit_codec::{
-    Codec,
-    DecodeFailure,
-};
-use qubit_codec_misc::{
-    CIntegerLiteralCodec,
-    CStringLiteralCodec,
-};
+use qubit_codec::Codec;
+use qubit_codec::DecodeFailure;
+use qubit_codec_misc::CIntegerLiteralCodec;
+use qubit_codec_misc::CStringLiteralCodec;
 
 const MAX_INPUT_LEN: usize = 4 * 1024;
 

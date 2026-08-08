@@ -9,20 +9,16 @@
 
 use std::hint::black_box;
 
-use criterion::{
-    Criterion,
-    Throughput,
-    criterion_group,
-    criterion_main,
-};
-use qubit_codec_misc::{
-    Base64Codec,
-    CIntegerLiteralCodec,
-    CStringLiteralCodec,
-    FormUrlencodedCodec,
-    HexCodec,
-    PercentCodec,
-};
+use criterion::Criterion;
+use criterion::Throughput;
+use criterion::criterion_group;
+use criterion::criterion_main;
+use qubit_codec_misc::Base64Codec;
+use qubit_codec_misc::CIntegerLiteralCodec;
+use qubit_codec_misc::CStringLiteralCodec;
+use qubit_codec_misc::FormUrlencodedCodec;
+use qubit_codec_misc::HexCodec;
+use qubit_codec_misc::PercentCodec;
 
 const TEXT: &str = "field=value with spaces + punctuation / 中间文本";
 const HEX_BYTES: &[u8] = b"benchmark bytes with a representative payload";
@@ -85,9 +81,7 @@ fn benchmark_base64_and_c_literals(c: &mut Criterion) {
         bencher.iter(|| black_box(c_literals.encode(black_box(HEX_BYTES))));
     });
     group.bench_function("c_string_decode", |bencher| {
-        bencher.iter(|| {
-            black_box(c_literals.decode(black_box(&c_literal_encoded)))
-        });
+        bencher.iter(|| black_box(c_literals.decode(black_box(&c_literal_encoded))));
     });
     group.bench_function("c_integer_decode", |bencher| {
         bencher.iter(|| black_box(integers.decode(black_box(INTEGER_LITERAL))));
