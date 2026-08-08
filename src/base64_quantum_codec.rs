@@ -7,16 +7,15 @@
 // =============================================================================
 //! Base64 quantum codec.
 
-use crate::{
-    MiscCodecError,
-    MiscCodecResult,
-    misc_codec_error::map_misc_decode_failure_with_consumed,
-};
 use core::num::NonZeroUsize;
-use qubit_codec::{
-    Codec,
-    DecodeFailure,
-};
+
+use qubit_codec::Codec;
+use qubit_codec::DecodeFailure;
+use qubit_utils::nonzero;
+
+use crate::MiscCodecError;
+use crate::MiscCodecResult;
+use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -124,45 +123,25 @@ impl Codec for Base64QuantumCodec {
     ) -> Result<([u8; 3], NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index + 4 <= input.len());
 
-        let first = self.decode_unit(input[input_index], input_index).map_err(
-            |error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    qubit_utils::nonzero(4),
-                )
-            },
-        )?;
+        let first = self
+            .decode_unit(input[input_index], input_index)
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(4)))?;
         let second = self
             .decode_unit(input[input_index + 1], input_index + 1)
-            .map_err(|error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    qubit_utils::nonzero(4),
-                )
-            })?;
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(4)))?;
         let third = self
             .decode_unit(input[input_index + 2], input_index + 2)
-            .map_err(|error| {
-            map_misc_decode_failure_with_consumed(
-                error,
-                qubit_utils::nonzero(4),
-            )
-        })?;
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(4)))?;
         let fourth = self
             .decode_unit(input[input_index + 3], input_index + 3)
-            .map_err(|error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    qubit_utils::nonzero(4),
-                )
-            })?;
+            .map_err(|error| map_misc_decode_failure_with_consumed(error, nonzero(4)))?;
         Ok((
             [
                 (first << 2) | (second >> 4),
                 (second << 4) | (third >> 2),
                 (third << 6) | fourth,
             ],
-            qubit_utils::nonzero(4),
+            nonzero(4),
         ))
     }
 
@@ -180,10 +159,8 @@ impl Codec for Base64QuantumCodec {
 
         let alphabet = self.alphabet();
         output[output_index] = alphabet[(value[0] >> 2) as usize];
-        output[output_index + 1] =
-            alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
-        output[output_index + 2] =
-            alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
+        output[output_index + 1] = alphabet[(((value[0] & 0x03) << 4) | (value[1] >> 4)) as usize];
+        output[output_index + 2] = alphabet[(((value[1] & 0x0f) << 2) | (value[2] >> 6)) as usize];
         output[output_index + 3] = alphabet[(value[2] & 0x3f) as usize];
         Ok(4)
     }
