@@ -11,10 +11,8 @@
 
 use form_urlencoded::byte_serialize;
 use libfuzzer_sys::fuzz_target;
-use qubit_codec_misc::{
-    FormUrlencodedCodec,
-    PercentCodec,
-};
+use qubit_codec_misc::FormUrlencodedCodec;
+use qubit_codec_misc::PercentCodec;
 
 const MAX_INPUT_LEN: usize = 4 * 1024;
 
