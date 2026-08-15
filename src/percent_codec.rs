@@ -67,7 +67,8 @@ impl PercentCodec {
     /// bytes are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, false)?).map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, false)?)
+            .map_err(MiscCodecError::from)
     }
 }
 
@@ -120,11 +121,14 @@ impl Codec for PercentCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, false)
-            .map_err(|error| ParseError::into_decode_failure_with_consumed(error, nonzero(3)))?;
+            .map_err(|error| {
+                ParseError::into_decode_failure_with_consumed(error, nonzero(3))
+            })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
@@ -147,8 +151,12 @@ impl Codec for PercentCodec {
         let required = percent_encode_len(*value, PercentEncodingMode::Rfc3986);
         debug_assert!(output_index + required <= output.len());
 
-        let written =
-            percent_encode_byte(*value, output, output_index, PercentEncodingMode::Rfc3986);
+        let written = percent_encode_byte(
+            *value,
+            output,
+            output_index,
+            PercentEncodingMode::Rfc3986,
+        );
         debug_assert_eq!(written, required);
         Ok(required)
     }
@@ -163,16 +171,19 @@ impl Codec for PercentCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) =
-            percent_decode_byte_eof(input, input_index, false).map_err(|error| {
-                map_misc_decode_failure_with_consumed(
-                    error,
-                    percent_invalid_consumed(input, input_index),
-                )
-            })?;
+            percent_decode_byte_eof(input, input_index, false).map_err(
+                |error| {
+                    map_misc_decode_failure_with_consumed(
+                        error,
+                        percent_invalid_consumed(input, input_index),
+                    )
+                },
+            )?;
         debug_assert!(consumed > 0);
         let consumed = nonzero(consumed);
         Ok((value, consumed))
@@ -189,7 +200,10 @@ impl Codec for PercentCodec {
 /// The non-zero number of available units, capped at the three-unit escape
 /// width.
 #[inline(always)]
-pub(crate) fn percent_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
+pub(crate) fn percent_invalid_consumed(
+    input: &[u8],
+    index: usize,
+) -> NonZeroUsize {
     NonZeroUsize::new(input.len().saturating_sub(index).clamp(1, 3))
         .expect("percent decode errors have at least one available unit")
 }
@@ -203,7 +217,10 @@ pub(crate) fn percent_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsi
 /// # Returns
 /// Encoded text.
 #[inline]
-pub(crate) fn percent_encode_bytes(bytes: &[u8], mode: PercentEncodingMode) -> String {
+pub(crate) fn percent_encode_bytes(
+    bytes: &[u8],
+    mode: PercentEncodingMode,
+) -> String {
     let capacity = bytes
         .iter()
         .map(|byte| percent_encode_len(*byte, mode))
@@ -233,13 +250,18 @@ pub(crate) fn percent_encode_bytes(bytes: &[u8], mode: PercentEncodingMode) -> S
 /// # Errors
 /// Returns [`MiscCodecError::InvalidEscape`] for malformed escapes.
 #[inline]
-pub(crate) fn percent_decode_bytes(text: &str, plus_as_space: bool) -> MiscCodecResult<Vec<u8>> {
+pub(crate) fn percent_decode_bytes(
+    text: &str,
+    plus_as_space: bool,
+) -> MiscCodecResult<Vec<u8>> {
     let bytes = text.as_bytes();
     let mut output = Vec::with_capacity(bytes.len());
     let mut index = 0;
     while index < bytes.len() {
-        let (decoded, consumed) = percent_decode_byte(bytes, index, plus_as_space)
-            .map_err(|error| percent_parse_error_to_misc(error, bytes, index))?;
+        let (decoded, consumed) =
+            percent_decode_byte(bytes, index, plus_as_space).map_err(
+                |error| percent_parse_error_to_misc(error, bytes, index),
+            )?;
         output.push(decoded);
         index += consumed;
     }
@@ -271,7 +293,8 @@ pub(crate) fn percent_encode_byte(
         output[index] = byte;
         return 1;
     }
-    output[index..index + 3].copy_from_slice(encode_percent_byte(byte).as_bytes());
+    output[index..index + 3]
+        .copy_from_slice(encode_percent_byte(byte).as_bytes());
     3
 }
 
@@ -314,10 +337,10 @@ pub(crate) fn percent_decode_byte(
             }
             let high_byte = input[index + 1];
             let low_byte = input[index + 2];
-            let high =
-                percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(input, index))?;
-            let low =
-                percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(input, index))?;
+            let high = percent_hex_value(high_byte)
+                .ok_or_else(|| invalid_percent_escape(input, index))?;
+            let low = percent_hex_value(low_byte)
+                .ok_or_else(|| invalid_percent_escape(input, index))?;
             Ok(((high << 4) | low, 3))
         }
         b'+' if plus_as_space => Ok((b' ', 1)),
@@ -338,7 +361,11 @@ fn percent_decode_byte_eof(
 
 /// Converts an open-stream parse result into a complete-input error.
 #[inline]
-fn percent_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -> MiscCodecError {
+fn percent_parse_error_to_misc(
+    error: ParseError,
+    input: &[u8],
+    index: usize,
+) -> MiscCodecError {
     match error {
         ParseError::Incomplete { .. } => invalid_percent_escape(input, index),
         ParseError::Invalid(error) => error,

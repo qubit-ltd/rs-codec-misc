@@ -73,19 +73,27 @@ impl CStringLiteralParseContext<'_> {
             Self::CompleteText(_) | Self::EofBytes => {
                 "raw source character must be printable ASCII or allowed whitespace"
             }
-            Self::StreamingBytes => "raw source byte must be printable ASCII or allowed whitespace",
+            Self::StreamingBytes => {
+                "raw source byte must be printable ASCII or allowed whitespace"
+            }
         }
     }
 
     /// Builds an escape fragment for diagnostics.
-    pub(crate) fn escape_fragment(self, input: &[u8], start: usize, end: usize) -> String {
+    pub(crate) fn escape_fragment(
+        self,
+        input: &[u8],
+        start: usize,
+        end: usize,
+    ) -> String {
         match self {
             Self::CompleteText(text) => text
                 .get(start..end)
                 .or(text.get(start..))
                 .unwrap_or("\\")
                 .to_owned(),
-            Self::EofBytes | Self::StreamingBytes => input[start..end.min(input.len())]
+            Self::EofBytes | Self::StreamingBytes => input
+                [start..end.min(input.len())]
                 .iter()
                 .map(|byte| char::from(*byte))
                 .collect(),

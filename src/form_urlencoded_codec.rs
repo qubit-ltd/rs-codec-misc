@@ -54,7 +54,10 @@ impl FormUrlencodedCodec {
     #[inline]
     #[must_use]
     pub fn encode(&self, text: &str) -> String {
-        percent_encode_bytes(text.as_bytes(), PercentEncodingMode::FormUrlencoded)
+        percent_encode_bytes(
+            text.as_bytes(),
+            PercentEncodingMode::FormUrlencoded,
+        )
     }
 
     /// Decodes text, treating `+` as space.
@@ -70,7 +73,8 @@ impl FormUrlencodedCodec {
     /// are not valid UTF-8.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<String> {
-        String::from_utf8(percent_decode_bytes(text, true)?).map_err(MiscCodecError::from)
+        String::from_utf8(percent_decode_bytes(text, true)?)
+            .map_err(MiscCodecError::from)
     }
 }
 
@@ -123,11 +127,14 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(|error| ParseError::into_decode_failure_with_consumed(error, nonzero(3)))?;
+            .map_err(|error| {
+            ParseError::into_decode_failure_with_consumed(error, nonzero(3))
+        })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.
@@ -147,7 +154,8 @@ impl Codec for FormUrlencodedCodec {
         output: &mut [u8],
         output_index: usize,
     ) -> Result<usize, Self::EncodeError> {
-        let required = percent_encode_len(*value, PercentEncodingMode::FormUrlencoded);
+        let required =
+            percent_encode_len(*value, PercentEncodingMode::FormUrlencoded);
         debug_assert!(output_index + required <= output.len());
 
         let written = percent_encode_byte(
@@ -170,24 +178,30 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) =
-            percent_decode_byte(input, input_index, true).map_err(|error| match error {
-                ParseError::Incomplete { .. } => map_misc_decode_failure_with_consumed(
+        let (value, consumed) = percent_decode_byte(input, input_index, true)
+            .map_err(|error| match error {
+            ParseError::Incomplete { .. } => {
+                map_misc_decode_failure_with_consumed(
                     MiscCodecError::InvalidEscape {
                         index: input_index,
-                        escape: String::from_utf8_lossy(&input[input_index..]).into_owned(),
+                        escape: String::from_utf8_lossy(&input[input_index..])
+                            .into_owned(),
                         reason: "expected two hexadecimal digits".to_owned(),
                     },
                     percent_invalid_consumed(input, input_index),
-                ),
-                ParseError::Invalid(error) => map_misc_decode_failure_with_consumed(
+                )
+            }
+            ParseError::Invalid(error) => {
+                map_misc_decode_failure_with_consumed(
                     error,
                     percent_invalid_consumed(input, input_index),
-                ),
-            })?;
+                )
+            }
+        })?;
         debug_assert!(consumed > 0);
         let consumed = nonzero(consumed);
         Ok((value, consumed))

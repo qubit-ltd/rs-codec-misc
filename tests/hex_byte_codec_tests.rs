@@ -16,10 +16,13 @@ fn test_hex_byte_codec_roundtrips_one_byte() {
     let mut codec = HexByteCodec::upper();
     let mut output = [0u8; 2];
 
-    let (decoded, consumed) =
-        unsafe { Codec::decode(&mut codec, b"Af", 0).expect("single hex byte should decode") };
+    let (decoded, consumed) = unsafe {
+        Codec::decode(&mut codec, b"Af", 0)
+            .expect("single hex byte should decode")
+    };
     let written = unsafe {
-        Codec::encode(&mut codec, &0xaf, &mut output, 0).expect("single hex byte should encode")
+        Codec::encode(&mut codec, &0xaf, &mut output, 0)
+            .expect("single hex byte should encode")
     };
 
     assert_eq!(0xaf, decoded);

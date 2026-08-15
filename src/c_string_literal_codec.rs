@@ -22,7 +22,8 @@ use crate::internal::ParseError;
 use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 
 const UPPER_HEX_DIGITS: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+    'F',
 ];
 
 /// Encodes and decodes byte-oriented C string literal fragments.
@@ -90,7 +91,9 @@ impl CStringLiteralCodec {
                 index,
                 CStringLiteralParseContext::CompleteText(text),
             )
-            .map_err(|error| c_string_parse_error_to_misc(error, input, index))?;
+            .map_err(|error| {
+                c_string_parse_error_to_misc(error, input, index)
+            })?;
             debug_assert!(consumed > 0);
             output.push(decoded);
             index += consumed;
@@ -148,13 +151,20 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) =
-            decode_c_string_literal_byte(input, input_index).map_err(|error| {
-                map_c_string_parse_error_to_decode_failure(error, input, input_index)
-            })?;
+            decode_c_string_literal_byte(input, input_index).map_err(
+                |error| {
+                    map_c_string_parse_error_to_decode_failure(
+                        error,
+                        input,
+                        input_index,
+                    )
+                },
+            )?;
         debug_assert!(consumed > 0);
         // SAFETY: `decode_c_string_literal_byte` returns a non-zero width for
         // every successful raw byte or escape.
@@ -172,14 +182,22 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>>
+    {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) =
-            decode_c_string_literal_unit(input, input_index, CStringLiteralParseContext::EofBytes)
-                .map_err(|error| {
-                    map_c_string_parse_error_to_decode_failure(error, input, input_index)
-                })?;
+        let (value, consumed) = decode_c_string_literal_unit(
+            input,
+            input_index,
+            CStringLiteralParseContext::EofBytes,
+        )
+        .map_err(|error| {
+            map_c_string_parse_error_to_decode_failure(
+                error,
+                input,
+                input_index,
+            )
+        })?;
         debug_assert!(consumed > 0);
         let consumed = nonzero(consumed);
         Ok((value, consumed))
@@ -247,8 +265,15 @@ fn push_encoded_byte(byte: u8, output: &mut String) {
 /// # Errors
 /// Returns [`MiscCodecError`] when the raw byte or escape fragment is invalid.
 #[inline]
-fn decode_c_string_literal_byte(input: &[u8], index: usize) -> Result<(u8, usize), ParseError> {
-    decode_c_string_literal_unit(input, index, CStringLiteralParseContext::StreamingBytes)
+fn decode_c_string_literal_byte(
+    input: &[u8],
+    index: usize,
+) -> Result<(u8, usize), ParseError> {
+    decode_c_string_literal_unit(
+        input,
+        index,
+        CStringLiteralParseContext::StreamingBytes,
+    )
 }
 
 /// Decodes one C string literal unit from `input`.
@@ -585,7 +610,8 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 #[inline(always)]
 fn encoded_byte_len(byte: u8) -> usize {
     match byte {
-        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
+        b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r'
+        | b'\t' | 0x0b => 2,
         b' '..=b'~' => 1,
         _ => 4,
     }
@@ -715,13 +741,21 @@ fn uppercase_hex_digit(value: u8) -> char {
 /// # Returns
 /// A concrete codec error suitable for complete or EOF-confirmed input.
 #[inline]
-fn c_string_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -> MiscCodecError {
+fn c_string_parse_error_to_misc(
+    error: ParseError,
+    input: &[u8],
+    index: usize,
+) -> MiscCodecError {
     match error {
-        ParseError::Incomplete { required, .. } => MiscCodecError::InvalidEscape {
-            index,
-            escape: escape_fragment(input, index, input.len()),
-            reason: format!("incomplete escape sequence; expected at least {required} units"),
-        },
+        ParseError::Incomplete { required, .. } => {
+            MiscCodecError::InvalidEscape {
+                index,
+                escape: escape_fragment(input, index, input.len()),
+                reason: format!(
+                    "incomplete escape sequence; expected at least {required} units"
+                ),
+            }
+        }
         ParseError::Invalid(error) => error,
     }
 }
@@ -734,10 +768,13 @@ fn map_c_string_parse_error_to_decode_failure(
     index: usize,
 ) -> DecodeFailure<MiscCodecError> {
     match error {
-        ParseError::Incomplete { required, .. } => DecodeFailure::incomplete(required),
-        ParseError::Invalid(error) => {
-            map_misc_decode_failure_with_consumed(error, c_string_invalid_consumed(input, index))
+        ParseError::Incomplete { required, .. } => {
+            DecodeFailure::incomplete(required)
         }
+        ParseError::Invalid(error) => map_misc_decode_failure_with_consumed(
+            error,
+            c_string_invalid_consumed(input, index),
+        ),
     }
 }
 
@@ -764,7 +801,11 @@ fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
 ///
 /// # Returns
 /// An invalid escape error.
-pub(crate) fn invalid_escape(index: usize, escape: &str, reason: &str) -> MiscCodecError {
+pub(crate) fn invalid_escape(
+    index: usize,
+    escape: &str,
+    reason: &str,
+) -> MiscCodecError {
     MiscCodecError::InvalidEscape {
         index,
         escape: escape.to_owned(),
