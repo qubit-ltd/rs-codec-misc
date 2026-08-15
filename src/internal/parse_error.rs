@@ -40,7 +40,9 @@ impl ParseError {
         consumed: NonZeroUsize,
     ) -> DecodeFailure<MiscCodecError> {
         match self {
-            Self::Incomplete { required, .. } => DecodeFailure::incomplete(required),
+            Self::Incomplete { required, .. } => {
+                DecodeFailure::incomplete(required)
+            }
             Self::Invalid(error) => DecodeFailure::invalid(error, consumed),
         }
     }

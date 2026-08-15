@@ -28,10 +28,10 @@ use qubit_codec_misc::PercentCodec;
 #[test]
 fn test_codec_types_can_be_used_through_traits() {
     let mut codec = HexCodec::new();
-    let encoded =
-        ValueEncoder::<[u8]>::encode(&mut codec, b"abc").expect("hex encode should succeed");
-    let decoded =
-        ValueDecoder::<str>::decode(&mut codec, &encoded).expect("hex decode should succeed");
+    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"abc")
+        .expect("hex encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
+        .expect("hex decode should succeed");
 
     assert_eq!("616263", encoded);
     assert_eq!(b"abc".to_vec(), decoded);
@@ -40,11 +40,21 @@ fn test_codec_types_can_be_used_through_traits() {
 #[test]
 fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     fn assert_codec_value_encoder<
-        T: ValueEncoder<u8, Output = Vec<u8>, Error = TranscodeEncodeError<MiscCodecError, u8>>,
+        T: ValueEncoder<
+                u8,
+                Output = Vec<u8>,
+                Error = TranscodeEncodeError<MiscCodecError, u8>,
+            >,
     >() {
     }
-    fn assert_codec_transcode_decoder<T: TranscodeDecoder<Input = u8, Output = u8>>() {}
-    fn assert_codec_transcode_encoder<T: TranscodeEncoder<Input = u8, Output = u8>>() {}
+    fn assert_codec_transcode_decoder<
+        T: TranscodeDecoder<Input = u8, Output = u8>,
+    >() {
+    }
+    fn assert_codec_transcode_encoder<
+        T: TranscodeEncoder<Input = u8, Output = u8>,
+    >() {
+    }
     fn assert_transcode_decode_engine<T>() {}
     fn assert_transcode_encode_engine<T>() {}
 
@@ -54,7 +64,10 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     assert_transcode_decode_engine::<TranscodeDecodeEngine<HexByteCodec, ()>>();
     assert_transcode_encode_engine::<TranscodeEncodeEngine<HexByteCodec, ()>>();
 
-    let encode_error = TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(2, 0xff);
+    let encode_error =
+        TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(
+            2, 0xff,
+        );
     assert!(matches!(
         encode_error,
         TranscodeEncodeError::Unencodable { .. }
@@ -69,7 +82,9 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         TranscodeFailure::invalid_input_index(2, 1).into();
     assert!(matches!(
         transcode_error,
-        TranscodeDecodeError::Failure(TranscodeFailure::InvalidInputIndex { .. })
+        TranscodeDecodeError::Failure(
+            TranscodeFailure::InvalidInputIndex { .. }
+        )
     ));
 }
 
@@ -80,8 +95,10 @@ fn test_value_traits_accept_text_codecs() {
         C: ValueEncoder<str, Output = String, Error = MiscCodecError>
             + ValueDecoder<str, Output = String, Error = MiscCodecError>,
     {
-        let encoded = ValueEncoder::<str>::encode(&mut codec, text).expect("text should encode");
-        ValueDecoder::<str>::decode(&mut codec, &encoded).expect("text should decode")
+        let encoded = ValueEncoder::<str>::encode(&mut codec, text)
+            .expect("text should encode");
+        ValueDecoder::<str>::decode(&mut codec, &encoded)
+            .expect("text should decode")
     }
 
     assert_eq!("a b", roundtrip(PercentCodec::new(), "a b"));

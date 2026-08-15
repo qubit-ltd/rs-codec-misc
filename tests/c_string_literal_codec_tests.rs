@@ -189,9 +189,10 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
             reason: _
         }
     ));
-    let incomplete_universal_reason = CStringLiteralCodec::new()
-        .decode(r"\u12")
-        .expect_err("incomplete universal escape should report its required width");
+    let incomplete_universal_reason =
+        CStringLiteralCodec::new().decode(r"\u12").expect_err(
+            "incomplete universal escape should report its required width",
+        );
     match incomplete_universal_reason {
         MiscCodecError::InvalidEscape { reason, .. } => assert_eq!(
             "incomplete escape sequence; expected at least 6 units",
@@ -293,8 +294,9 @@ fn test_decode_matches_codec_trait_path_for_complete_fragments() {
         let owned = codec
             .decode(input)
             .expect("owned C string literal decoder should accept fixture");
-        let codec_trait = decode_complete_fragment_through_codec_trait(&mut codec, input)
-            .expect("Codec trait path should accept fixture");
+        let codec_trait =
+            decode_complete_fragment_through_codec_trait(&mut codec, input)
+                .expect("Codec trait path should accept fixture");
 
         assert_eq!(owned, codec_trait, "input {input:?}");
     }
@@ -308,14 +310,15 @@ fn decode_complete_fragment_through_codec_trait(
     let bytes = input.as_bytes();
     let mut input_index = 0;
     while input_index < bytes.len() {
-        let (decoded, consumed) = unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(
-            |failure| match failure {
-                DecodeFailure::Invalid { source, .. } => source,
-                DecodeFailure::Incomplete { .. } => {
-                    panic!("EOF-aware C string decode remained incomplete")
-                }
-            },
-        )?;
+        let (decoded, consumed) =
+            unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(
+                |failure| match failure {
+                    DecodeFailure::Invalid { source, .. } => source,
+                    DecodeFailure::Incomplete { .. } => {
+                        panic!("EOF-aware C string decode remained incomplete")
+                    }
+                },
+            )?;
         output.push(decoded);
         input_index += consumed.get();
     }
