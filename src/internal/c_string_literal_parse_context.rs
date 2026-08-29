@@ -35,23 +35,12 @@ impl CStringLiteralParseContext<'_> {
     }
 
     /// Builds the error for a trailing escape marker.
-    pub(crate) fn trailing_escape_error(
-        self,
-        marker_index: usize,
-        _available: usize,
-    ) -> ParseError {
+    pub(crate) fn trailing_escape_error(self, marker_index: usize, _available: usize) -> ParseError {
         match self {
             Self::CompleteText(_) | Self::EofBytes => {
-                crate::c_string_literal_codec::invalid_escape(
-                    marker_index,
-                    "\\",
-                    "incomplete escape sequence",
-                )
-                .into()
+                crate::c_string_literal_codec::invalid_escape(marker_index, "\\", "incomplete escape sequence").into()
             }
-            Self::StreamingBytes => ParseError::Incomplete {
-                required: nonzero(2),
-            },
+            Self::StreamingBytes => ParseError::Incomplete { required: nonzero(2) },
         }
     }
 
@@ -73,27 +62,15 @@ impl CStringLiteralParseContext<'_> {
             Self::CompleteText(_) | Self::EofBytes => {
                 "raw source character must be printable ASCII or allowed whitespace"
             }
-            Self::StreamingBytes => {
-                "raw source byte must be printable ASCII or allowed whitespace"
-            }
+            Self::StreamingBytes => "raw source byte must be printable ASCII or allowed whitespace",
         }
     }
 
     /// Builds an escape fragment for diagnostics.
-    pub(crate) fn escape_fragment(
-        self,
-        input: &[u8],
-        start: usize,
-        end: usize,
-    ) -> String {
+    pub(crate) fn escape_fragment(self, input: &[u8], start: usize, end: usize) -> String {
         match self {
-            Self::CompleteText(text) => text
-                .get(start..end)
-                .or(text.get(start..))
-                .unwrap_or("\\")
-                .to_owned(),
-            Self::EofBytes | Self::StreamingBytes => input
-                [start..end.min(input.len())]
+            Self::CompleteText(text) => text.get(start..end).or(text.get(start..)).unwrap_or("\\").to_owned(),
+            Self::EofBytes | Self::StreamingBytes => input[start..end.min(input.len())]
                 .iter()
                 .map(|byte| char::from(*byte))
                 .collect(),

@@ -35,14 +35,9 @@ impl From<MiscCodecError> for ParseError {
 impl ParseError {
     /// Converts a parser outcome while retaining a known invalid width.
     #[inline]
-    pub(crate) fn into_decode_failure_with_consumed(
-        self,
-        consumed: NonZeroUsize,
-    ) -> DecodeFailure<MiscCodecError> {
+    pub(crate) fn into_decode_failure_with_consumed(self, consumed: NonZeroUsize) -> DecodeFailure<MiscCodecError> {
         match self {
-            Self::Incomplete { required, .. } => {
-                DecodeFailure::incomplete(required)
-            }
+            Self::Incomplete { required, .. } => DecodeFailure::incomplete(required),
             Self::Invalid(error) => DecodeFailure::invalid(error, consumed),
         }
     }

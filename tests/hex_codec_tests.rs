@@ -30,9 +30,7 @@ fn test_hex_codec_reuses_named_configuration() {
     assert_eq!("0x1F 8B", codec.encode(&[0x1f, 0x8b]));
     assert_eq!(
         vec![0x1f, 0x8b],
-        codec
-            .decode(" 0X1F 8B ")
-            .expect("configured hex should decode")
+        codec.decode(" 0X1F 8B ").expect("configured hex should decode")
     );
 }
 
@@ -63,10 +61,7 @@ fn test_encode_uppercase_with_whole_prefix_and_separator() {
 fn test_encode_uppercase_with_byte_prefix_and_separator() {
     let codec = HexCodec::upper().with_byte_prefix("0x").with_separator(" ");
 
-    assert_eq!(
-        "0x1F 0x8B 0x00 0xFF",
-        codec.encode(&[0x1f, 0x8b, 0x00, 0xff])
-    );
+    assert_eq!("0x1F 0x8B 0x00 0xFF", codec.encode(&[0x1f, 0x8b, 0x00, 0xff]));
     assert_eq!(
         "0x01 0x23 0x45 0x67 0x89 0xAB 0xCD 0xEF",
         codec.encode(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef])
@@ -118,9 +113,7 @@ fn test_decode_into_is_atomic_when_later_input_is_invalid() {
 fn test_decode_plain_prefixed_and_separated_hex() {
     assert_eq!(
         vec![0x1f, 0x8b, 0x00, 0xff],
-        HexCodec::new()
-            .decode("1f8B00ff")
-            .expect("plain hex should decode")
+        HexCodec::new().decode("1f8B00ff").expect("plain hex should decode")
     );
 
     assert_eq!(
@@ -192,9 +185,7 @@ fn test_decode_plain_prefixed_and_separated_hex() {
             .with_prefix("0x")
             .with_ignored_ascii_whitespace(true)
             .decode(" \t0x1f")
-            .expect(
-                "whole prefix should tolerate configured leading whitespace"
-            )
+            .expect("whole prefix should tolerate configured leading whitespace")
     );
 }
 
@@ -204,9 +195,9 @@ fn test_decode_requires_configured_separator_between_bytes() {
 
     assert_eq!(
         vec![0x1f, 0x8b, 0x00],
-        codec.decode("1f:8b:00").expect(
-            "configured separator should decode between complete bytes"
-        )
+        codec
+            .decode("1f:8b:00")
+            .expect("configured separator should decode between complete bytes")
     );
     assert_eq!(
         Vec::<u8>::new(),
@@ -216,9 +207,7 @@ fn test_decode_requires_configured_separator_between_bytes() {
     );
     assert_eq!(
         vec![0x1f],
-        codec
-            .decode("1f")
-            .expect("single byte should not require a separator")
+        codec.decode("1f").expect("single byte should not require a separator")
     );
     assert!(
         codec.decode("1f8b").is_err(),
@@ -252,9 +241,7 @@ fn test_decode_rejects_separator_outside_byte_boundaries() {
 
 #[test]
 fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
-    let colon_codec = HexCodec::new()
-        .with_separator(":")
-        .with_ignored_ascii_whitespace(true);
+    let colon_codec = HexCodec::new().with_separator(":").with_ignored_ascii_whitespace(true);
     let space_codec = HexCodec::new()
         .with_byte_prefix("0x")
         .with_separator(" ")
@@ -268,9 +255,9 @@ fn test_decode_keeps_ignored_whitespace_outside_hex_bytes() {
     );
     assert_eq!(
         vec![0x1f, 0x8b],
-        space_codec.decode(" \t0x1F 0x8B ").expect(
-            "space separator should still work with ignored edge whitespace"
-        )
+        space_codec
+            .decode(" \t0x1F 0x8B ")
+            .expect("space separator should still work with ignored edge whitespace")
     );
     assert!(
         colon_codec.decode("1 f:8b").is_err(),
@@ -308,9 +295,7 @@ fn test_decode_ignores_configured_whitespace_without_separator() {
 
 #[test]
 fn test_hex_roundtrip_preserves_whitespace_in_structural_tokens() {
-    let prefixed = HexCodec::new()
-        .with_prefix(" 0x")
-        .with_ignored_ascii_whitespace(true);
+    let prefixed = HexCodec::new().with_prefix(" 0x").with_ignored_ascii_whitespace(true);
     let prefixed_text = prefixed.encode(&[0x1f]);
     assert_eq!(" 0x1f", prefixed_text);
     assert_eq!(
@@ -347,9 +332,7 @@ fn test_decode_reports_precise_hex_errors() {
         }
     ));
 
-    let invalid = HexCodec::new()
-        .decode("12xz")
-        .expect_err("invalid digit should fail");
+    let invalid = HexCodec::new().decode("12xz").expect_err("invalid digit should fail");
     assert!(matches!(
         invalid,
         MiscCodecError::InvalidDigit {
@@ -363,19 +346,13 @@ fn test_decode_reports_precise_hex_errors() {
         .with_prefix("0x")
         .decode("1f")
         .expect_err("missing prefix should fail");
-    assert!(matches!(
-        missing_prefix,
-        MiscCodecError::MissingPrefix { .. }
-    ));
+    assert!(matches!(missing_prefix, MiscCodecError::MissingPrefix { .. }));
 
     let missing_second_prefix = HexCodec::new()
         .with_byte_prefix("0x")
         .decode("0x1f8b")
         .expect_err("each byte should require its own prefix");
-    assert!(matches!(
-        missing_second_prefix,
-        MiscCodecError::MissingPrefix { .. }
-    ));
+    assert!(matches!(missing_second_prefix, MiscCodecError::MissingPrefix { .. }));
 
     let invalid_after_prefix = HexCodec::new()
         .with_prefix("0x")
@@ -418,10 +395,7 @@ fn test_decode_reports_precise_hex_errors() {
         .with_ignore_prefix_case(true)
         .decode("0")
         .expect_err("short input should not match prefix");
-    assert!(matches!(
-        too_short_prefix,
-        MiscCodecError::MissingPrefix { .. }
-    ));
+    assert!(matches!(too_short_prefix, MiscCodecError::MissingPrefix { .. }));
 }
 
 #[test]
@@ -432,8 +406,5 @@ fn test_decode_rejects_byte_prefix_without_a_hex_byte() {
         .decode("0x")
         .expect_err("a byte prefix must be followed by two hex digits");
 
-    assert!(matches!(
-        error,
-        MiscCodecError::InvalidInput { codec: "hex", .. }
-    ));
+    assert!(matches!(error, MiscCodecError::InvalidInput { codec: "hex", .. }));
 }

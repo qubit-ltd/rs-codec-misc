@@ -23,10 +23,7 @@ fuzz_target!(|data: &[u8]| {
     let form = FormUrlencodedCodec::new();
 
     let percent_encoded = percent.encode(&text);
-    assert_eq!(
-        text,
-        percent.decode(&percent_encoded).expect("percent roundtrip")
-    );
+    assert_eq!(text, percent.decode(&percent_encoded).expect("percent roundtrip"));
 
     let form_encoded = form.encode(&text);
     let expected: String = byte_serialize(text.as_bytes()).collect();
