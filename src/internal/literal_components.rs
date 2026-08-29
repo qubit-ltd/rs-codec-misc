@@ -35,19 +35,12 @@ impl<'a> LiteralComponents<'a> {
     /// Returns [`MiscCodecError::InvalidInput`] when a radix prefix is present
     /// without any digits after it.
     #[inline]
-    pub(crate) fn parse(
-        trimmed: &'a str,
-        trim_offset: usize,
-    ) -> MiscCodecResult<Self> {
-        if let Some(digits) = trimmed
-            .strip_prefix("0x")
-            .or_else(|| trimmed.strip_prefix("0X"))
-        {
+    pub(crate) fn parse(trimmed: &'a str, trim_offset: usize) -> MiscCodecResult<Self> {
+        if let Some(digits) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
             if digits.is_empty() {
                 return Err(MiscCodecError::InvalidInput {
                     codec: "c-integer-literal",
-                    reason: "hexadecimal literal requires at least one digit"
-                        .to_owned(),
+                    reason: "hexadecimal literal requires at least one digit".to_owned(),
                 });
             }
             return Ok(Self {

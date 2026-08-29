@@ -60,10 +60,7 @@ fuzz_target!(|data: &[u8]| {
     let data = &data[..data.len().min(MAX_INPUT_LEN)];
     let literals = CStringLiteralCodec::new();
     let encoded = literals.encode(data);
-    assert_eq!(
-        data,
-        literals.decode(&encoded).expect("C literal roundtrip")
-    );
+    assert_eq!(data, literals.decode(&encoded).expect("C literal roundtrip"));
     assert_eq!(data, decode_in_chunks(encoded.as_bytes(), data));
 
     let text = String::from_utf8_lossy(data);

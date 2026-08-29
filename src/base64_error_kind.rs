@@ -38,10 +38,7 @@ impl Base64ErrorKind {
     #[inline]
     pub(crate) const fn input_index(error: &DecodeError) -> Option<usize> {
         match error {
-            DecodeError::InvalidByte(index, _)
-            | DecodeError::InvalidLastSymbol { offset: index, .. } => {
-                Some(*index)
-            }
+            DecodeError::InvalidByte(index, _) | DecodeError::InvalidLastSymbol { offset: index, .. } => Some(*index),
             DecodeError::InvalidLength(_) | DecodeError::InvalidPadding => None,
         }
     }
@@ -50,8 +47,7 @@ impl Base64ErrorKind {
     #[inline]
     pub(crate) const fn symbol(error: &DecodeError) -> Option<u8> {
         match error {
-            DecodeError::InvalidByte(_, symbol)
-            | DecodeError::InvalidLastSymbol { symbol, .. } => Some(*symbol),
+            DecodeError::InvalidByte(_, symbol) | DecodeError::InvalidLastSymbol { symbol, .. } => Some(*symbol),
             DecodeError::InvalidLength(_) | DecodeError::InvalidPadding => None,
         }
     }
@@ -62,9 +58,9 @@ impl Base64ErrorKind {
     pub(crate) const fn input_length(error: &DecodeError) -> Option<usize> {
         match error {
             DecodeError::InvalidLength(length) => Some(*length),
-            DecodeError::InvalidByte(_, _)
-            | DecodeError::InvalidLastSymbol { .. }
-            | DecodeError::InvalidPadding => None,
+            DecodeError::InvalidByte(_, _) | DecodeError::InvalidLastSymbol { .. } | DecodeError::InvalidPadding => {
+                None
+            }
         }
     }
 }

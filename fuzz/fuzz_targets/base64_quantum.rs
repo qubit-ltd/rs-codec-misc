@@ -33,21 +33,14 @@ fuzz_target!(|data: &[u8]| {
         let expected = engine.encode(chunk);
         let mut encoded = [0u8; 4];
         let written = unsafe {
-            Codec::encode(
-                &mut codec,
-                chunk.try_into().expect("chunk width"),
-                &mut encoded,
-                0,
-            )
-            .expect("quantum encoding should succeed")
+            Codec::encode(&mut codec, chunk.try_into().expect("chunk width"), &mut encoded, 0)
+                .expect("quantum encoding should succeed")
         };
         assert_eq!(4, written);
         assert_eq!(expected.as_bytes(), &encoded);
 
-        let (decoded, consumed) = unsafe {
-            Codec::decode(&mut codec, &encoded, 0)
-                .expect("encoded quantum should decode")
-        };
+        let (decoded, consumed) =
+            unsafe { Codec::decode(&mut codec, &encoded, 0).expect("encoded quantum should decode") };
         assert_eq!(chunk, decoded);
         assert_eq!(4, consumed.get());
     }
@@ -56,10 +49,7 @@ fuzz_target!(|data: &[u8]| {
         let failure = unsafe { Codec::decode(&mut codec, window, 0) };
         if let Err(failure) = failure {
             if failure.invalid_source().is_some() {
-                assert_eq!(
-                    Some(4),
-                    failure.consumed_units().map(|width| width.get())
-                );
+                assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
             }
         }
     }
