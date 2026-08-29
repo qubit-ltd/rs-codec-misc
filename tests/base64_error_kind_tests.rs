@@ -12,8 +12,5 @@ use qubit_codec_misc::Base64ErrorKind;
 #[test]
 fn test_base64_error_kind_variants_are_distinct() {
     assert_ne!(Base64ErrorKind::InvalidByte, Base64ErrorKind::InvalidLength);
-    assert_ne!(
-        Base64ErrorKind::InvalidLastSymbol,
-        Base64ErrorKind::InvalidPadding
-    );
+    assert_ne!(Base64ErrorKind::InvalidLastSymbol, Base64ErrorKind::InvalidPadding);
 }

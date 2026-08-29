@@ -16,14 +16,8 @@ fn test_hex_byte_codec_roundtrips_one_byte() {
     let mut codec = HexByteCodec::upper();
     let mut output = [0u8; 2];
 
-    let (decoded, consumed) = unsafe {
-        Codec::decode(&mut codec, b"Af", 0)
-            .expect("single hex byte should decode")
-    };
-    let written = unsafe {
-        Codec::encode(&mut codec, &0xaf, &mut output, 0)
-            .expect("single hex byte should encode")
-    };
+    let (decoded, consumed) = unsafe { Codec::decode(&mut codec, b"Af", 0).expect("single hex byte should decode") };
+    let written = unsafe { Codec::encode(&mut codec, &0xaf, &mut output, 0).expect("single hex byte should encode") };
 
     assert_eq!(0xaf, decoded);
     assert_eq!(2, consumed.get());
@@ -39,17 +33,13 @@ fn test_hex_byte_codec_roundtrips_one_byte() {
 #[test]
 fn test_hex_byte_codec_reports_digit_positions() {
     let mut codec = HexByteCodec::new();
-    let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }
-        .expect_err("invalid high hex digit should fail");
-    let low = unsafe { Codec::decode(&mut codec, b"fx", 0) }
-        .expect_err("invalid low hex digit should fail");
+    let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }.expect_err("invalid high hex digit should fail");
+    let low = unsafe { Codec::decode(&mut codec, b"fx", 0) }.expect_err("invalid low hex digit should fail");
 
     assert_eq!(Some(2), super::invalid_consumed(high));
-    let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }
-        .expect_err("invalid high hex digit should fail");
+    let high = unsafe { Codec::decode(&mut codec, b"xf", 0) }.expect_err("invalid high hex digit should fail");
     assert_eq!(Some(2), super::invalid_consumed(low));
-    let low = unsafe { Codec::decode(&mut codec, b"fx", 0) }
-        .expect_err("invalid low hex digit should fail");
+    let low = unsafe { Codec::decode(&mut codec, b"fx", 0) }.expect_err("invalid low hex digit should fail");
 
     assert!(matches!(
         super::invalid_source(high),

@@ -86,9 +86,7 @@ fn test_decode_hex_octal_and_universal_escapes() {
     );
     assert_eq!(
         vec![0x0b],
-        codec
-            .decode(r"\XB")
-            .expect("uppercase hex escape marker should decode")
+        codec.decode(r"\XB").expect("uppercase hex escape marker should decode")
     );
     assert_eq!(
         vec![0x07],
@@ -104,9 +102,7 @@ fn test_decode_matches_java_c_string_literal_cases() {
 
     assert_eq!(
         b"hello, world.".to_vec(),
-        codec
-            .decode("hello, world.")
-            .expect("plain Java fixture should decode")
+        codec.decode("hello, world.").expect("plain Java fixture should decode")
     );
     assert_eq!(
         b"hello, \"world\".".to_vec(),
@@ -189,15 +185,13 @@ fn test_decode_reports_invalid_escape_and_character_errors() {
             reason: _
         }
     ));
-    let incomplete_universal_reason =
-        CStringLiteralCodec::new().decode(r"\u12").expect_err(
-            "incomplete universal escape should report its required width",
-        );
+    let incomplete_universal_reason = CStringLiteralCodec::new()
+        .decode(r"\u12")
+        .expect_err("incomplete universal escape should report its required width");
     match incomplete_universal_reason {
-        MiscCodecError::InvalidEscape { reason, .. } => assert_eq!(
-            "incomplete escape sequence; expected at least 6 units",
-            reason
-        ),
+        MiscCodecError::InvalidEscape { reason, .. } => {
+            assert_eq!("incomplete escape sequence; expected at least 6 units", reason)
+        }
         error => {
             panic!("unexpected incomplete universal escape error: {error:?}")
         }
@@ -252,10 +246,7 @@ fn test_encode_uses_simple_escapes_and_hex_bytes() {
         r"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1",
         codec.encode(&[0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
     );
-    assert_eq!(
-        r"\a\b\f\r\t\v",
-        codec.encode(&[0x07, 0x08, 0x0c, b'\r', b'\t', 0x0b])
-    );
+    assert_eq!(r"\a\b\f\r\t\v", codec.encode(&[0x07, 0x08, 0x0c, b'\r', b'\t', 0x0b]));
     assert_eq!("", codec.encode(&[]));
     assert_eq!(
         r"\x02\x05\x06\x17\x18\x19",
@@ -266,10 +257,9 @@ fn test_encode_uses_simple_escapes_and_hex_bytes() {
 #[test]
 fn test_c_string_literal_codec_can_be_used_through_traits() {
     let mut codec = CStringLiteralCodec::new();
-    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"PK\x03\x04")
-        .expect("C string literal encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
-        .expect("C string literal decode should succeed");
+    let encoded =
+        ValueEncoder::<[u8]>::encode(&mut codec, b"PK\x03\x04").expect("C string literal encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded).expect("C string literal decode should succeed");
 
     assert_eq!(r"PK\x03\x04", encoded);
     assert_eq!(b"PK\x03\x04".to_vec(), decoded);
@@ -294,9 +284,8 @@ fn test_decode_matches_codec_trait_path_for_complete_fragments() {
         let owned = codec
             .decode(input)
             .expect("owned C string literal decoder should accept fixture");
-        let codec_trait =
-            decode_complete_fragment_through_codec_trait(&mut codec, input)
-                .expect("Codec trait path should accept fixture");
+        let codec_trait = decode_complete_fragment_through_codec_trait(&mut codec, input)
+            .expect("Codec trait path should accept fixture");
 
         assert_eq!(owned, codec_trait, "input {input:?}");
     }
@@ -311,14 +300,12 @@ fn decode_complete_fragment_through_codec_trait(
     let mut input_index = 0;
     while input_index < bytes.len() {
         let (decoded, consumed) =
-            unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(
-                |failure| match failure {
-                    DecodeFailure::Invalid { source, .. } => source,
-                    DecodeFailure::Incomplete { .. } => {
-                        panic!("EOF-aware C string decode remained incomplete")
-                    }
-                },
-            )?;
+            unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(|failure| match failure {
+                DecodeFailure::Invalid { source, .. } => source,
+                DecodeFailure::Incomplete { .. } => {
+                    panic!("EOF-aware C string decode remained incomplete")
+                }
+            })?;
         output.push(decoded);
         input_index += consumed.get();
     }

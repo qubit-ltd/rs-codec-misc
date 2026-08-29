@@ -34,9 +34,7 @@ fn test_url_safe_base64_roundtrip_without_padding() {
     assert_eq!("-__uAA", encoded);
     assert_eq!(
         bytes.to_vec(),
-        codec
-            .decode(&encoded)
-            .expect("url-safe base64 should decode")
+        codec.decode(&encoded).expect("url-safe base64 should decode")
     );
 }
 
@@ -68,10 +66,7 @@ fn test_base64_constructors_cover_padding_and_alphabet_variants() {
 #[test]
 fn test_base64_codec_equality_distinguishes_engine_variants() {
     assert_eq!(Base64Codec::standard(), Base64Codec::default());
-    assert_eq!(
-        Base64Codec::url_safe_no_pad(),
-        Base64Codec::url_safe_no_pad()
-    );
+    assert_eq!(Base64Codec::url_safe_no_pad(), Base64Codec::url_safe_no_pad());
     assert_ne!(Base64Codec::standard(), Base64Codec::standard_no_pad());
     assert_ne!(Base64Codec::standard(), Base64Codec::url_safe());
 }
@@ -92,8 +87,7 @@ fn test_decode_rejects_invalid_base64() {
             ..
         }
     ));
-    let source = std::error::Error::source(&error)
-        .expect("Base64 error should retain its dependency source");
+    let source = std::error::Error::source(&error).expect("Base64 error should retain its dependency source");
     assert_eq!(
         Some(&base64::DecodeError::InvalidByte(0, b'@')),
         source.downcast_ref::<base64::DecodeError>()
@@ -134,10 +128,8 @@ fn test_decode_reports_base64_error_category_and_index() {
 #[test]
 fn test_base64_codec_can_be_used_through_traits() {
     let mut codec = Base64Codec::standard();
-    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"abc")
-        .expect("base64 encode should succeed");
-    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded)
-        .expect("base64 decode should succeed");
+    let encoded = ValueEncoder::<[u8]>::encode(&mut codec, b"abc").expect("base64 encode should succeed");
+    let decoded = ValueDecoder::<str>::decode(&mut codec, &encoded).expect("base64 decode should succeed");
 
     assert_eq!("YWJj", encoded);
     assert_eq!(b"abc".to_vec(), decoded);
