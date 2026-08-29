@@ -26,8 +26,8 @@ include = [
 [dependencies]
 base64 = "0.23"
 percent-encoding = "2.3"
-qubit-utils = "0.2"
-qubit-codec = "0.12"
+qubit-utils = "0.3"
+qubit-codec = "0.13"
 thiserror = "2.0"
 
 [dev-dependencies]
