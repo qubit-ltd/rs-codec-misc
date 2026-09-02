@@ -136,7 +136,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-codec-misc = "0.5"
+qubit-codec-misc = "0.6"
 ```
 
 ## Quick Start
