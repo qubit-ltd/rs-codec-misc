@@ -79,3 +79,17 @@ external/
 *.tar.gz
 *.rar
 *.7z
+
+# Locally installed pinned rs-infra tools
+.infra/tools/bin/
+
+# Generated local fuzz smoke corpus
+fuzz/corpus/
+
+# Generated coverage reports
+/ci-summary.json
+/coverage-badge.json
+/coverage-summary.md
+/coverage.json
+/coverage.txt
+/lcov.info
