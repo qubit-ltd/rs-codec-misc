@@ -27,7 +27,7 @@ include = [
 base64 = "^0.23"
 percent-encoding = "^2.3"
 qubit-utils = "0.3"
-qubit-codec = "0.15"
+qubit-codec = { version = "0.16", path = "../rs-codec" }
 thiserror = "^2.0"
 
 [dev-dependencies]
