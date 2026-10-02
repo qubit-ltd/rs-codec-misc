@@ -42,3 +42,5 @@ path = "fuzz_targets/base64_quantum.rs"
 test = false
 doc = false
 bench = false
+
+[workspace]
