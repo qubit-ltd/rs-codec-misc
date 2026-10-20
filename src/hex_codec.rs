@@ -30,9 +30,21 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// [`crate::HexByteCodec`] when a low-level
 /// [`qubit_codec::Codec<Value = u8, Unit = u8>`] is
 /// required.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::HexCodec;
+///
+/// let codec = HexCodec::new();
+/// let encoded = codec.encode(&[0x1f, 0x8b]);
+/// assert_eq!(encoded, "1f8b");
+/// assert_eq!(codec.decode(&encoded).unwrap(), [0x1f, 0x8b]);
+/// ```
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HexCodec {
+    /// Configuration shared by whole-slice encoding and decoding operations.
     config: HexCodecConfig,
 }
 
@@ -252,7 +264,10 @@ impl HexCodec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
+    /// Returns [`MiscCodecError::MissingPrefix`] when a configured prefix is
+    /// absent, [`MiscCodecError::InvalidLength`] for an odd digit count,
+    /// [`MiscCodecError::InvalidDigit`] for unsupported characters, or
+    /// [`MiscCodecError::InvalidInput`] for malformed separator syntax.
     #[inline]
     fn decode_to_vec(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         let start_index = self.consume_prefix(text)?;
@@ -312,8 +327,9 @@ impl HexCodec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError`] when a byte is malformed or the configured
-    /// separator is missing between complete bytes.
+    /// Returns [`MiscCodecError::MissingPrefix`] when a configured per-byte
+    /// prefix is absent, or [`MiscCodecError::InvalidInput`] when a byte or
+    /// separator syntax is malformed.
     fn decode_separated(&self, text: &str, mut index: usize, separator: &str) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::with_capacity(text.len() / 2);
         index = self.skip_ascii_whitespace(text, index);
@@ -414,7 +430,9 @@ impl HexCodec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidDigit`] for unsupported characters.
+    /// Returns [`MiscCodecError::InvalidLength`] when the normalized digit
+    /// count is odd, or [`MiscCodecError::InvalidDigit`] for unsupported
+    /// characters.
     fn decode_unprefixed(&self, text: &str, mut index: usize) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::with_capacity(text.len() / 2);
         let mut pending = None;
@@ -456,7 +474,9 @@ impl HexCodec {
     ///
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a byte prefix is missing,
-    /// or [`MiscCodecError::InvalidDigit`] for unsupported characters.
+    /// [`MiscCodecError::InvalidInput`] when a prefix is not followed by a
+    /// complete byte, or [`MiscCodecError::InvalidDigit`] for unsupported
+    /// characters.
     fn decode_byte_prefixed(&self, text: &str, prefix: &str, mut index: usize) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::with_capacity(text.len() / 2);
         let mut digit_count = 0usize;
@@ -600,7 +620,7 @@ impl ValueDecoder<str> for HexCodec {
 ///
 /// # Returns
 /// Nibble value, or `None` when `ch` is not a hex digit.
-#[inline(always)]
+#[inline]
 pub(crate) fn hex_value(ch: char) -> Option<u8> {
     match ch {
         '0'..='9' => Some(ch as u8 - b'0'),
@@ -682,9 +702,7 @@ fn read_required_hex_digit(text: &str, index: usize) -> MiscCodecResult<(usize, 
 /// Decodes two hexadecimal characters into one byte.
 ///
 /// # Parameters
-/// - `high_index`: Original byte index of the high nibble.
 /// - `high_char`: High-nibble character.
-/// - `low_index`: Original byte index of the low nibble.
 /// - `low_char`: Low-nibble character.
 ///
 /// # Returns
@@ -704,7 +722,7 @@ fn decode_hex_pair(high_char: char, low_char: char) -> u8 {
 /// - `byte`: Byte to encode.
 /// - `uppercase`: Whether to use uppercase digits.
 /// - `output`: Destination string.
-#[inline(always)]
+#[inline]
 fn push_hex_byte(byte: u8, uppercase: bool, output: &mut String) {
     output.push(hex_digit(byte >> 4, uppercase));
     output.push(hex_digit(byte & 0x0f, uppercase));
@@ -718,7 +736,7 @@ fn push_hex_byte(byte: u8, uppercase: bool, output: &mut String) {
 ///
 /// # Returns
 /// Hexadecimal digit. Values above `0x0f` are masked to their low nibble.
-#[inline(always)]
+#[inline]
 pub(crate) fn hex_digit(value: u8, uppercase: bool) -> char {
     let digits = if uppercase {
         &UPPER_HEX_DIGITS

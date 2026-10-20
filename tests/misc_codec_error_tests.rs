@@ -14,7 +14,7 @@ use qubit_codec_misc::MiscCodecError;
 use qubit_codec_misc::MiscCodecResult;
 
 #[test]
-fn test_misc_misc_codec_error_display_messages_include_context() {
+fn test_misc_codec_error_display_messages_include_context() {
     let cases = [
         (
             MiscCodecError::MissingPrefix {
@@ -72,7 +72,7 @@ fn test_misc_misc_codec_error_display_messages_include_context() {
 }
 
 #[test]
-fn test_misc_misc_codec_error_wraps_utf8_source_error() {
+fn test_misc_codec_error_wraps_utf8_source_error() {
     let error = String::from_utf8(vec![0xff]).expect_err("invalid utf-8 should fail");
     let error = MiscCodecError::from(error);
 

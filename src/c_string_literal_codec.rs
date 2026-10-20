@@ -34,6 +34,16 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one
 /// raw byte or one C escape fragment. Whole-fragment iteration remains part of
 /// the owned [`encode`](Self::encode) and [`decode`](Self::decode) helpers.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::CStringLiteralCodec;
+///
+/// let codec = CStringLiteralCodec::new();
+/// assert_eq!(codec.encode(b"Hi"), "Hi");
+/// assert_eq!(codec.decode(r"\x48\x69").unwrap(), b"Hi");
+/// ```
 #[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CStringLiteralCodec;
@@ -145,7 +155,7 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = decode_c_string_literal_byte(input, input_index)
@@ -167,7 +177,7 @@ impl Codec for CStringLiteralCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = decode_c_string_literal_unit(input, input_index, CStringLiteralParseContext::EofBytes)

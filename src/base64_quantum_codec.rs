@@ -22,9 +22,20 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// A quantum maps exactly three raw bytes to four Base64 units. It does not
 /// handle final short input groups or `=` padding; callers that process streams
 /// must finalize those cases in a transcoder or facade layer.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::Base64QuantumCodec;
+///
+/// let codec = Base64QuantumCodec::standard();
+/// assert_eq!(codec, Base64QuantumCodec::default());
+/// ```
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Base64QuantumCodec {
+    /// Selects the URL-safe alphabet when set; otherwise the standard alphabet
+    /// is used.
     url_safe: bool,
 }
 
@@ -51,7 +62,7 @@ impl Base64QuantumCodec {
     ///
     /// # Returns
     /// The 64-byte alphabet used for encoding.
-    #[inline(always)]
+    #[inline]
     fn alphabet(&self) -> &'static [u8; 64] {
         if self.url_safe {
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"

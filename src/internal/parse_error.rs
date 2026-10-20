@@ -26,6 +26,7 @@ pub(crate) enum ParseError {
 }
 
 impl From<MiscCodecError> for ParseError {
+    /// Wraps a codec error as malformed parser input.
     #[inline]
     fn from(error: MiscCodecError) -> Self {
         Self::Invalid(error)

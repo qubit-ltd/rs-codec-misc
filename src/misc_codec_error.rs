@@ -19,7 +19,23 @@ use crate::base64_error_kind::Base64ErrorKind;
 /// Result alias returned by codec operations.
 pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 
-/// Error returned by codec operations.
+/// Error returned by codec operations when input cannot be encoded or decoded.
+///
+/// The variants retain structured details from the codec, including positions
+/// in the original input where available.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::MiscCodecError;
+///
+/// let error = MiscCodecError::InvalidInput {
+///     codec: "hex",
+///     reason: "unsupported digit".to_owned(),
+/// };
+/// assert!(matches!(error, MiscCodecError::InvalidInput { codec: "hex", .. }));
+/// ```
+#[must_use]
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
     /// Base64 decoding failed in the configured dependency engine.

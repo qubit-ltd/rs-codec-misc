@@ -27,6 +27,17 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte to either one unreserved ASCII unit or a `%XX` escape. UTF-8 validation
 /// remains part of the owned [`decode`](Self::decode) helper.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::PercentCodec;
+///
+/// let codec = PercentCodec::new();
+/// let encoded = codec.encode("hello world");
+/// assert_eq!(encoded, "hello%20world");
+/// assert_eq!(codec.decode(&encoded).expect("valid encoded text"), "hello world");
+/// ```
 #[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PercentCodec;
@@ -105,7 +116,7 @@ impl Codec for PercentCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 3;
 
     /// Returns the exact percent-encoded width for one byte.
-    #[inline(always)]
+    #[inline]
     fn encode_len(&self, value: &u8) -> usize {
         percent_encode_len(*value, PercentEncodingMode::Rfc3986)
     }
@@ -183,7 +194,7 @@ impl Codec for PercentCodec {
 /// # Returns
 /// The non-zero number of available units, capped at the three-unit escape
 /// width.
-#[inline(always)]
+#[inline]
 pub(crate) fn percent_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
     NonZeroUsize::new(input.len().saturating_sub(index).clamp(1, 3))
         .expect("percent decode errors have at least one available unit")
@@ -263,7 +274,16 @@ pub(crate) fn percent_encode_byte(byte: u8, output: &mut [u8], index: usize, mod
 }
 
 /// Returns the encoded width for one byte under `mode`.
-#[inline(always)]
+///
+/// `mode` determines whether the byte is emitted directly or escaped.
+///
+/// # Parameters
+/// - `byte`: Byte whose encoded width is measured.
+/// - `mode`: Encoding policy selecting the unescaped set and space handling.
+///
+/// # Returns
+/// Number of output units required, either one or three.
+#[inline]
 pub(crate) fn percent_encode_len(byte: u8, mode: PercentEncodingMode) -> usize {
     if mode.is_space_plus(byte) || mode.is_unescaped(byte) {
         1
@@ -283,7 +303,8 @@ pub(crate) fn percent_encode_len(byte: u8, mode: PercentEncodingMode) -> usize {
 /// Decoded byte and the number of consumed units.
 ///
 /// # Errors
-/// Returns [`MiscCodecError::InvalidEscape`] for malformed `%XX` escapes.
+/// Returns [`ParseError::Incomplete`] for a truncated escape and
+/// [`ParseError::Invalid`] for a malformed hexadecimal escape.
 #[inline]
 pub(crate) fn percent_decode_byte(input: &[u8], index: usize, plus_as_space: bool) -> Result<(u8, usize), ParseError> {
     debug_assert!(index < input.len());
@@ -304,13 +325,34 @@ pub(crate) fn percent_decode_byte(input: &[u8], index: usize, plus_as_space: boo
     }
 }
 
-/// Decodes one percent value using EOF rules.
+/// Decodes one percent value using complete-input rules.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `index`: Start index in `input`.
+/// - `plus_as_space`: Whether `+` should decode to a space byte.
+///
+/// # Returns
+/// Decoded byte and the number of consumed units.
+///
+/// # Errors
+/// Returns [`MiscCodecError::InvalidEscape`] when a percent escape is
+/// incomplete or contains non-hexadecimal digits.
 #[inline]
 fn percent_decode_byte_eof(input: &[u8], index: usize, plus_as_space: bool) -> Result<(u8, usize), MiscCodecError> {
     percent_decode_byte(input, index, plus_as_space).map_err(|error| percent_parse_error_to_misc(error, input, index))
 }
 
-/// Converts an open-stream parse result into a complete-input error.
+/// Converts a streaming parse result into the error used for complete input.
+///
+/// # Parameters
+/// - `error`: Parse failure produced while decoding one value.
+/// - `input`: Encoded byte units used to build malformed-escape context.
+/// - `index`: Start index of the malformed escape in `input`.
+///
+/// # Returns
+/// The corresponding invalid-escape error for incomplete input, or the
+/// original error for an invalid escape.
 #[inline]
 fn percent_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -> MiscCodecError {
     match error {
@@ -322,6 +364,7 @@ fn percent_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) ->
 /// Builds a malformed percent escape error.
 ///
 /// # Parameters
+/// - `input`: Encoded byte units containing the malformed escape.
 /// - `index`: Byte index of the `%` marker in the original input.
 ///
 /// # Returns
@@ -342,7 +385,7 @@ fn invalid_percent_escape(input: &[u8], index: usize) -> MiscCodecError {
 ///
 /// # Returns
 /// Nibble value, or `None` when `byte` is not hex.
-#[inline(always)]
+#[inline]
 fn percent_hex_value(byte: u8) -> Option<u8> {
     match byte {
         b'0'..=b'9' => Some(byte - b'0'),
