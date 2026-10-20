@@ -18,7 +18,7 @@ pub(crate) enum PercentEncodingMode {
 
 impl PercentEncodingMode {
     /// Tests whether a byte may be emitted literally.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn is_unescaped(self, byte: u8) -> bool {
         match self {
             Self::Rfc3986 => matches!(
@@ -45,7 +45,7 @@ impl PercentEncodingMode {
     }
 
     /// Tests whether a byte is encoded as a form plus sign.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn is_space_plus(self, byte: u8) -> bool {
         matches!(self, Self::FormUrlencoded) && byte == b' '
     }

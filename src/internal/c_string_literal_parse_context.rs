@@ -23,13 +23,13 @@ pub(crate) enum CStringLiteralParseContext<'a> {
 
 impl CStringLiteralParseContext<'_> {
     /// Tests whether parsing is for a complete text fragment.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn is_complete_text(self) -> bool {
         matches!(self, Self::CompleteText(_) | Self::EofBytes)
     }
 
     /// Tests whether parsing is for an open stream.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn is_streaming(self) -> bool {
         matches!(self, Self::StreamingBytes)
     }

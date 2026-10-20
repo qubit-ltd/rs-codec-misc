@@ -23,8 +23,24 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// generic codec call sites. It does not understand whole-string prefixes,
 /// per-byte prefixes, separators, or whitespace. Use [`crate::HexCodec`] for
 /// owned byte-slice helpers with those formatting options.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec::Codec;
+/// use qubit_codec_misc::HexByteCodec;
+///
+/// let mut codec = HexByteCodec::upper();
+/// let mut output = [0_u8; 2];
+/// let written = unsafe { Codec::encode(&mut codec, &0xaf, &mut output, 0) }?;
+///
+/// assert_eq!(2, written);
+/// assert_eq!(b"AF", &output);
+/// # Ok::<(), qubit_codec_misc::MiscCodecError>(())
+/// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct HexByteCodec {
+    /// Controls whether encoded hexadecimal digits use uppercase letters.
     uppercase: bool,
 }
 
@@ -43,19 +59,19 @@ impl HexByteCodec {
         Self { uppercase: true }
     }
 
+    /// Returns whether this byte codec emits uppercase hexadecimal digits.
+    #[must_use]
+    #[inline]
+    pub const fn is_uppercase(self) -> bool {
+        self.uppercase
+    }
+
     /// Sets whether encoded digits should be uppercase.
     #[must_use]
     #[inline]
     pub const fn with_uppercase(mut self, uppercase: bool) -> Self {
         self.uppercase = uppercase;
         self
-    }
-
-    /// Returns whether this byte codec emits uppercase hexadecimal digits.
-    #[must_use]
-    #[inline]
-    pub const fn is_uppercase(self) -> bool {
-        self.uppercase
     }
 }
 

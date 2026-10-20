@@ -122,7 +122,7 @@ impl ValueEncoder<[u8]> for Base64Codec {
     type Output = String;
 
     /// Encodes bytes into Base64 text.
-    #[inline(always)]
+    #[inline]
     fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(Base64Codec::encode(self, input))
     }
@@ -133,7 +133,7 @@ impl ValueDecoder<str> for Base64Codec {
     type Output = Vec<u8>;
 
     /// Decodes Base64 text into bytes.
-    #[inline(always)]
+    #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         Base64Codec::decode(self, input)
     }

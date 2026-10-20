@@ -20,6 +20,15 @@ use crate::internal::LiteralComponents;
 /// surrounding whitespace and returns a `u64`. It intentionally accepts only
 /// a complete unsigned token: signs, integer suffixes, digit separators, and
 /// token-stream boundaries are outside this codec's contract.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::CIntegerLiteralCodec;
+///
+/// let codec = CIntegerLiteralCodec::new();
+/// assert_eq!(codec.decode("0x2a").unwrap(), 42);
+/// ```
 #[must_use]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CIntegerLiteralCodec;
