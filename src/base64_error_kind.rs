@@ -11,6 +11,7 @@ use ::base64::DecodeError;
 
 /// Structured category for an error reported by the Base64 dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[must_use]
 pub enum Base64ErrorKind {
     /// A byte outside the configured alphabet was encountered.
     InvalidByte,

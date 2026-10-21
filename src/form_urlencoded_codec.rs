@@ -119,7 +119,7 @@ impl Codec for FormUrlencodedCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 3;
 
     /// Returns the exact form-url-encoded width for one byte.
-    #[inline(always)]
+    #[inline]
     fn encode_len(&self, value: &u8) -> usize {
         percent_encode_len(*value, PercentEncodingMode::FormUrlencoded)
     }

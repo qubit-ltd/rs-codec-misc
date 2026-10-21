@@ -10,6 +10,7 @@
 use qubit_utils::nonzero;
 
 use crate::internal::ParseError;
+
 /// Parsing context for one C string literal unit.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum CStringLiteralParseContext<'a> {
@@ -56,7 +57,7 @@ impl CStringLiteralParseContext<'_> {
     }
 
     /// Builds a raw source character rejection reason.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn raw_source_reason(self) -> &'static str {
         match self {
             Self::CompleteText(_) | Self::EofBytes => {

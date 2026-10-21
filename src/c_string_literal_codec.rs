@@ -140,7 +140,7 @@ impl Codec for CStringLiteralCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 10;
 
     /// Returns the exact C string literal width for one byte.
-    #[inline(always)]
+    #[inline]
     fn encode_len(&self, value: &u8) -> usize {
         encoded_byte_len(*value)
     }
@@ -557,7 +557,7 @@ fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
 /// # Returns
 /// Number of units written by [`write_encoded_byte`].
 #[must_use]
-#[inline(always)]
+#[inline]
 fn encoded_byte_len(byte: u8) -> usize {
     match byte {
         b'\'' | b'"' | b'?' | b'\\' | 0x07 | 0x08 | 0x0c | b'\n' | b'\r' | b'\t' | 0x0b => 2,
@@ -612,7 +612,7 @@ fn write_encoded_byte(byte: u8, output: &mut [u8], index: usize) -> usize {
 ///
 /// # Returns
 /// Number of units written.
-#[inline(always)]
+#[inline]
 fn write_ascii_escape(output: &mut [u8], index: usize, escape: u8) -> usize {
     output[index] = b'\\';
     output[index + 1] = escape;
@@ -640,7 +640,7 @@ fn escape_fragment(input: &[u8], start: usize, end: usize) -> String {
 ///
 /// # Returns
 /// Nibble value, or `None` when `character` is not hexadecimal.
-#[inline(always)]
+#[inline]
 fn hex_value(character: char) -> Option<u8> {
     match character {
         '0'..='9' => Some(character as u8 - b'0'),
@@ -657,7 +657,7 @@ fn hex_value(character: char) -> Option<u8> {
 ///
 /// # Returns
 /// Octal digit value, or `None` when `character` is not octal.
-#[inline(always)]
+#[inline]
 fn octal_value(character: char) -> Option<u8> {
     match character {
         '0'..='7' => Some(character as u8 - b'0'),
@@ -672,7 +672,7 @@ fn octal_value(character: char) -> Option<u8> {
 ///
 /// # Returns
 /// Uppercase hexadecimal digit.
-#[inline(always)]
+#[inline]
 fn uppercase_hex_digit(value: u8) -> char {
     UPPER_HEX_DIGITS[(value & 0x0f) as usize]
 }
