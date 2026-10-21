@@ -9,6 +9,7 @@
 use qubit_codec::DecodeFailure;
 use qubit_codec_misc::MiscCodecError;
 
+/// Extracts the source error from an invalid decode failure.
 pub(crate) fn invalid_source(failure: DecodeFailure<MiscCodecError>) -> MiscCodecError {
     match failure {
         DecodeFailure::Invalid { source, .. } => source,

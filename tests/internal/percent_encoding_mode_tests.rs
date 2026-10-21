@@ -11,5 +11,9 @@ use qubit_codec_misc::FormUrlencodedCodec;
 
 #[test]
 fn test_percent_policy_regressions_are_covered_by_public_form_tests() {
-    assert_eq!("*%7E", FormUrlencodedCodec::new().encode("*~"));
+    assert_eq!(
+        "*%7E",
+        FormUrlencodedCodec::new().encode("*~"),
+        "form encoding should preserve '*' and escape '~'",
+    );
 }

@@ -16,6 +16,10 @@ use qubit_codec_misc::HexCodec;
 use qubit_codec_misc::MiscCodecError;
 use qubit_codec_misc::PercentCodec;
 
+use crate::incomplete_required;
+use crate::invalid_consumed;
+use crate::invalid_source;
+
 #[test]
 fn test_codec_trait_decodes_and_encodes_percent_byte() {
     let mut codec = PercentCodec::new();
@@ -55,12 +59,12 @@ fn test_codec_trait_decodes_available_percent_byte() {
 
     let incomplete =
         unsafe { Codec::decode(&mut codec, b"%E", 0) }.expect_err("partial percent escape should be incomplete");
-    assert_eq!(3, super::incomplete_required(incomplete));
+    assert_eq!(3, incomplete_required(incomplete));
 
     let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }.expect_err("malformed percent escape should fail");
-    assert_eq!(Some(3), super::invalid_consumed(malformed));
+    assert_eq!(Some(3), invalid_consumed(malformed));
     let malformed = unsafe { Codec::decode(&mut codec, b"%Ez", 0) }.expect_err("malformed percent escape should fail");
-    let malformed = super::invalid_source(malformed);
+    let malformed = invalid_source(malformed);
     assert!(matches!(malformed, MiscCodecError::InvalidEscape { index: 0, .. }));
 }
 
@@ -78,14 +82,14 @@ fn test_codec_trait_uses_exact_percent_widths_and_eof_rules() {
     let invalid =
         unsafe { Codec::decode_eof(&mut percent, b"%A", 0) }.expect_err("EOF truncated percent escape should fail");
     assert!(matches!(
-        super::invalid_source(invalid),
+        invalid_source(invalid),
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
     let invalid = unsafe { Codec::decode_eof(&mut percent, b"%", 0) }.expect_err("EOF percent marker should fail");
-    assert_eq!(Some(1), super::invalid_consumed(invalid));
+    assert_eq!(Some(1), invalid_consumed(invalid));
     let invalid =
         unsafe { Codec::decode_eof(&mut percent, b"%A", 0) }.expect_err("EOF partial percent escape should fail");
-    assert_eq!(Some(2), super::invalid_consumed(invalid));
+    assert_eq!(Some(2), invalid_consumed(invalid));
 }
 
 #[test]
@@ -135,18 +139,18 @@ fn test_codec_trait_decodes_available_form_urlencoded_byte() {
 
     let incomplete =
         unsafe { Codec::decode(&mut codec, b"%", 0) }.expect_err("partial form escape should be incomplete");
-    assert_eq!(3, super::incomplete_required(incomplete));
+    assert_eq!(3, incomplete_required(incomplete));
 
     let eof = unsafe { Codec::decode_eof(&mut codec, b"%", 0) }.expect_err("EOF form escape should be invalid");
-    assert_eq!(Some(1), super::invalid_consumed(eof));
+    assert_eq!(Some(1), invalid_consumed(eof));
     let eof = unsafe { Codec::decode_eof(&mut codec, b"%", 0) }.expect_err("EOF form escape should be invalid");
     assert!(matches!(
-        super::invalid_source(eof),
+        invalid_source(eof),
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
     let eof =
         unsafe { Codec::decode_eof(&mut codec, b"%A", 0) }.expect_err("EOF partial form escape should be invalid");
-    assert_eq!(Some(2), super::invalid_consumed(eof));
+    assert_eq!(Some(2), invalid_consumed(eof));
 }
 
 #[test]
@@ -161,11 +165,11 @@ fn test_form_codec_uses_exact_widths_and_eof_rules() {
 
     let invalid =
         unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }.expect_err("EOF malformed form escape should fail");
-    assert_eq!(Some(3), super::invalid_consumed(invalid));
+    assert_eq!(Some(3), invalid_consumed(invalid));
     let invalid =
         unsafe { Codec::decode_eof(&mut codec, b"%z0", 0) }.expect_err("EOF malformed form escape should fail");
     assert!(matches!(
-        super::invalid_source(invalid),
+        invalid_source(invalid),
         MiscCodecError::InvalidEscape { index: 0, .. }
     ));
 }
@@ -235,9 +239,9 @@ fn test_codec_trait_decodes_available_c_string_literal_byte() {
     assert_eq!(3, consumed.get());
 
     let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }.expect_err("unsupported C escape should fail");
-    assert_eq!(Some(2), super::invalid_consumed(malformed));
+    assert_eq!(Some(2), invalid_consumed(malformed));
     let malformed = unsafe { Codec::decode(&mut codec, br"\z", 0) }.expect_err("unsupported C escape should fail");
-    let malformed = super::invalid_source(malformed);
+    let malformed = invalid_source(malformed);
     assert!(matches!(malformed, MiscCodecError::InvalidEscape { index: 0, .. }));
 }
 
@@ -302,21 +306,21 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
     let eof_invalid =
         unsafe { Codec::decode_eof(&mut codec, br"\z", 0) }.expect_err("EOF unsupported C escape should fail");
 
-    let invalid_raw = super::invalid_source(invalid_raw);
-    let unsupported = super::invalid_source(unsupported);
-    let missing_hex = super::invalid_source(missing_hex);
-    let invalid_universal_digit = super::invalid_source(invalid_universal_digit);
-    let invalid_long_universal_digit = super::invalid_source(invalid_long_universal_digit);
-    let oversized_universal = super::invalid_source(oversized_universal);
-    let eof_invalid = super::invalid_source(eof_invalid);
+    let invalid_raw = invalid_source(invalid_raw);
+    let unsupported = invalid_source(unsupported);
+    let missing_hex = invalid_source(missing_hex);
+    let invalid_universal_digit = invalid_source(invalid_universal_digit);
+    let invalid_long_universal_digit = invalid_source(invalid_long_universal_digit);
+    let oversized_universal = invalid_source(oversized_universal);
+    let eof_invalid = invalid_source(eof_invalid);
     assert!(matches!(invalid_raw, MiscCodecError::InvalidCharacter { index: 0, .. }));
     assert!(matches!(unsupported, MiscCodecError::InvalidEscape { index: 0, .. }));
-    assert_eq!(2, super::incomplete_required(trailing_escape));
-    assert_eq!(3, super::incomplete_required(short_hex_marker));
+    assert_eq!(2, incomplete_required(trailing_escape));
+    assert_eq!(3, incomplete_required(short_hex_marker));
     assert!(matches!(missing_hex, MiscCodecError::InvalidEscape { index: 0, .. }));
-    assert_eq!(6, super::incomplete_required(incomplete_universal));
-    assert_eq!(4, super::incomplete_required(incomplete_hex));
-    assert_eq!(3, super::incomplete_required(incomplete_octal));
+    assert_eq!(6, incomplete_required(incomplete_universal));
+    assert_eq!(4, incomplete_required(incomplete_hex));
+    assert_eq!(3, incomplete_required(incomplete_octal));
     assert!(matches!(
         invalid_universal_digit,
         MiscCodecError::InvalidDigit {
