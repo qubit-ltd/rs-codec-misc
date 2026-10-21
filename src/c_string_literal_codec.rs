@@ -619,7 +619,10 @@ fn write_ascii_escape(output: &mut [u8], index: usize, escape: u8) -> usize {
     2
 }
 
-/// Builds an ASCII-ish escape fragment from encoded units.
+/// Builds an ASCII escape fragment from a bounded range of encoded units.
+///
+/// Bytes are mapped directly to characters because the fragment is used only
+/// to display malformed input in diagnostics.
 ///
 /// # Parameters
 /// - `input`: Encoded byte units.
@@ -726,7 +729,7 @@ fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
     NonZeroUsize::new(width.min(available).max(1)).expect("malformed C string input has at least one unit")
 }
 
-/// Builds an invalid escape error.
+/// Builds a structured error for a malformed or unsupported escape.
 ///
 /// # Parameters
 /// - `index`: Byte index of the escape marker in the original input.
@@ -734,7 +737,8 @@ fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
 /// - `reason`: Human-readable rejection reason.
 ///
 /// # Returns
-/// An invalid escape error.
+/// An invalid escape error retaining the source position and diagnostic
+/// context.
 pub(crate) fn invalid_escape(index: usize, escape: &str, reason: &str) -> MiscCodecError {
     MiscCodecError::InvalidEscape {
         index,

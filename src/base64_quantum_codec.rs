@@ -121,8 +121,20 @@ impl Codec for Base64QuantumCodec {
 
     /// Decodes one complete four-unit Base64 quantum.
     ///
+    /// # Parameters
+    /// - `input`: Encoded Base64 units containing the quantum.
+    /// - `input_index`: Index of the first unit in the quantum.
+    ///
+    /// # Returns
+    /// The decoded three-byte value and the number of consumed input units.
+    ///
+    /// # Errors
+    /// Returns a decode failure when any unit is not valid for the selected
+    /// alphabet. The failure reports the invalid unit's input index.
+    ///
     /// # Safety
-    /// The caller must provide four readable units at `input_index`.
+    /// The caller must ensure that four units starting at `input_index` are
+    /// readable in `input`.
     unsafe fn decode(
         &mut self,
         input: &[u8],
@@ -154,8 +166,20 @@ impl Codec for Base64QuantumCodec {
 
     /// Encodes one complete three-byte Base64 quantum.
     ///
+    /// # Parameters
+    /// - `value`: Three raw bytes to encode.
+    /// - `output`: Destination buffer for four encoded units.
+    /// - `output_index`: Index of the first destination unit to write.
+    ///
+    /// # Returns
+    /// The number of output units written, which is always four.
+    ///
+    /// # Errors
+    /// This implementation does not return an error.
+    ///
     /// # Safety
-    /// The caller must provide four writable output units at `output_index`.
+    /// The caller must ensure that four units starting at `output_index` are
+    /// writable in `output`.
     unsafe fn encode(
         &mut self,
         value: &[u8; 3],

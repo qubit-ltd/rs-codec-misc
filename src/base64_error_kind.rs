@@ -10,6 +10,15 @@
 use ::base64::DecodeError;
 
 /// Structured category for an error reported by the Base64 dependency.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::Base64ErrorKind;
+///
+/// let kind = Base64ErrorKind::InvalidPadding;
+/// assert_eq!(kind, Base64ErrorKind::InvalidPadding);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub enum Base64ErrorKind {

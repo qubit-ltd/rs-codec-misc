@@ -24,9 +24,19 @@ use crate::MiscCodecResult;
 /// This facade intentionally remains a whole-value codec backed by the
 /// `base64` crate. Final partial quantum handling and optional `=` padding are
 /// facade/transcoder responsibilities, not part of the low-level quantum codec.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec_misc::Base64Codec;
+///
+/// let codec = Base64Codec::standard();
+/// assert_eq!(codec.encode(b"hello"), "aGVsbG8=");
+/// ```
 #[must_use]
 #[derive(Debug, Clone, Copy)]
 pub struct Base64Codec {
+    /// Static engine that defines this codec's alphabet and padding policy.
     engine: &'static GeneralPurpose,
 }
 
