@@ -56,6 +56,57 @@ impl HexCodecConfig {
         }
     }
 
+    /// Returns whether encoded digits use uppercase characters.
+    #[must_use]
+    #[inline]
+    pub fn is_uppercase(&self) -> bool {
+        self.uppercase
+    }
+
+    /// Returns the configured whole-output prefix.
+    ///
+    /// # Returns
+    /// `Some` contains the prefix written before the encoded bytes; `None`
+    /// means no whole-output prefix is configured.
+    #[inline]
+    pub fn prefix(&self) -> Option<&str> {
+        self.prefix.as_deref()
+    }
+
+    /// Returns the configured per-byte prefix.
+    ///
+    /// # Returns
+    /// `Some` contains the prefix written before each encoded byte; `None`
+    /// means no per-byte prefix is configured.
+    #[inline]
+    pub fn byte_prefix(&self) -> Option<&str> {
+        self.byte_prefix.as_deref()
+    }
+
+    /// Returns the configured separator.
+    ///
+    /// # Returns
+    /// `Some` contains the separator written between bytes; `None` means no
+    /// separator is configured.
+    #[inline]
+    pub fn separator(&self) -> Option<&str> {
+        self.separator.as_deref()
+    }
+
+    /// Returns whether ASCII whitespace is ignored while decoding.
+    #[must_use]
+    #[inline]
+    pub fn ignores_ascii_whitespace(&self) -> bool {
+        self.ignore_ascii_whitespace
+    }
+
+    /// Returns whether configured prefixes are matched case-insensitively.
+    #[must_use]
+    #[inline]
+    pub fn ignores_prefix_case(&self) -> bool {
+        self.ignore_prefix_case
+    }
+
     /// Sets whether encoded digits should be uppercase.
     ///
     /// # Parameters
@@ -132,60 +183,6 @@ impl HexCodecConfig {
     pub fn with_ignore_prefix_case(mut self, ignore: bool) -> Self {
         self.ignore_prefix_case = ignore;
         self
-    }
-
-    /// Returns whether encoded digits use uppercase characters.
-    #[must_use]
-    #[inline]
-    pub fn is_uppercase(&self) -> bool {
-        self.uppercase
-    }
-
-    /// Returns the configured whole-output prefix.
-    ///
-    /// # Returns
-    /// `Some` contains the prefix written before the encoded bytes; `None`
-    /// means no whole-output prefix is configured.
-    #[must_use]
-    #[inline]
-    pub fn prefix(&self) -> Option<&str> {
-        self.prefix.as_deref()
-    }
-
-    /// Returns the configured per-byte prefix.
-    ///
-    /// # Returns
-    /// `Some` contains the prefix written before each encoded byte; `None`
-    /// means no per-byte prefix is configured.
-    #[must_use]
-    #[inline]
-    pub fn byte_prefix(&self) -> Option<&str> {
-        self.byte_prefix.as_deref()
-    }
-
-    /// Returns the configured separator.
-    ///
-    /// # Returns
-    /// `Some` contains the separator written between bytes; `None` means no
-    /// separator is configured.
-    #[must_use]
-    #[inline]
-    pub fn separator(&self) -> Option<&str> {
-        self.separator.as_deref()
-    }
-
-    /// Returns whether ASCII whitespace is ignored while decoding.
-    #[must_use]
-    #[inline]
-    pub fn ignores_ascii_whitespace(&self) -> bool {
-        self.ignore_ascii_whitespace
-    }
-
-    /// Returns whether configured prefixes are matched case-insensitively.
-    #[must_use]
-    #[inline]
-    pub fn ignores_prefix_case(&self) -> bool {
-        self.ignore_prefix_case
     }
 }
 
