@@ -26,10 +26,16 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// # Examples
 ///
 /// ```
+/// use qubit_codec::Codec;
 /// use qubit_codec_misc::Base64QuantumCodec;
 ///
-/// let codec = Base64QuantumCodec::standard();
-/// assert_eq!(codec, Base64QuantumCodec::default());
+/// let mut codec = Base64QuantumCodec::standard();
+/// let mut encoded = [0; 4];
+/// // SAFETY: `encoded` has room for the four units written by one quantum.
+/// let written = unsafe { codec.encode(b"Man", &mut encoded, 0) }
+///     .expect("three bytes can be encoded");
+/// assert_eq!(written, 4);
+/// assert_eq!(&encoded, b"TWFu");
 /// ```
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +68,7 @@ impl Base64QuantumCodec {
     ///
     /// # Returns
     /// The 64-byte alphabet used for encoding.
+    #[must_use]
     #[inline]
     fn alphabet(&self) -> &'static [u8; 64] {
         if self.url_safe {

@@ -702,6 +702,15 @@ fn c_string_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -
 }
 
 /// Maps a C string parser outcome while retaining the malformed fragment width.
+///
+/// # Parameters
+/// - `error`: Parser outcome to convert.
+/// - `input`: Encoded source units containing the malformed fragment.
+/// - `index`: Start index of that fragment in `input`.
+///
+/// # Returns
+/// A decoding failure that preserves incomplete-input requirements or the
+/// number of units consumed by an invalid fragment.
 #[inline]
 fn map_c_string_parse_error_to_decode_failure(
     error: ParseError,
@@ -717,6 +726,14 @@ fn map_c_string_parse_error_to_decode_failure(
 }
 
 /// Returns the number of units belonging to a malformed C string fragment.
+///
+/// # Parameters
+/// - `input`: Encoded source units containing the malformed fragment.
+/// - `index`: Start index of the fragment in `input`.
+///
+/// # Returns
+/// A non-zero width clamped to the available input length, with a minimum of
+/// one to satisfy the decoding failure contract.
 #[inline]
 fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
     let available = input.len().saturating_sub(index);

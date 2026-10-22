@@ -87,8 +87,27 @@ impl Codec for HexByteCodec {
 
     /// Decodes one byte from two ASCII hexadecimal digits.
     ///
+    /// The digits are read from `input` starting at `input_index`. Invalid
+    /// digits are reported with their position in the input.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: The byte units containing the hexadecimal digits.
+    /// - `input_index`: The index of the first digit.
+    ///
+    /// # Returns
+    ///
+    /// The decoded byte and the nonzero number of input units consumed (two).
+    ///
+    /// # Errors
+    ///
+    /// Returns a decode failure when either input unit is not an ASCII
+    /// hexadecimal digit. The failure identifies the invalid digit and its
+    /// input position.
+    ///
     /// # Safety
-    /// The caller must provide two readable units at `input_index`.
+    /// `input` must contain at least two readable units starting at
+    /// `input_index`.
     #[inline]
     unsafe fn decode(
         &mut self,
@@ -110,8 +129,24 @@ impl Codec for HexByteCodec {
 
     /// Encodes one byte as two ASCII hexadecimal digits.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: The byte to encode.
+    /// - `output`: The buffer that receives the encoded digits.
+    /// - `output_index`: The index of the first output unit to write.
+    ///
+    /// # Returns
+    ///
+    /// The number of output units written (two).
+    ///
+    /// # Errors
+    ///
+    /// This implementation does not return an encoding error; the result is
+    /// retained to satisfy the [`Codec`] interface.
+    ///
     /// # Safety
-    /// The caller must provide two writable output units at `output_index`.
+    /// `output` must contain at least two writable units starting at
+    /// `output_index`.
     #[inline]
     unsafe fn encode(
         &mut self,

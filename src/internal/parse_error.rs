@@ -14,6 +14,7 @@ use qubit_codec::DecodeFailure;
 use crate::MiscCodecError;
 
 /// Distinguishes retryable stream tails from malformed codec input.
+#[must_use]
 #[derive(Debug)]
 pub(crate) enum ParseError {
     /// More input is required before a value can be decided.
