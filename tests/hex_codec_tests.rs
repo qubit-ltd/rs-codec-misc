@@ -408,3 +408,60 @@ fn test_decode_rejects_byte_prefix_without_a_hex_byte() {
 
     assert!(matches!(error, MiscCodecError::InvalidInput { codec: "hex", .. }));
 }
+
+#[test]
+fn test_byte_prefix_whitespace_roundtrips() {
+    for prefix in [" 0x", "\t0x", " "] {
+        for separator in [None, Some(":"), Some(" "), Some(" : ")] {
+            for ignore in [false, true] {
+                for bytes in [vec![], vec![0x1f], vec![0x1f, 0x8b]] {
+                    let mut codec = HexCodec::new()
+                        .with_prefix("#")
+                        .with_byte_prefix(prefix)
+                        .with_ignored_ascii_whitespace(ignore);
+                    if let Some(separator) = separator {
+                        codec = codec.with_separator(separator);
+                    }
+                    let encoded = codec.encode(&bytes);
+                    assert_eq!(
+                        bytes,
+                        codec.decode(&encoded).unwrap(),
+                        "prefix={prefix:?}, separator={separator:?}, ignore={ignore}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_byte_prefix_preserves_structure_after_extra_whitespace() {
+    let codec = HexCodec::new()
+        .with_byte_prefix(" 0x")
+        .with_separator(":")
+        .with_ignored_ascii_whitespace(true)
+        .with_ignore_prefix_case(true);
+    assert_eq!(vec![0x1f, 0x8b], codec.decode("\t 0X1f:\t 0X8b\n").unwrap());
+    let mut output = vec![0xa5];
+    let error = codec.decode_into(" 0x1f: 0x8g", &mut output).unwrap_err();
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidDigit {
+            index: 10,
+            character: 'g',
+            ..
+        }
+    ));
+    assert_eq!(vec![0xa5], output);
+}
+
+#[test]
+fn test_matched_whitespace_prefix_requires_a_complete_byte() {
+    let codec = HexCodec::new()
+        .with_byte_prefix(" ")
+        .with_ignored_ascii_whitespace(true);
+    assert!(matches!(
+        codec.decode(" "),
+        Err(MiscCodecError::InvalidInput { codec: "hex", .. })
+    ));
+}

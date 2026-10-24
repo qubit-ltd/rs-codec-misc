@@ -114,6 +114,8 @@ impl HexCodec {
     /// The prefix is written before every encoded byte and required before
     /// every decoded byte. For example, using byte prefix `0x` and separator
     /// ` ` encodes bytes as `0x1f 0x8b`.
+    /// When ASCII whitespace is ignored, a complete per-byte prefix is matched
+    /// before additional whitespace is skipped.
     ///
     /// # Parameters
     /// - `prefix`: Per-byte prefix text such as `0x`.
@@ -332,7 +334,7 @@ impl HexCodec {
     /// separator syntax is malformed.
     fn decode_separated(&self, text: &str, mut index: usize, separator: &str) -> MiscCodecResult<Vec<u8>> {
         let mut output = Vec::with_capacity(text.len() / 2);
-        index = self.skip_ascii_whitespace(text, index);
+        index = self.next_byte_start(text, index);
         if index >= text.len() {
             return Ok(output);
         }
@@ -353,7 +355,7 @@ impl HexCodec {
                     "missing separator '{separator}' between hex bytes"
                 )));
             }
-            index = self.skip_ascii_whitespace(text, separator_index + separator.len());
+            index = self.next_byte_start(text, separator_index + separator.len());
             if index >= text.len() {
                 return Err(invalid_hex_input("separator must be followed by a hex byte"));
             }
@@ -421,6 +423,31 @@ impl HexCodec {
         }
     }
 
+    /// Finds the next byte start while preserving a matching per-byte prefix.
+    ///
+    /// # Parameters
+    /// - `text`: Text being decoded.
+    /// - `index`: Byte index where the next byte may begin.
+    ///
+    /// # Returns
+    /// The current index when a configured per-byte prefix matches, otherwise
+    /// the first non-ignored-whitespace index. A structural prefix takes
+    /// precedence over whitespace skipping.
+    #[inline]
+    fn next_byte_start(&self, text: &str, mut index: usize) -> usize {
+        let prefix = self.config.byte_prefix.as_deref().filter(|prefix| !prefix.is_empty());
+        while index < text.len() {
+            if prefix.is_some_and(|prefix| self.starts_with_prefix(&text[index..], prefix)) {
+                return index;
+            }
+            if !self.config.ignore_ascii_whitespace || !text.as_bytes()[index].is_ascii_whitespace() {
+                return index;
+            }
+            index += 1;
+        }
+        index
+    }
+
     /// Decodes unprefixed input characters into bytes.
     ///
     /// # Parameters
@@ -481,7 +508,7 @@ impl HexCodec {
         let mut output = Vec::with_capacity(text.len() / 2);
         let mut digit_count = 0usize;
         while index < text.len() {
-            index = self.skip_ignored(text, index);
+            index = self.next_byte_start(text, index);
             if index >= text.len() {
                 break;
             }
