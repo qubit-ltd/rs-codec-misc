@@ -31,6 +31,20 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// escapes, such as `PK\003\004` or `\xd0\xcf`. It decodes into raw bytes and
 /// does not require surrounding quotes.
 ///
+/// Hexadecimal `\x` and `\X` escapes consume one or two digits. Octal escapes
+/// consume one to three digits and retain only the low eight bits. Universal
+/// `\u` and `\U` escapes require exactly four or eight hex digits,
+/// respectively, and their values must fit in one byte. They produce that byte
+/// directly rather than converting a Unicode code point to UTF-8. The decoder
+/// does not remove surrounding quotes. Raw source text is limited to printable
+/// ASCII, tab, line feed, vertical tab, and form feed; other bytes, including
+/// non-ASCII text and raw carriage returns, must be escaped. An escaped space
+/// (`\ `) is also accepted.
+///
+/// The owned [`decode`](Self::decode) helper treats its input as complete text.
+/// For streaming input, use [`Codec::decode_eof`] after confirming EOF to
+/// resolve format-specific short escapes.
+///
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one
 /// raw byte or one C escape fragment. Whole-fragment iteration remains part of
 /// the owned [`encode`](Self::encode) and [`decode`](Self::decode) helpers.

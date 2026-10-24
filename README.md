@@ -215,6 +215,16 @@ fn main() {
 }
 ```
 
+Hexadecimal escapes consume one or two digits. Octal escapes consume up to
+three digits and retain the low eight bits. Universal `\u` escapes require
+exactly four hex digits, and `\U` escapes require exactly eight; both must fit
+in one byte and do not convert Unicode to UTF-8. Surrounding quotes are not
+removed. For example, `\x123` yields `[0x12, b'3']` and `\777` yields
+`[0xff]`. Raw source text may contain printable ASCII, tab, LF, VT, and FF;
+other characters must be escaped. An escaped space (`\ `) is accepted. For
+streaming input, call `Codec::decode_eof` after confirming EOF to resolve
+format-specific short escapes.
+
 ### C Integer Literals
 
 ```rust

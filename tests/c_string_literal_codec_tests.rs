@@ -97,6 +97,19 @@ fn test_decode_hex_octal_and_universal_escapes() {
 }
 
 #[test]
+fn test_c_literal_documented_byte_escape_boundaries() {
+    let codec = CStringLiteralCodec::new();
+    assert_eq!(vec![0xff], codec.decode(r"\777").unwrap());
+    assert_eq!(vec![0x12, b'3'], codec.decode(r"\x123").unwrap());
+    assert_eq!(vec![0xff], codec.decode(r"\u00FF").unwrap());
+    assert!(matches!(
+        codec.decode(r"\u0100"),
+        Err(MiscCodecError::InvalidEscape { .. })
+    ));
+    assert_eq!(b"\"A\"".to_vec(), codec.decode("\"A\"").unwrap());
+}
+
+#[test]
 fn test_decode_matches_java_c_string_literal_cases() {
     let codec = CStringLiteralCodec::new();
 
