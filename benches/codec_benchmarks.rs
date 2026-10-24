@@ -83,6 +83,7 @@ fn benchmark_base64_and_c_literals(c: &mut Criterion) {
     group.bench_function("c_string_decode", |bencher| {
         bencher.iter(|| black_box(c_literals.decode(black_box(&c_literal_encoded))));
     });
+    group.throughput(Throughput::Bytes(INTEGER_LITERAL.len() as u64));
     group.bench_function("c_integer_decode", |bencher| {
         bencher.iter(|| black_box(integers.decode(black_box(INTEGER_LITERAL))));
     });
