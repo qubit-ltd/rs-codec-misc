@@ -44,6 +44,9 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// The owned [`decode`](Self::decode) helper treats its input as complete text.
 /// For streaming input, use [`Codec::decode_eof`] after confirming EOF to
 /// resolve format-specific short escapes.
+/// See the [English README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.md#safe-streaming-hex-byte-adapter)
+/// and [Chinese README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.zh_CN.md#安全的-hex-字节流式-adapter)
+/// for a safe streaming adapter example and the linked EOF short-escape test.
 ///
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation handles one
 /// raw byte or one C escape fragment. Whole-fragment iteration remains part of
@@ -316,12 +319,18 @@ fn decode_c_string_literal_unit(
             parse_variable_hex_escape_units(input, index)
         }
         b'u' => {
+            if context.is_streaming() && available < 6 {
+                validate_fixed_escape_prefix(input, index)?;
+            }
             if matches!(context, CStringLiteralParseContext::CompleteText(_)) || context.is_streaming() {
                 ensure_fixed_escape_complete(available, nonzero(6))?;
             }
             parse_fixed_hex_escape_units(input, index, 4, context)
         }
         b'U' => {
+            if context.is_streaming() && available < 10 {
+                validate_fixed_escape_prefix(input, index)?;
+            }
             if matches!(context, CStringLiteralParseContext::CompleteText(_)) || context.is_streaming() {
                 ensure_fixed_escape_complete(available, nonzero(10))?;
             }
@@ -384,6 +393,34 @@ fn ensure_variable_hex_escape_complete(input: &[u8], index: usize, available: us
 fn ensure_fixed_escape_complete(available: usize, required: core::num::NonZeroUsize) -> Result<(), ParseError> {
     if available < required.get() {
         return Err(ParseError::Incomplete { required });
+    }
+    Ok(())
+}
+
+/// Validates the visible digits of an incomplete fixed-width universal escape.
+///
+/// This is called only for an open stream when the complete escape is not yet
+/// available, so the remaining input belongs to the current escape prefix.
+///
+/// # Parameters
+/// - `input`: Encoded byte units.
+/// - `marker_index`: Start index of the `\u` or `\U` escape marker.
+///
+/// # Errors
+/// Returns an invalid-digit parser outcome when a visible digit is not
+/// hexadecimal.
+#[inline]
+fn validate_fixed_escape_prefix(input: &[u8], marker_index: usize) -> Result<(), ParseError> {
+    for (offset, byte) in input[marker_index + 2..].iter().copied().enumerate() {
+        let character = char::from(byte);
+        if hex_value(character).is_none() {
+            return Err(MiscCodecError::InvalidDigit {
+                radix: 16,
+                index: marker_index + 2 + offset,
+                character,
+            }
+            .into());
+        }
     }
     Ok(())
 }

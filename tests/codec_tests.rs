@@ -372,6 +372,79 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
 }
 
 #[test]
+fn test_codec_trait_rejects_invalid_c_universal_short_prefixes() {
+    let mut codec = CStringLiteralCodec::new();
+    let cases: &[(&[u8], usize, usize)] = &[
+        (br"!\uZ", 1, 3),
+        (br"!\u0Z", 1, 4),
+        (br"!\U000Z", 1, 6),
+        (br"\uZ", 0, 2),
+    ];
+
+    for (input, input_index, error_index) in cases {
+        // SAFETY: each input has at least two readable units at input_index.
+        let error = unsafe { Codec::decode(&mut codec, input, *input_index) }
+            .expect_err("an invalid visible universal escape digit should fail immediately");
+        assert!(matches!(
+            error.invalid_source(),
+            Some(MiscCodecError::InvalidDigit {
+                radix: 16,
+                index,
+                character: 'Z'
+            }) if index == error_index
+        ));
+        assert!(
+            error
+                .consumed_units()
+                .is_none_or(|consumed| consumed.get() <= input.len() - input_index)
+        );
+    }
+
+    for (input, required) in [(br"\u".as_slice(), 6), (br"\u12", 6), (br"\U0000", 10)] {
+        // SAFETY: each input has at least one readable unit at index zero.
+        let incomplete = unsafe { Codec::decode(&mut codec, input, 0) }
+            .expect_err("a valid short universal escape should request more input");
+        assert_eq!(required, incomplete_required(incomplete));
+    }
+
+    // SAFETY: the input contains a readable escape marker at index zero.
+    let eof = unsafe { Codec::decode_eof(&mut codec, br"\u12", 0) }
+        .expect_err("EOF should retain the existing truncated-escape error");
+    assert!(matches!(
+        invalid_source(eof),
+        MiscCodecError::InvalidEscape { index: 0, .. }
+    ));
+}
+
+#[test]
+fn test_c_byte_encoding_contract_is_exhaustive() {
+    let mut codec = CStringLiteralCodec::new();
+    for byte in 0_u8..=u8::MAX {
+        let expected = CStringLiteralCodec::encode(&codec, &[byte]);
+        let required = Codec::encode_len(&codec, &byte);
+        assert_eq!(expected.len(), required, "byte={byte:#04x}");
+        assert!(required <= <CStringLiteralCodec as Codec>::MAX_ENCODE_UNITS_PER_VALUE);
+
+        for index in [0, 3] {
+            let mut storage = [0xa5_u8; 9];
+            // SAFETY: the writable slice includes exactly the required units at `index`.
+            let written = unsafe { Codec::encode(&mut codec, &byte, &mut storage[..index + required], index) }
+                .expect("every byte is encodable");
+            assert_eq!(required, written, "byte={byte:#04x}, index={index}");
+            assert_eq!(expected.as_bytes(), &storage[index..index + written]);
+            assert!(storage[..index].iter().all(|unit| *unit == 0xa5));
+            assert!(storage[index + written..].iter().all(|unit| *unit == 0xa5));
+
+            // SAFETY: the encoded value is nonempty and the slice ends at known EOF.
+            let (decoded, consumed) = unsafe { Codec::decode_eof(&mut codec, &storage[..index + written], index) }
+                .expect("encoded byte decodes at EOF");
+            assert_eq!(byte, decoded);
+            assert_eq!(written, consumed.get());
+        }
+    }
+}
+
+#[test]
 fn test_codec_trait_encodes_c_string_literal_escape_variants() {
     let mut codec = CStringLiteralCodec::new();
     let cases: &[(u8, &[u8])] = &[
