@@ -19,6 +19,15 @@ use qubit_codec::ValueEncoder;
 use crate::MiscCodecError;
 use crate::MiscCodecResult;
 
+/// Stable identity for the standard padded Base64 configuration.
+static STANDARD_ENGINE: GeneralPurpose = STANDARD;
+/// Stable identity for the standard unpadded Base64 configuration.
+static STANDARD_NO_PAD_ENGINE: GeneralPurpose = STANDARD_NO_PAD;
+/// Stable identity for the URL-safe padded Base64 configuration.
+static URL_SAFE_ENGINE: GeneralPurpose = URL_SAFE;
+/// Stable identity for the URL-safe unpadded Base64 configuration.
+static URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = URL_SAFE_NO_PAD;
+
 /// Encodes and decodes Base64 byte strings.
 ///
 /// This facade intentionally remains a whole-value codec backed by the
@@ -41,6 +50,9 @@ pub struct Base64Codec {
 }
 
 impl PartialEq for Base64Codec {
+    // Every constructor refers to one of this module's four explicit static
+    // engines, so engine address identity represents the fixed configuration.
+    // Do not construct this facade from references to dependency const values.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         core::ptr::eq(self.engine, other.engine)
@@ -56,7 +68,9 @@ impl Base64Codec {
     /// Standard Base64 codec.
     #[inline]
     pub fn standard() -> Self {
-        Self { engine: &STANDARD }
+        Self {
+            engine: &STANDARD_ENGINE,
+        }
     }
 
     /// Creates a standard Base64 codec without padding.
@@ -66,7 +80,7 @@ impl Base64Codec {
     #[inline]
     pub fn standard_no_pad() -> Self {
         Self {
-            engine: &STANDARD_NO_PAD,
+            engine: &STANDARD_NO_PAD_ENGINE,
         }
     }
 
@@ -76,7 +90,9 @@ impl Base64Codec {
     /// URL-safe Base64 codec.
     #[inline]
     pub fn url_safe() -> Self {
-        Self { engine: &URL_SAFE }
+        Self {
+            engine: &URL_SAFE_ENGINE,
+        }
     }
 
     /// Creates a URL-safe Base64 codec without padding.
@@ -86,7 +102,7 @@ impl Base64Codec {
     #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self {
-            engine: &URL_SAFE_NO_PAD,
+            engine: &URL_SAFE_NO_PAD_ENGINE,
         }
     }
 

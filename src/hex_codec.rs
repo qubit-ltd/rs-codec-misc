@@ -130,6 +130,17 @@ impl HexCodec {
 
     /// Sets a separator written and accepted between encoded bytes.
     ///
+    /// With a non-empty separator, the two hexadecimal digits of each byte
+    /// must be contiguous. Ignored ASCII whitespace may surround complete
+    /// byte tokens and configured separators, but does not replace a required
+    /// prefix or separator. Without a non-empty separator, ignored whitespace
+    /// may also occur between the two digits of a byte. A complete structural
+    /// token is matched before skipping additional whitespace. Non-whitespace
+    /// separators are matched exactly; a whitespace-only separator still
+    /// requires whitespace between bytes, and ignored ASCII whitespace may
+    /// consume additional adjacent whitespace. Prefix case folding does not
+    /// apply to separators.
+    ///
     /// # Parameters
     /// - `separator`: Separator text.
     ///
@@ -142,6 +153,17 @@ impl HexCodec {
     }
 
     /// Sets whether ASCII whitespace is ignored while decoding.
+    ///
+    /// With a non-empty separator, the two hexadecimal digits of each byte
+    /// must be contiguous. Ignored ASCII whitespace may surround complete
+    /// byte tokens and configured separators, but does not replace a required
+    /// prefix or separator. Without a non-empty separator, ignored whitespace
+    /// may also occur between the two digits of a byte. A complete structural
+    /// token is matched before skipping additional whitespace. Non-whitespace
+    /// separators are matched exactly; a whitespace-only separator still
+    /// requires whitespace between bytes, and ignored ASCII whitespace may
+    /// consume additional adjacent whitespace. Prefix case folding does not
+    /// apply to separators.
     ///
     /// # Parameters
     /// - `ignore`: Whether to ignore ASCII whitespace.
@@ -298,23 +320,28 @@ impl HexCodec {
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a non-empty whole-output
     /// prefix is configured but absent.
+    ///
+    /// A complete configured prefix is matched before ignored ASCII whitespace
+    /// is skipped, so whitespace that belongs to the prefix is preserved.
     #[inline]
     fn consume_prefix(&self, text: &str) -> MiscCodecResult<usize> {
         let Some(prefix) = self.config.prefix.as_deref().filter(|prefix| !prefix.is_empty()) else {
             return Ok(0);
         };
-        let index = if self.starts_with_prefix(text, prefix) {
-            0
-        } else {
-            self.skip_ascii_whitespace(text, 0)
-        };
-        let rest = &text[index..];
-        if self.starts_with_prefix(rest, prefix) {
-            Ok(index + prefix.len())
-        } else {
-            Err(MiscCodecError::MissingPrefix {
-                prefix: prefix.to_owned(),
-            })
+        let mut index = 0;
+        loop {
+            if self.starts_with_prefix(&text[index..], prefix) {
+                return Ok(index + prefix.len());
+            }
+            if !self.config.ignore_ascii_whitespace
+                || index == text.len()
+                || !text.as_bytes()[index].is_ascii_whitespace()
+            {
+                return Err(MiscCodecError::MissingPrefix {
+                    prefix: prefix.to_owned(),
+                });
+            }
+            index += 1;
         }
     }
 
@@ -407,20 +434,25 @@ impl HexCodec {
     /// trailing whitespace remains.
     #[inline]
     fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
-        if !separator.chars().all(|ch| ch.is_ascii_whitespace())
-            && text.get(index..).is_some_and(|rest| rest.starts_with(separator))
-        {
-            return index;
-        }
-        let whitespace_end = self.skip_ascii_whitespace(text, index);
-        if whitespace_end >= text.len() {
-            return whitespace_end;
-        }
         if separator.chars().all(|ch| ch.is_ascii_whitespace()) {
-            index
-        } else {
-            whitespace_end
+            let whitespace_end = self.skip_ascii_whitespace(text, index);
+            return if whitespace_end >= text.len() {
+                whitespace_end
+            } else {
+                index
+            };
         }
+        let mut candidate = index;
+        while candidate < text.len() {
+            if text[candidate..].starts_with(separator) {
+                return candidate;
+            }
+            if !self.config.ignore_ascii_whitespace || !text.as_bytes()[candidate].is_ascii_whitespace() {
+                return candidate;
+            }
+            candidate += 1;
+        }
+        candidate
     }
 
     /// Finds the next byte start while preserving a matching per-byte prefix.

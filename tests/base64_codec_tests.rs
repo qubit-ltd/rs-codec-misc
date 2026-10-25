@@ -72,6 +72,26 @@ fn test_base64_codec_equality_distinguishes_engine_variants() {
 }
 
 #[test]
+fn test_base64_mode_identity_is_stable() {
+    let factories: [fn() -> Base64Codec; 4] = [
+        Base64Codec::standard,
+        Base64Codec::standard_no_pad,
+        Base64Codec::url_safe,
+        Base64Codec::url_safe_no_pad,
+    ];
+    for (left_index, left_factory) in factories.iter().enumerate() {
+        let left = left_factory();
+        let copied = left;
+        assert_eq!(left, copied);
+        assert_eq!(left, left_factory());
+        for (right_index, right_factory) in factories.iter().enumerate() {
+            assert_eq!(left_index == right_index, left == right_factory());
+        }
+    }
+    assert_eq!(Base64Codec::default(), Base64Codec::standard());
+}
+
+#[test]
 fn test_decode_rejects_invalid_base64() {
     let error = Base64Codec::standard()
         .decode("@")

@@ -148,6 +148,17 @@ impl HexCodecConfig {
 
     /// Sets a separator between encoded bytes.
     ///
+    /// With a non-empty separator, the two hexadecimal digits of each byte
+    /// must be contiguous. Ignored ASCII whitespace may surround complete
+    /// byte tokens and configured separators, but does not replace a required
+    /// prefix or separator. Without a non-empty separator, ignored whitespace
+    /// may also occur between the two digits of a byte. A complete structural
+    /// token is matched before skipping additional whitespace. Non-whitespace
+    /// separators are matched exactly; a whitespace-only separator still
+    /// requires whitespace between bytes, and ignored ASCII whitespace may
+    /// consume additional adjacent whitespace. Prefix case folding does not
+    /// apply to separators.
+    ///
     /// # Parameters
     /// - `separator`: Text written between adjacent encoded bytes.
     ///
@@ -160,6 +171,17 @@ impl HexCodecConfig {
     }
 
     /// Sets whether ASCII whitespace is ignored while decoding.
+    ///
+    /// With a non-empty separator, the two hexadecimal digits of each byte
+    /// must be contiguous. Ignored ASCII whitespace may surround complete
+    /// byte tokens and configured separators, but does not replace a required
+    /// prefix or separator. Without a non-empty separator, ignored whitespace
+    /// may also occur between the two digits of a byte. A complete structural
+    /// token is matched before skipping additional whitespace. Non-whitespace
+    /// separators are matched exactly; a whitespace-only separator still
+    /// requires whitespace between bytes, and ignored ASCII whitespace may
+    /// consume additional adjacent whitespace. Prefix case folding does not
+    /// apply to separators.
     ///
     /// # Parameters
     /// - `ignore`: Whether ASCII whitespace is skipped during decoding.

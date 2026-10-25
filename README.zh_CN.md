@@ -50,6 +50,14 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
   `HexCodec::from_config` 复用配置。
 - **缓冲区 API**：`encode_into` 和 `decode_into` 可追加写入已有缓冲区。
 
+空白处理规则取决于是否配置了非空分隔符。有分隔符时，同一字节的两位十六进制数字
+必须连续；例如，分隔符为 `:` 时会拒绝 `1 f:8b`。没有非空分隔符时，启用忽略空白
+可接受字节内部空白，例如逐字节前缀为 `0x` 时可以解析 `0x1 f`。完整的结构标记
+优先于额外空白：启用忽略 ASCII 空白且分隔符为 ` : ` 时，`1f\t : 8b` 可解码为
+`[0x1f, 0x8b]`。此处的 `\t` 表示实际制表符。非纯空白分隔符必须精确匹配；纯空白
+分隔符仍要求字节之间有空白，启用忽略 ASCII 空白后可一并跳过相邻的额外空白。
+启用忽略空白不会取消配置的分隔符要求。
+
 ### 🔐 **Base64 字节**
 
 - **标准字母表**：支持带 padding 和无 padding 的标准 Base64。
@@ -93,7 +101,7 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 - **`ValueEncoder<Input>`**：将借用输入编码为关联输出类型。
 - **`ValueDecoder<Input>`**：将借用输入解码为关联输出类型。
-- **`Codec`（关联类型 `Value` 与 `Unit`）**：低层 unsafe trait，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。
+- **[`Codec`](https://docs.rs/qubit-codec/0.17/qubit_codec/trait.Codec.html)（关联类型 `Value` 与 `Unit`）**：低层 trait，包含 unsafe 编解码入口，用于在调用方提供的 unit 缓冲区上处理一个值或一个 codec quantum。调用方必须满足文档规定的索引和容量前置条件；实现使用 `impl Codec`，而非 `unsafe impl Codec`。
 - **`CodecValueEncoder<C>` / `CodecTranscodeEncoder<C>` /
   `CodecTranscodeDecoder<C>`**：由 `qubit-codec` 提供的默认 value 和
   buffered adapter。

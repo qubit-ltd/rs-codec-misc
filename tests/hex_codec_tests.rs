@@ -465,3 +465,47 @@ fn test_matched_whitespace_prefix_requires_a_complete_byte() {
         Err(MiscCodecError::InvalidInput { codec: "hex", .. })
     ));
 }
+
+#[test]
+fn test_extra_whitespace_preserves_whole_prefix_and_separator() {
+    let prefixed = HexCodec::new().with_prefix(" 0x").with_ignored_ascii_whitespace(true);
+    assert_eq!(vec![0x1f], prefixed.decode("\t 0x1f").unwrap());
+    let separated = HexCodec::new()
+        .with_separator(" : ")
+        .with_ignored_ascii_whitespace(true);
+    assert_eq!(vec![0x1f, 0x8b], separated.decode("1f\t : 8b").unwrap());
+}
+
+#[test]
+fn test_structural_whitespace_policy_combinations() {
+    for prefix in [" 0x", "\t0x"] {
+        for separator in [" : ", "\t:\t"] {
+            for ignore in [false, true] {
+                for bytes in [vec![], vec![0x1f], vec![0x1f, 0x8b]] {
+                    let codec = HexCodec::new()
+                        .with_prefix(prefix)
+                        .with_separator(separator)
+                        .with_ignore_prefix_case(true)
+                        .with_ignored_ascii_whitespace(ignore);
+                    let exact = codec.encode(&bytes);
+                    assert_eq!(bytes, codec.decode(&exact).unwrap());
+                    let decorated =
+                        format!("\n{}", exact.replace(separator, &format!("\n{separator}"))).replace("0x", "0X");
+                    if ignore {
+                        assert_eq!(bytes, codec.decode(&decorated).unwrap());
+                    } else {
+                        assert!(codec.decode(&decorated).is_err());
+                    }
+                }
+            }
+        }
+    }
+    let codec = HexCodec::new()
+        .with_separator(" : ")
+        .with_ignored_ascii_whitespace(true);
+    for text in ["1f8b", "1f : ", "1 f : 8b", "1f :8b"] {
+        let mut output = vec![0xa5];
+        assert!(codec.decode_into(text, &mut output).is_err(), "{text:?}");
+        assert_eq!(vec![0xa5], output);
+    }
+}

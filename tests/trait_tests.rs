@@ -15,10 +15,10 @@ use qubit_codec::TranscodeDecoder;
 use qubit_codec::TranscodeEncodeError;
 use qubit_codec::TranscodeEncoder;
 use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
 use qubit_codec::ValueDecoder;
 use qubit_codec::ValueEncoder;
-use qubit_codec::engine::TranscodeDecodeEngine;
-use qubit_codec::engine::TranscodeEncodeEngine;
 use qubit_codec_misc::FormUrlencodedCodec;
 use qubit_codec_misc::HexByteCodec;
 use qubit_codec_misc::HexCodec;
@@ -43,14 +43,10 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     }
     fn assert_codec_transcode_decoder<T: TranscodeDecoder<Input = u8, Output = u8>>() {}
     fn assert_codec_transcode_encoder<T: TranscodeEncoder<Input = u8, Output = u8>>() {}
-    fn assert_transcode_decode_engine<T>() {}
-    fn assert_transcode_encode_engine<T>() {}
 
     assert_codec_value_encoder::<CodecValueEncoder<HexByteCodec>>();
     assert_codec_transcode_decoder::<CodecTranscodeDecoder<HexByteCodec>>();
     assert_codec_transcode_encoder::<CodecTranscodeEncoder<HexByteCodec>>();
-    assert_transcode_decode_engine::<TranscodeDecodeEngine<HexByteCodec, ()>>();
-    assert_transcode_encode_engine::<TranscodeEncodeEngine<HexByteCodec, ()>>();
 
     let encode_error = TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(2, 0xff);
     assert!(matches!(encode_error, TranscodeEncodeError::Unencodable { .. }));
@@ -66,6 +62,54 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
         transcode_error,
         TranscodeDecodeError::Failure(TranscodeFailure::InvalidInputIndex { .. })
     ));
+}
+
+#[test]
+fn test_hex_adapter_encoder_retries_small_output() {
+    let mut encoder = CodecTranscodeEncoder::new(HexByteCodec::new());
+    let mut output = [0xa5; 4];
+    assert_eq!(0, encoder.reset(&mut [], 0).unwrap());
+    let short = encoder.transcode(&[0, 0x1f], 1, &mut output[..2], 1).unwrap();
+    assert_eq!(0, short.read());
+    assert_eq!(0, short.written());
+    assert!(matches!(short.status(), TranscodeStatus::NeedOutput { required } if required.get() == 2));
+    assert_eq!([0xa5; 4], output);
+    let done = encoder.transcode(&[0, 0x1f], 1, &mut output[..3], 1).unwrap();
+    assert_eq!(1, done.read());
+    assert_eq!(2, done.written());
+    assert_eq!(TranscodeStatus::Complete, done.status());
+    assert_eq!([0xa5, b'1', b'f', 0xa5], output);
+    assert_eq!(0, encoder.finish(&mut output, 3).unwrap());
+}
+
+#[test]
+fn test_hex_adapter_decoder_preserves_incomplete_tail_and_eof() {
+    let mut decoder = CodecTranscodeDecoder::new(HexByteCodec::new());
+    let mut output = [0xa5; 3];
+    assert_eq!(0, decoder.reset(&mut [], 0).unwrap());
+    let short = decoder.transcode(b"!1", 1, &mut output, 1).unwrap();
+    assert_eq!(0, short.read());
+    assert_eq!(0, short.written());
+    assert!(matches!(short.status(), TranscodeStatus::NeedInput { required } if required.get() == 2));
+    assert_eq!([0xa5; 3], output);
+    let done = decoder.transcode_eof(b"!1f", 1, &mut output, 1).unwrap();
+    assert_eq!(2, done.read());
+    assert_eq!(1, done.written());
+    assert_eq!(TranscodeStatus::Complete, done.status());
+    assert_eq!([0xa5, 0x1f, 0xa5], output);
+    assert_eq!(0, decoder.finish(&mut output, 2).unwrap());
+
+    decoder.reset(&mut [], 0).unwrap();
+    let error = decoder.transcode_eof(b"!1", 1, &mut output, 1).unwrap_err();
+    assert!(matches!(
+        error,
+        TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput {
+            input_index: 1,
+            required: 2,
+            available: 1
+        })
+    ));
+    assert_eq!([0xa5, 0x1f, 0xa5], output);
 }
 
 #[test]

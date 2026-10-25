@@ -66,6 +66,17 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   `HexCodec::from_config` when several codecs share the same policy.
 - **Buffer APIs**: `encode_into` and `decode_into` append into existing buffers.
 
+Whitespace policy depends on the separator configuration. With a non-empty
+separator, each byte requires two adjacent hex digits: `1 f:8b` is rejected
+with separator `:`. Without a non-empty separator, ignored whitespace may
+split a byte, so `0x1 f` is accepted with byte prefix `0x`. Complete structural
+tokens take precedence over extra ignored whitespace: with ignored ASCII
+whitespace enabled and separator ` : `, `1f\t : 8b` decodes to
+`[0x1f, 0x8b]`. In this example, `\t` denotes an actual tab character.
+Required separators remain required. Non-whitespace separators are matched
+exactly; a whitespace-only separator still requires whitespace between bytes,
+and ignored ASCII whitespace may consume additional adjacent whitespace.
+
 ### 🔐 **Base64 Bytes**
 
 - **Standard Alphabet**: padded and no-padding standard Base64.
@@ -119,8 +130,10 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
 
 - **`ValueEncoder<Input>`**: encodes borrowed input into an associated output type.
 - **`ValueDecoder<Input>`**: decodes borrowed input into an associated output type.
-- **`Codec` with associated `Value` and `Unit`**: low-level unsafe trait for one value or one codec
-  quantum over caller-provided unit buffers.
+- **[`Codec`](https://docs.rs/qubit-codec/0.17/qubit_codec/trait.Codec.html) with associated `Value` and `Unit`**: a low-level trait with unsafe encoding and decoding entry points
+  for one value or codec quantum over caller-provided unit buffers. Callers
+  must uphold the documented index and capacity preconditions; implementations
+  use `impl Codec`, not `unsafe impl Codec`.
 - **`CodecValueEncoder<C>` / `CodecTranscodeEncoder<C>` /
   `CodecTranscodeDecoder<C>`**: default value and buffered adapters
   available from `qubit-codec`.
