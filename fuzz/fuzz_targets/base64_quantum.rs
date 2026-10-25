@@ -46,9 +46,22 @@ fuzz_target!(|data: &[u8]| {
     }
 
     for window in payload.windows(4) {
-        let failure = unsafe { Codec::decode(&mut codec, window, 0) };
-        if let Err(failure) = failure {
-            if failure.invalid_source().is_some() {
+        let expected = if window.contains(&b'=') {
+            None
+        } else {
+            engine.decode(window).ok().filter(|bytes| bytes.len() == 3)
+        };
+        // SAFETY: every window contains the four units required by this codec.
+        let actual = unsafe { Codec::decode(&mut codec, window, 0) };
+        match expected {
+            Some(expected) => {
+                let (decoded, consumed) = actual.expect("oracle accepted quantum");
+                assert_eq!(expected.as_slice(), decoded.as_slice());
+                assert_eq!(4, consumed.get());
+            }
+            None => {
+                let failure = actual.expect_err("oracle rejected quantum");
+                assert!(failure.invalid_source().is_some());
                 assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
             }
         }

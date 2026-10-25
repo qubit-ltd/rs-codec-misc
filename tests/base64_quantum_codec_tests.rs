@@ -83,3 +83,39 @@ fn test_base64_quantum_reports_invalid_units_at_each_position() {
         ));
     }
 }
+
+#[test]
+fn test_base64_quantum_rejects_foreign_alphabet_and_padding() {
+    for input in [b"-AAA".as_slice(), b"_AAA"] {
+        // SAFETY: each input contains the four units required by this codec.
+        let failure = unsafe { Codec::decode(&mut Base64QuantumCodec::standard(), input, 0) }
+            .expect_err("standard alphabet should reject URL-safe symbols");
+        assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
+        assert!(matches!(
+            failure.invalid_source(),
+            Some(MiscCodecError::InvalidInput { .. })
+        ));
+    }
+    for input in [b"+AAA".as_slice(), b"/AAA"] {
+        // SAFETY: each input contains the four units required by this codec.
+        let failure = unsafe { Codec::decode(&mut Base64QuantumCodec::url_safe(), input, 0) }
+            .expect_err("URL-safe alphabet should reject standard symbols");
+        assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
+        assert!(matches!(
+            failure.invalid_source(),
+            Some(MiscCodecError::InvalidInput { .. })
+        ));
+    }
+    for input in [b"AA==".as_slice(), b"AAA="] {
+        for mut codec in [Base64QuantumCodec::standard(), Base64QuantumCodec::url_safe()] {
+            // SAFETY: each input contains the four units required by this codec.
+            let failure =
+                unsafe { Codec::decode(&mut codec, input, 0) }.expect_err("quantum codec should reject padding");
+            assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
+            assert!(matches!(
+                failure.invalid_source(),
+                Some(MiscCodecError::InvalidInput { .. })
+            ));
+        }
+    }
+}

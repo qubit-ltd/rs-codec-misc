@@ -97,4 +97,20 @@ fuzz_target!(|data: &[u8]| {
 
     let integers = CIntegerLiteralCodec::new();
     let _ = integers.decode(&text);
+
+    let mut value_bytes = [0u8; 8];
+    let copied = data.len().min(value_bytes.len());
+    value_bytes[..copied].copy_from_slice(&data[..copied]);
+    let value = u64::from_le_bytes(value_bytes);
+    for literal in [format!("{value}"), format!("0{value:o}"), format!("0x{value:x}")] {
+        assert_eq!(value, integers.decode(&literal).expect("formatted u64 should decode"));
+    }
+    let overflow = u128::from(u64::MAX) + 1 + u128::from(value);
+    for literal in [
+        format!("{overflow}"),
+        format!("0{overflow:o}"),
+        format!("0x{overflow:x}"),
+    ] {
+        assert!(integers.decode(&literal).is_err(), "{literal}");
+    }
 });

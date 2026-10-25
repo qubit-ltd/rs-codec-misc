@@ -121,3 +121,26 @@ fn test_c_integer_literal_codec_can_be_used_through_decoder_trait() {
 
     assert_eq!(42, decoded);
 }
+
+#[test]
+fn test_formatted_integer_values_roundtrip_and_overflow_is_rejected() {
+    let codec = CIntegerLiteralCodec::new();
+    for value in [0_u64, 1, 7, 8, 15, 16, u64::MAX] {
+        for literal in [format!("{value}"), format!("0{value:o}"), format!("0x{value:x}")] {
+            assert_eq!(
+                value,
+                codec.decode(&literal).expect("formatted u64 should decode"),
+                "{literal}"
+            );
+        }
+    }
+
+    let overflow = u128::from(u64::MAX) + 1;
+    for literal in [
+        format!("{overflow}"),
+        format!("0{overflow:o}"),
+        format!("0x{overflow:x}"),
+    ] {
+        assert!(codec.decode(&literal).is_err(), "{literal}");
+    }
+}
