@@ -68,6 +68,33 @@ fn test_codec_trait_decodes_available_percent_byte() {
     assert!(matches!(malformed, MiscCodecError::InvalidEscape { index: 0, .. }));
 }
 
+fn assert_invalid_short_percent_prefix<C>(mut codec: C)
+where
+    C: Codec<Value = u8, Unit = u8, DecodeError = MiscCodecError>,
+{
+    for input in [b"!%z".as_slice(), b"!%/", b"!%\xff"] {
+        // SAFETY: index 1 has two readable units, exceeding the one-unit minimum.
+        let error = unsafe { Codec::decode(&mut codec, input, 1) }.unwrap_err();
+        assert_eq!(Some(2), error.consumed_units().map(|width| width.get()));
+        assert!(matches!(
+            error.invalid_source(),
+            Some(MiscCodecError::InvalidEscape { index: 1, .. })
+        ));
+    }
+    // SAFETY: both slices contain at least one readable unit at index zero.
+    let partial = unsafe { Codec::decode(&mut codec, b"%A", 0) }.unwrap_err();
+    assert_eq!(3, incomplete_required(partial));
+    // SAFETY: the slice contains one readable unit at index zero.
+    let marker = unsafe { Codec::decode(&mut codec, b"%", 0) }.unwrap_err();
+    assert_eq!(3, incomplete_required(marker));
+}
+
+#[test]
+fn test_percent_codecs_reject_impossible_short_prefixes() {
+    assert_invalid_short_percent_prefix(PercentCodec::new());
+    assert_invalid_short_percent_prefix(FormUrlencodedCodec::new());
+}
+
 #[test]
 fn test_codec_trait_uses_exact_percent_widths_and_eof_rules() {
     let mut percent = PercentCodec::new();

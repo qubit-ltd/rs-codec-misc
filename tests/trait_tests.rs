@@ -7,6 +7,7 @@
 // =============================================================================
 //! Tests for lightweight encoder and decoder traits.
 
+use qubit_codec::Codec;
 use qubit_codec::CodecTranscodeDecoder;
 use qubit_codec::CodecTranscodeEncoder;
 use qubit_codec::CodecValueEncoder;
@@ -110,6 +111,35 @@ fn test_hex_adapter_decoder_preserves_incomplete_tail_and_eof() {
         })
     ));
     assert_eq!([0xa5, 0x1f, 0xa5], output);
+}
+
+fn assert_percent_adapter_rejects_impossible_prefix<C>(codec: C)
+where
+    C: Codec<Value = u8, Unit = u8, DecodeError = MiscCodecError>,
+{
+    let mut decoder = CodecTranscodeDecoder::new(codec);
+    let mut output = [0xa5; 3];
+    decoder.reset(&mut [], 0).unwrap();
+    let error = decoder.transcode(b"!%z", 1, &mut output, 1).unwrap_err();
+    assert!(matches!(error.domain_ref(), Some(MiscCodecError::InvalidEscape { .. })));
+    assert_eq!([0xa5; 3], output);
+
+    decoder.reset(&mut [], 0).unwrap();
+    let progress = decoder.transcode(b"!%A", 1, &mut output, 1).unwrap();
+    assert_eq!(0, progress.read());
+    assert_eq!(0, progress.written());
+    assert!(matches!(progress.status(), TranscodeStatus::NeedInput { required } if required.get() == 3));
+
+    let progress = decoder.transcode_eof(b"!%A0", 1, &mut output, 1).unwrap();
+    assert_eq!(3, progress.read());
+    assert_eq!(1, progress.written());
+    assert_eq!([0xa5, 0xa0, 0xa5], output);
+}
+
+#[test]
+fn test_percent_adapters_reject_impossible_prefix_without_refill() {
+    assert_percent_adapter_rejects_impossible_prefix(PercentCodec::new());
+    assert_percent_adapter_rejects_impossible_prefix(FormUrlencodedCodec::new());
 }
 
 #[test]

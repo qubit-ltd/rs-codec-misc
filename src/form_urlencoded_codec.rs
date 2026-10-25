@@ -137,8 +137,9 @@ impl Codec for FormUrlencodedCodec {
     ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) = percent_decode_byte(input, input_index, true)
-            .map_err(|error| ParseError::into_decode_failure_with_consumed(error, nonzero(3)))?;
+        let (value, consumed) = percent_decode_byte(input, input_index, true).map_err(|error| {
+            ParseError::into_decode_failure_with_consumed(error, percent_invalid_consumed(input, input_index))
+        })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte, `+`, or escape.

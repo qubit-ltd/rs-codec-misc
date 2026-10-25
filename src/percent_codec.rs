@@ -134,8 +134,9 @@ impl Codec for PercentCodec {
     ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
-        let (value, consumed) = percent_decode_byte(input, input_index, false)
-            .map_err(|error| ParseError::into_decode_failure_with_consumed(error, nonzero(3)))?;
+        let (value, consumed) = percent_decode_byte(input, input_index, false).map_err(|error| {
+            ParseError::into_decode_failure_with_consumed(error, percent_invalid_consumed(input, input_index))
+        })?;
         debug_assert!(consumed > 0);
         // SAFETY: `percent_decode_byte` returns a non-zero width for every
         // successful raw byte or escape.
@@ -303,21 +304,23 @@ pub(crate) fn percent_encode_len(byte: u8, mode: PercentEncodingMode) -> usize {
 /// Decoded byte and the number of consumed units.
 ///
 /// # Errors
-/// Returns [`ParseError::Incomplete`] for a truncated escape and
-/// [`ParseError::Invalid`] for a malformed hexadecimal escape.
+/// Returns [`ParseError::Incomplete`] only when the visible escape is a valid
+/// prefix that could be completed by additional hexadecimal digits, and
+/// [`ParseError::Invalid`] when an available digit makes completion impossible.
 #[inline]
 pub(crate) fn percent_decode_byte(input: &[u8], index: usize, plus_as_space: bool) -> Result<(u8, usize), ParseError> {
     debug_assert!(index < input.len());
     let available = input.len() - index;
     match input[index] {
         b'%' => {
-            if available < 3 {
+            if available == 1 {
                 return Err(ParseError::Incomplete { required: nonzero(3) });
             }
-            let high_byte = input[index + 1];
-            let low_byte = input[index + 2];
-            let high = percent_hex_value(high_byte).ok_or_else(|| invalid_percent_escape(input, index))?;
-            let low = percent_hex_value(low_byte).ok_or_else(|| invalid_percent_escape(input, index))?;
+            let high = percent_hex_value(input[index + 1]).ok_or_else(|| invalid_percent_escape(input, index))?;
+            if available == 2 {
+                return Err(ParseError::Incomplete { required: nonzero(3) });
+            }
+            let low = percent_hex_value(input[index + 2]).ok_or_else(|| invalid_percent_escape(input, index))?;
             Ok(((high << 4) | low, 3))
         }
         b'+' if plus_as_space => Ok((b' ', 1)),
