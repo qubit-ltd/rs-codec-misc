@@ -20,6 +20,7 @@ use qubit_codec::TranscodeStatus;
 use qubit_codec::Transcoder;
 use qubit_codec::ValueDecoder;
 use qubit_codec::ValueEncoder;
+use qubit_codec_misc::CStringLiteralCodec;
 use qubit_codec_misc::FormUrlencodedCodec;
 use qubit_codec_misc::HexByteCodec;
 use qubit_codec_misc::HexCodec;
@@ -140,6 +141,84 @@ where
 fn test_percent_adapters_reject_impossible_prefix_without_refill() {
     assert_percent_adapter_rejects_impossible_prefix(PercentCodec::new());
     assert_percent_adapter_rejects_impossible_prefix(FormUrlencodedCodec::new());
+}
+
+#[test]
+fn test_c_universal_adapter_rejects_invalid_short_prefix() {
+    let mut decoder = CodecTranscodeDecoder::new(CStringLiteralCodec::new());
+    let mut output = [0xa5; 3];
+    decoder.reset(&mut [], 0).unwrap();
+
+    let error = decoder.transcode(br"\uZ", 0, &mut output, 0).unwrap_err();
+
+    assert!(matches!(
+        error.domain_ref(),
+        Some(MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 2,
+            character: 'Z'
+        })
+    ));
+    assert_eq!([0xa5; 3], output);
+}
+
+#[test]
+fn test_safe_hex_adapter_readme() {
+    let mut decoder = CodecTranscodeDecoder::new(HexByteCodec::new());
+    let chunks: [&[u8]; 3] = [b"1", b"f8", b"b"];
+    let mut pending = Vec::new();
+    let mut output = [0_u8; 2];
+    let mut written = 0;
+
+    decoder.reset(&mut output, 0).expect("reset decoder");
+    for (index, chunk) in chunks.iter().enumerate() {
+        pending.extend_from_slice(chunk);
+        let progress = decoder
+            .transcode(&pending, 0, &mut output, written)
+            .expect("decode available input");
+        let read = progress.read();
+        written += progress.written();
+        pending.drain(..read);
+        assert!(!matches!(progress.status(), TranscodeStatus::NeedOutput { .. }));
+        if index < 2 {
+            assert!(matches!(progress.status(), TranscodeStatus::NeedInput { .. }));
+        } else {
+            assert_eq!(TranscodeStatus::Complete, progress.status());
+        }
+    }
+
+    // Complete says this call consumed its visible input; only the source tells us
+    // it has ended.
+    assert!(pending.is_empty());
+    let eof = decoder
+        .transcode_eof(&pending, 0, &mut output, written)
+        .expect("finish decoding at confirmed EOF");
+    assert_eq!(TranscodeStatus::Complete, eof.status());
+    written += eof.written();
+    assert_eq!([0x1f, 0x8b], output);
+    assert_eq!(2, written);
+    assert_eq!(0, decoder.finish(&mut output, written).expect("finish adapter"));
+
+    output = [0xa5; 2];
+    decoder.reset(&mut output, 0).expect("reset for short input");
+    let error = decoder.transcode_eof(b"1", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error,
+        TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput {
+            input_index: 0,
+            required: 2,
+            available: 1
+        })
+    ));
+    assert_eq!([0xa5; 2], output);
+
+    decoder.reset(&mut output, 0).expect("reset for invalid input");
+    let error = decoder.transcode(b"1g", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error.domain_ref(),
+        Some(qubit_codec_misc::MiscCodecError::InvalidDigit { index: 1, .. })
+    ));
+    assert_eq!([0xa5; 2], output);
 }
 
 #[test]

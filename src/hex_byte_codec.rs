@@ -24,6 +24,9 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// per-byte prefixes, separators, or whitespace. Use [`crate::HexCodec`] for
 /// owned byte-slice helpers with those formatting options.
 ///
+/// For a complete safe streaming adapter example, see the [English README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.md#safe-streaming-hex-byte-adapter)
+/// and [Chinese README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.zh_CN.md#安全的-hex-字节流式-adapter).
+///
 /// # Examples
 ///
 /// ```

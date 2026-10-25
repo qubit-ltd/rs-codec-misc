@@ -288,6 +288,86 @@ fn main() {
 }
 ```
 
+## 安全的 Hex 字节流式 Adapter
+
+添加以下两个直接依赖：
+
+```toml
+[dependencies]
+qubit-codec = "0.17"
+qubit-codec-misc = "0.8"
+```
+
+`HexByteCodec` 每次解码一个字节。它不接受 `HexCodec` 的整体前缀、逐字节前缀或分隔符配置，这些格式选项不能在两个 codec 之间通用。将未消费输入保留在 `pending`，只移除 `read` 指示的前缀；输出中只有 `written` 指示的前缀有效。本例的固定两字节输出足够，因此显式保证不会出现 `NeedOutput`；通用驱动遇到 `NeedOutput` 时必须扩容或换用更大的输出缓冲区，并用未消费输入重试。`Complete` 只表示本次调用消费了当前可见输入，并不表示源已经到达 EOF。只有上游确认 EOF 后，才对 pending 尾部调用 `transcode_eof`，随后调用 `finish`。
+
+```rust
+use qubit_codec::CodecTranscodeDecoder;
+use qubit_codec::TranscodeDecodeError;
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::HexByteCodec;
+
+fn main() {
+    let mut decoder = CodecTranscodeDecoder::new(HexByteCodec::new());
+    let chunks: [&[u8]; 3] = [b"1", b"f8", b"b"];
+    let mut pending = Vec::new();
+    let mut output = [0_u8; 2];
+    let mut written = 0;
+
+    decoder.reset(&mut output, 0).expect("reset decoder");
+    for (index, chunk) in chunks.iter().enumerate() {
+        pending.extend_from_slice(chunk);
+        let progress = decoder
+            .transcode(&pending, 0, &mut output, written)
+            .expect("decode available input");
+        let read = progress.read();
+        written += progress.written();
+        pending.drain(..read);
+        assert!(!matches!(progress.status(), TranscodeStatus::NeedOutput { .. }));
+        if index < 2 {
+            assert!(matches!(progress.status(), TranscodeStatus::NeedInput { .. }));
+        } else {
+            assert_eq!(TranscodeStatus::Complete, progress.status());
+        }
+    }
+
+    // Complete says this call consumed its visible input; only the source tells us it has ended.
+    assert!(pending.is_empty());
+    let eof = decoder
+        .transcode_eof(&pending, 0, &mut output, written)
+        .expect("finish decoding at confirmed EOF");
+    assert_eq!(TranscodeStatus::Complete, eof.status());
+    written += eof.written();
+    assert_eq!([0x1f, 0x8b], output);
+    assert_eq!(2, written);
+    assert_eq!(0, decoder.finish(&mut output, written).expect("finish adapter"));
+
+    output = [0xa5; 2];
+    decoder.reset(&mut output, 0).expect("reset for short input");
+    let error = decoder.transcode_eof(b"1", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error,
+        TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput {
+            input_index: 0,
+            required: 2,
+            available: 1
+        })
+    ));
+    assert_eq!([0xa5; 2], output);
+
+    decoder.reset(&mut output, 0).expect("reset for invalid input");
+    let error = decoder.transcode(b"1g", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error.domain_ref(),
+        Some(qubit_codec_misc::MiscCodecError::InvalidDigit { index: 1, .. })
+    ));
+    assert_eq!([0xa5; 2], output);
+}
+```
+
+关于相关的短转义边界，可参阅 [CStringLiteralCodec 的 EOF 短转义测试](https://github.com/qubit-ltd/rs-codec-misc/blob/main/tests/codec_tests.rs)；该测试检查短转义只在确认 EOF 后才按 EOF 解析。
+
 ## API 参考
 
 ### Trait 操作

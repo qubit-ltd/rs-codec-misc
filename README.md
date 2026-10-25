@@ -324,6 +324,86 @@ fn main() {
 }
 ```
 
+## Safe Streaming Hex Byte Adapter
+
+Add both direct dependencies:
+
+```toml
+[dependencies]
+qubit-codec = "0.17"
+qubit-codec-misc = "0.8"
+```
+
+`HexByteCodec` decodes one byte at a time. It does not accept `HexCodec` whole-value prefixes, per-byte prefixes, or separator configuration; those formatting options do not transfer between the codecs. Keep unconsumed input in `pending`, remove only the `read` prefix, and treat only the `written` output prefix as valid. This fixed two-byte output is sufficient for the example and explicitly cannot produce `NeedOutput`; a general driver must grow or replace its output buffer on `NeedOutput` and retry with unconsumed input. `Complete` means the current call consumed its visible input, not that the source reached EOF. Once the source confirms EOF, call `transcode_eof` with the pending tail, then `finish`.
+
+```rust
+use qubit_codec::CodecTranscodeDecoder;
+use qubit_codec::TranscodeDecodeError;
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::HexByteCodec;
+
+fn main() {
+    let mut decoder = CodecTranscodeDecoder::new(HexByteCodec::new());
+    let chunks: [&[u8]; 3] = [b"1", b"f8", b"b"];
+    let mut pending = Vec::new();
+    let mut output = [0_u8; 2];
+    let mut written = 0;
+
+    decoder.reset(&mut output, 0).expect("reset decoder");
+    for (index, chunk) in chunks.iter().enumerate() {
+        pending.extend_from_slice(chunk);
+        let progress = decoder
+            .transcode(&pending, 0, &mut output, written)
+            .expect("decode available input");
+        let read = progress.read();
+        written += progress.written();
+        pending.drain(..read);
+        assert!(!matches!(progress.status(), TranscodeStatus::NeedOutput { .. }));
+        if index < 2 {
+            assert!(matches!(progress.status(), TranscodeStatus::NeedInput { .. }));
+        } else {
+            assert_eq!(TranscodeStatus::Complete, progress.status());
+        }
+    }
+
+    // Complete says this call consumed its visible input; only the source tells us it has ended.
+    assert!(pending.is_empty());
+    let eof = decoder
+        .transcode_eof(&pending, 0, &mut output, written)
+        .expect("finish decoding at confirmed EOF");
+    assert_eq!(TranscodeStatus::Complete, eof.status());
+    written += eof.written();
+    assert_eq!([0x1f, 0x8b], output);
+    assert_eq!(2, written);
+    assert_eq!(0, decoder.finish(&mut output, written).expect("finish adapter"));
+
+    output = [0xa5; 2];
+    decoder.reset(&mut output, 0).expect("reset for short input");
+    let error = decoder.transcode_eof(b"1", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error,
+        TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput {
+            input_index: 0,
+            required: 2,
+            available: 1
+        })
+    ));
+    assert_eq!([0xa5; 2], output);
+
+    decoder.reset(&mut output, 0).expect("reset for invalid input");
+    let error = decoder.transcode(b"1g", 0, &mut output, 0).unwrap_err();
+    assert!(matches!(
+        error.domain_ref(),
+        Some(qubit_codec_misc::MiscCodecError::InvalidDigit { index: 1, .. })
+    ));
+    assert_eq!([0xa5; 2], output);
+}
+```
+
+For the related short-escape boundary, see the [CStringLiteralCodec EOF short-escape test](https://github.com/qubit-ltd/rs-codec-misc/blob/main/tests/codec_tests.rs) (the test checks that a short escape is resolved only after EOF is known).
+
 ## API Reference
 
 ### Trait Operations
