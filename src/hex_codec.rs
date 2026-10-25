@@ -436,11 +436,9 @@ impl HexCodec {
     fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
         if separator.chars().all(|ch| ch.is_ascii_whitespace()) {
             let whitespace_end = self.skip_ascii_whitespace(text, index);
-            return if whitespace_end >= text.len() {
-                whitespace_end
-            } else {
-                index
-            };
+            if whitespace_end >= text.len() {
+                return whitespace_end;
+            }
         }
         let mut candidate = index;
         while candidate < text.len() {

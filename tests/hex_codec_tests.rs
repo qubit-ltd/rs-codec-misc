@@ -294,6 +294,32 @@ fn test_decode_ignores_configured_whitespace_without_separator() {
 }
 
 #[test]
+fn test_whitespace_separator_accepts_surrounding_ignored_whitespace() {
+    for separator in ["\t", " \t"] {
+        let codec = HexCodec::new()
+            .with_separator(separator)
+            .with_ignored_ascii_whitespace(true);
+        for text in [
+            format!("1f{separator}8b"),
+            format!("1f {separator}8b"),
+            format!("1f{separator} 8b"),
+            format!("1f {separator} 8b\n"),
+        ] {
+            assert_eq!(vec![0x1f, 0x8b], codec.decode(&text).unwrap(), "{text:?}");
+        }
+        for text in ["1f8b", "1f 8b", "1 f\t8b", "1f\t8g"] {
+            let mut output = vec![0xa5];
+            assert!(codec.decode_into(text, &mut output).is_err(), "{text:?}");
+            assert_eq!(vec![0xa5], output);
+        }
+        let strict = HexCodec::new().with_separator(separator);
+        assert_eq!(vec![0x1f, 0x8b], strict.decode(&format!("1f{separator}8b")).unwrap());
+        assert!(strict.decode(&format!("1f {separator}8b")).is_err());
+        assert!(strict.decode(&format!("1f{separator} 8b")).is_err());
+    }
+}
+
+#[test]
 fn test_hex_roundtrip_preserves_whitespace_in_structural_tokens() {
     let prefixed = HexCodec::new().with_prefix(" 0x").with_ignored_ascii_whitespace(true);
     let prefixed_text = prefixed.encode(&[0x1f]);
