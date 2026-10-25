@@ -61,6 +61,38 @@ fn benchmark_hex(c: &mut Criterion) {
         bencher.iter(|| black_box(codec.decode(black_box(&encoded))));
     });
     group.finish();
+
+    let mut group = c.benchmark_group("hex-codec-decode_into_reuse");
+    for size in [64_usize, 64 * 1024] {
+        let bytes = vec![0x5a; size];
+        let plain_codec = HexCodec::new();
+        let plain_encoded = plain_codec.encode(&bytes);
+        let mut plain_output = Vec::with_capacity(size);
+        group.throughput(Throughput::Bytes(size as u64));
+        group.bench_function(format!("continuous_{size}B"), |bencher| {
+            bencher.iter(|| {
+                plain_output.clear();
+                plain_codec
+                    .decode_into(black_box(&plain_encoded), &mut plain_output)
+                    .expect("valid continuous hex input");
+                black_box(&plain_output);
+            });
+        });
+
+        let separated_codec = HexCodec::new().with_byte_prefix("0x").with_separator(" ");
+        let separated_encoded = separated_codec.encode(&bytes);
+        let mut separated_output = Vec::with_capacity(size);
+        group.bench_function(format!("prefixed_separated_{size}B"), |bencher| {
+            bencher.iter(|| {
+                separated_output.clear();
+                separated_codec
+                    .decode_into(black_box(&separated_encoded), &mut separated_output)
+                    .expect("valid prefixed separated hex input");
+                black_box(&separated_output);
+            });
+        });
+    }
+    group.finish();
 }
 
 fn benchmark_base64_and_c_literals(c: &mut Criterion) {

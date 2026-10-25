@@ -253,7 +253,9 @@ impl HexCodec {
     /// digit is found.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.decode_to_vec(text)
+        let mut output = Vec::new();
+        self.decode_into(text, &mut output)?;
+        Ok(output)
     }
 
     /// Decodes hexadecimal text into an existing byte vector.
@@ -263,29 +265,27 @@ impl HexCodec {
     /// - `output`: Destination byte vector.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError`] when the input is malformed.
-    ///
-    /// # TODO
-    /// This method currently decodes into a temporary vector before appending
-    /// so that an error leaves `output` unchanged. A future optimization can
-    /// decode directly into `output` with a checkpoint-and-rollback strategy,
-    /// or validate and reserve in a first pass, to avoid the temporary vector
-    /// while preserving transactional behavior.
+    /// Returns [`MiscCodecError`] when the input is malformed. On such an
+    /// error, the vector's elements and length remain unchanged; its capacity
+    /// may have changed.
     #[inline]
     pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
-        let decoded = self.decode_to_vec(text)?;
-        output.reserve(decoded.len());
-        output.extend(decoded);
+        let original_len = output.len();
+        if let Err(error) = self.decode_append(text, output) {
+            output.truncate(original_len);
+            return Err(error);
+        }
         Ok(())
     }
 
-    /// Decodes text into a new byte vector using a single transactional pass.
+    /// Decodes text by appending bytes directly to `output`.
     ///
     /// # Parameters
     /// - `text`: Text to decode.
+    /// - `output`: Destination byte vector, which may contain existing bytes.
     ///
     /// # Returns
-    /// Decoded bytes.
+    /// `Ok(())` when all bytes are decoded.
     ///
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a configured prefix is
@@ -293,20 +293,23 @@ impl HexCodec {
     /// [`MiscCodecError::InvalidDigit`] for unsupported characters, or
     /// [`MiscCodecError::InvalidInput`] for malformed separator syntax.
     #[inline]
-    fn decode_to_vec(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
+    fn decode_append(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let start_index = self.consume_prefix(text)?;
+        if output.capacity() == output.len() {
+            output.reserve(text.len().saturating_sub(start_index) / 2);
+        }
         if let Some(separator) = self
             .config
             .separator
             .as_deref()
             .filter(|separator| !separator.is_empty())
         {
-            return self.decode_separated(text, start_index, separator);
+            return self.decode_separated(text, start_index, separator, output);
         }
         if let Some(byte_prefix) = self.config.byte_prefix.as_deref().filter(|prefix| !prefix.is_empty()) {
-            return self.decode_byte_prefixed(text, byte_prefix, start_index);
+            return self.decode_byte_prefixed(text, byte_prefix, start_index, output);
         }
-        self.decode_unprefixed(text, start_index)
+        self.decode_unprefixed(text, start_index, output)
     }
 
     /// Consumes the configured whole-output prefix.
@@ -353,17 +356,22 @@ impl HexCodec {
     /// - `separator`: Required separator between complete bytes.
     ///
     /// # Returns
-    /// Decoded bytes.
+    /// `Ok(())` when all bytes are decoded.
     ///
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a configured per-byte
     /// prefix is absent, or [`MiscCodecError::InvalidInput`] when a byte or
     /// separator syntax is malformed.
-    fn decode_separated(&self, text: &str, mut index: usize, separator: &str) -> MiscCodecResult<Vec<u8>> {
-        let mut output = Vec::with_capacity(text.len() / 2);
+    fn decode_separated(
+        &self,
+        text: &str,
+        mut index: usize,
+        separator: &str,
+        output: &mut Vec<u8>,
+    ) -> MiscCodecResult<()> {
         index = self.next_byte_start(text, index);
         if index >= text.len() {
-            return Ok(output);
+            return Ok(());
         }
         loop {
             index = self.consume_byte_prefix(text, index)?;
@@ -374,7 +382,7 @@ impl HexCodec {
 
             let separator_index = self.next_separator_index(text, index, separator);
             if separator_index >= text.len() {
-                return Ok(output);
+                return Ok(());
             }
             let rest = &text[separator_index..];
             if !rest.starts_with(separator) {
@@ -484,14 +492,13 @@ impl HexCodec {
     /// - `text`: Text to decode.
     ///
     /// # Returns
-    /// Decoded bytes.
+    /// `Ok(())` when all bytes are decoded.
     ///
     /// # Errors
     /// Returns [`MiscCodecError::InvalidLength`] when the normalized digit
     /// count is odd, or [`MiscCodecError::InvalidDigit`] for unsupported
     /// characters.
-    fn decode_unprefixed(&self, text: &str, mut index: usize) -> MiscCodecResult<Vec<u8>> {
-        let mut output = Vec::with_capacity(text.len() / 2);
+    fn decode_unprefixed(&self, text: &str, mut index: usize, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let mut pending = None;
         let mut digit_count = 0usize;
         while index < text.len() {
@@ -516,7 +523,7 @@ impl HexCodec {
         if !digit_count.is_multiple_of(2) {
             return Err(invalid_hex_length(digit_count));
         }
-        Ok(output)
+        Ok(())
     }
 
     /// Decodes byte-prefixed input characters into bytes.
@@ -527,15 +534,20 @@ impl HexCodec {
     /// - `index`: Byte index where parsing should start.
     ///
     /// # Returns
-    /// Decoded bytes.
+    /// `Ok(())` when all bytes are decoded.
     ///
     /// # Errors
     /// Returns [`MiscCodecError::MissingPrefix`] when a byte prefix is missing,
     /// [`MiscCodecError::InvalidInput`] when a prefix is not followed by a
     /// complete byte, or [`MiscCodecError::InvalidDigit`] for unsupported
     /// characters.
-    fn decode_byte_prefixed(&self, text: &str, prefix: &str, mut index: usize) -> MiscCodecResult<Vec<u8>> {
-        let mut output = Vec::with_capacity(text.len() / 2);
+    fn decode_byte_prefixed(
+        &self,
+        text: &str,
+        prefix: &str,
+        mut index: usize,
+        output: &mut Vec<u8>,
+    ) -> MiscCodecResult<()> {
         let mut digit_count = 0usize;
         while index < text.len() {
             index = self.next_byte_start(text, index);
@@ -576,7 +588,7 @@ impl HexCodec {
         if !digit_count.is_multiple_of(2) {
             return Err(invalid_hex_length(digit_count));
         }
-        Ok(output)
+        Ok(())
     }
 
     /// Skips ignored ASCII whitespace.

@@ -110,6 +110,85 @@ fn test_decode_into_is_atomic_when_later_input_is_invalid() {
 }
 
 #[test]
+fn test_decode_into_appends_successes_and_preserves_output_on_errors() {
+    let plain = HexCodec::new();
+    let mut output = vec![0xa5];
+    plain
+        .decode_into("1f8b", &mut output)
+        .expect("valid input should append");
+    assert_eq!(vec![0xa5, 0x1f, 0x8b], output);
+
+    plain
+        .decode_into("", &mut output)
+        .expect("empty input should append no bytes");
+    assert_eq!(vec![0xa5, 0x1f, 0x8b], output);
+
+    let before = output.clone();
+    let error = plain
+        .decode_into("abcd0g", &mut output)
+        .expect_err("invalid digit should fail");
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 5,
+            character: 'g'
+        }
+    ));
+    assert_eq!(before, output, "invalid digit must roll back appended bytes");
+
+    let error = plain
+        .decode_into("abc", &mut output)
+        .expect_err("odd digit count should fail");
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidLength {
+            context: "hex digits",
+            actual: 3,
+            ..
+        }
+    ));
+    assert_eq!(before, output, "odd digit count must roll back appended bytes");
+
+    let byte_prefixed = HexCodec::new().with_byte_prefix("0x");
+    let cases = [("0x1f8b", "missing second byte prefix")];
+    for (text, case) in cases {
+        let before = output.clone();
+        let error = byte_prefixed.decode_into(text, &mut output).expect_err(case);
+        assert!(matches!(error, MiscCodecError::MissingPrefix { .. }), "{case}");
+        assert_eq!(before, output, "{case} must roll back appended bytes");
+    }
+
+    let separated = HexCodec::new().with_separator(":");
+    let error = separated
+        .decode_into("1f:8g", &mut output)
+        .expect_err("invalid digit after a complete byte should fail");
+    assert!(matches!(
+        error,
+        MiscCodecError::InvalidDigit {
+            radix: 16,
+            index: 4,
+            character: 'g'
+        }
+    ));
+    assert_eq!(before, output, "invalid digit must roll back appended bytes");
+
+    for (text, reason) in [("1f8b", "missing separator"), ("1f:", "trailing separator")] {
+        let error = separated.decode_into(text, &mut output).expect_err(reason);
+        assert!(matches!(error, MiscCodecError::InvalidInput { codec: "hex", .. }));
+        assert_eq!(before, output, "{reason} must roll back appended bytes");
+    }
+
+    let prefixed = HexCodec::new().with_prefix("#");
+    let before = output.clone();
+    let error = prefixed
+        .decode_into("1f", &mut output)
+        .expect_err("missing whole prefix should fail");
+    assert!(matches!(error, MiscCodecError::MissingPrefix { .. }));
+    assert_eq!(before, output);
+}
+
+#[test]
 fn test_decode_plain_prefixed_and_separated_hex() {
     assert_eq!(
         vec![0x1f, 0x8b, 0x00, 0xff],
