@@ -295,9 +295,7 @@ impl HexCodec {
     #[inline]
     fn decode_append(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let start_index = self.consume_prefix(text)?;
-        if output.capacity() == output.len() {
-            output.reserve(text.len().saturating_sub(start_index) / 2);
-        }
+        output.reserve(text.len().saturating_sub(start_index) / 2);
         if let Some(separator) = self
             .config
             .separator
