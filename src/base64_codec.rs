@@ -33,6 +33,11 @@ static URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = URL_SAFE_NO_PAD;
 /// This facade intentionally remains a whole-value codec backed by the
 /// `base64` crate. Final partial quantum handling and optional `=` padding are
 /// facade/transcoder responsibilities, not part of the low-level quantum codec.
+/// Decoding is strict: each constructor accepts only its configured alphabet
+/// and padding policy, rejects whitespace and non-canonical trailing bits, and
+/// does not permit padded and unpadded partial groups to be interchanged.
+/// Complete three-byte groups such as `TWFu` need no `=` and are accepted by
+/// both padding policies.
 ///
 /// # Examples
 ///
@@ -62,7 +67,8 @@ impl PartialEq for Base64Codec {
 impl Eq for Base64Codec {}
 
 impl Base64Codec {
-    /// Creates a standard Base64 codec with padding.
+    /// Creates a standard Base64 codec that requires canonical padding for a
+    /// partial final group. Complete groups need no `=`.
     ///
     /// # Returns
     /// Standard Base64 codec.
@@ -73,7 +79,8 @@ impl Base64Codec {
         }
     }
 
-    /// Creates a standard Base64 codec without padding.
+    /// Creates a standard Base64 codec that rejects padding and accepts
+    /// unpadded partial final groups.
     ///
     /// # Returns
     /// Standard no-padding Base64 codec.
@@ -84,7 +91,8 @@ impl Base64Codec {
         }
     }
 
-    /// Creates a URL-safe Base64 codec with padding.
+    /// Creates a URL-safe Base64 codec that requires canonical padding for a
+    /// partial final group. Complete groups need no `=`.
     ///
     /// # Returns
     /// URL-safe Base64 codec.
@@ -95,7 +103,8 @@ impl Base64Codec {
         }
     }
 
-    /// Creates a URL-safe Base64 codec without padding.
+    /// Creates a URL-safe Base64 codec that rejects padding and accepts
+    /// unpadded partial final groups.
     ///
     /// # Returns
     /// URL-safe no-padding Base64 codec.
@@ -128,7 +137,9 @@ impl Base64Codec {
     /// Decoded bytes.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidBase64`] when `text` is malformed.
+    /// Returns [`MiscCodecError::InvalidBase64`] when `text` uses another
+    /// alphabet, violates this codec's padding policy, contains whitespace, or
+    /// has non-canonical trailing bits.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
         self.engine.decode(text).map_err(MiscCodecError::from)

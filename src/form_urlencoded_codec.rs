@@ -30,6 +30,9 @@ use crate::percent_codec::percent_invalid_consumed;
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte at a time, including the form-specific space and `+` mapping. UTF-8
 /// validation remains part of the owned [`decode`](Self::decode) helper.
+/// Streaming skip/replace hooks may consume the malformed span visible in the
+/// current input chunk, so recovery output for malformed input can depend on
+/// chunk boundaries. This does not affect valid input or strict decoding.
 ///
 /// # Examples
 ///

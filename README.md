@@ -81,11 +81,19 @@ and ignored ASCII whitespace may consume additional adjacent whitespace.
 
 - **Standard Alphabet**: padded and no-padding standard Base64.
 - **URL-Safe Alphabet**: padded and no-padding URL-safe Base64.
+- **Strict Padding**: each facade accepts only its configured padding policy;
+  complete groups such as `TWFu` are valid with either policy. Whitespace and
+  non-canonical trailing bits are rejected.
 - **Quantum Core**: `Base64QuantumCodec` handles complete three-byte to
   four-unit Base64 quanta; final padding stays in the facade/transcoder layer.
 - **Typed Errors**: malformed input is reported as
   `MiscCodecError::InvalidBase64`, retaining the `base64::DecodeError` source,
   error category, and input index when available.
+
+When using streaming decode hooks that skip or replace malformed percent,
+form-URL, or C-string input, the codec reports the invalid span visible in the
+current chunk. Recovery output for malformed input may therefore depend on
+chunk boundaries. This caveat does not apply to valid input or strict decoding.
 
 ### 🔤 **C String Literal Bytes**
 
@@ -510,6 +518,12 @@ padding are handled by value helpers or future buffered layers.
 | `url_safe_no_pad()` | URL-safe | No | Create URL-safe Base64 codec without padding |
 | `encode(bytes)` | Configured | Configured | Encode bytes into Base64 text |
 | `decode(text)` | Configured | Configured | Decode Base64 text into bytes |
+
+The padded and unpadded modes reject each other's partial-group form. For
+example, `Base64Codec::standard().decode("Zg")` and
+`Base64Codec::standard_no_pad().decode("Zg==")` both return an error, while
+both modes accept `"TWFu"` because it encodes a complete three-byte group and
+needs no padding.
 
 ### `Base64QuantumCodec` Operations
 

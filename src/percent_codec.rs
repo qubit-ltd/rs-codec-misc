@@ -27,6 +27,9 @@ use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
 /// Its low-level [`Codec<Value = u8, Unit = u8>`] implementation converts one
 /// byte to either one unreserved ASCII unit or a `%XX` escape. UTF-8 validation
 /// remains part of the owned [`decode`](Self::decode) helper.
+/// Streaming skip/replace hooks may consume the malformed span visible in the
+/// current input chunk, so recovery output for malformed input can depend on
+/// chunk boundaries. This does not affect valid input or strict decoding.
 ///
 /// # Examples
 ///

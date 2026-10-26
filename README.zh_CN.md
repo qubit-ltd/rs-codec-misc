@@ -62,10 +62,16 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 - **标准字母表**：支持带 padding 和无 padding 的标准 Base64。
 - **URL 安全字母表**：支持带 padding 和无 padding 的 URL-safe Base64。
+- **严格 Padding 契约**：每个 facade 只接受自身配置的 padding 形式；`TWFu`
+  这类完整组在两种模式下都合法。空白和非规范尾部废弃位均会被拒绝。
 - **Quantum Core**：`Base64QuantumCodec` 处理完整的三字节到四 unit Base64
   quantum；final padding 留在 facade/transcoder 层。
 - **类型化错误**：畸形输入返回 `MiscCodecError::InvalidBase64`，并保留
   `base64::DecodeError` source、错误分类以及可用的输入位置。
+
+使用流式解码 hook 跳过或替换畸形 percent、form URL 或 C 字符串输入时，codec
+报告当前输入 chunk 中可见的非法跨度，因此畸形输入的恢复结果可能受 chunk
+边界影响。此说明不适用于有效输入或严格解码。
 
 ### 🔤 **C 字符串字面量字节**
 
@@ -473,6 +479,11 @@ fn main() {
 | `url_safe_no_pad()` | URL-safe | 无 | 创建无 padding 的 URL-safe Base64 codec |
 | `encode(bytes)` | 已配置 | 已配置 | 将字节编码为 Base64 文本 |
 | `decode(text)` | 已配置 | 已配置 | 将 Base64 文本解码为字节 |
+
+带 padding 与无 padding 模式不会互相接受对方的部分组形式。例如，
+`Base64Codec::standard().decode("Zg")` 和
+`Base64Codec::standard_no_pad().decode("Zg==")` 都会返回错误；完整三字节组
+`"TWFu"` 不需要 padding，两种模式均可接受。
 
 ### `Base64QuantumCodec` 操作
 

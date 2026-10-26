@@ -45,6 +45,9 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 /// For streaming input, use [`Codec::decode_eof`] after confirming EOF to
 /// resolve format-specific short escapes. Open-stream decoding requests more
 /// input only when the visible escape prefix can still form a valid byte value.
+/// For malformed input, a streaming skip/replace hook may consume the invalid
+/// span visible in the current input chunk; recovery can therefore depend on
+/// chunk boundaries. Valid input and strict decoding are unaffected.
 /// See the [English README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.md#safe-streaming-hex-byte-adapter)
 /// and [Chinese README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.zh_CN.md#安全的-hex-字节流式-adapter)
 /// for a safe streaming adapter example and the linked EOF short-escape test.
