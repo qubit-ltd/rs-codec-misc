@@ -319,7 +319,7 @@ fn test_codec_trait_reports_c_string_literal_byte_errors() {
         unsafe { Codec::decode(&mut codec, br"\x", 0) }.expect_err("short hex marker should be incomplete");
     let missing_hex = unsafe { Codec::decode(&mut codec, br"\xz", 0) }.expect_err("missing hex digit should fail");
     let incomplete_universal =
-        unsafe { Codec::decode(&mut codec, br"\u12", 0) }.expect_err("incomplete universal escape should fail");
+        unsafe { Codec::decode(&mut codec, br"\u00", 0) }.expect_err("incomplete universal escape should fail");
     let incomplete_hex =
         unsafe { Codec::decode(&mut codec, br"\xA", 0) }.expect_err("extendable hex escape should be incomplete");
     let incomplete_octal =
@@ -379,6 +379,7 @@ fn test_codec_trait_rejects_invalid_c_universal_short_prefixes() {
         (br"!\u0Z", 1, 4),
         (br"!\U000Z", 1, 6),
         (br"\uZ", 0, 2),
+        (br"\u1Z", 0, 3),
     ];
 
     for (input, input_index, error_index) in cases {
@@ -400,7 +401,15 @@ fn test_codec_trait_rejects_invalid_c_universal_short_prefixes() {
         );
     }
 
-    for (input, required) in [(br"\u".as_slice(), 6), (br"\u12", 6), (br"\U0000", 10)] {
+    for (input, required) in [
+        (br"\u".as_slice(), 6),
+        (br"\u0", 6),
+        (br"\u00", 6),
+        (br"\u00F", 6),
+        (br"\U", 10),
+        (br"\U000000", 10),
+        (br"\U000000F", 10),
+    ] {
         // SAFETY: each input has at least one readable unit at index zero.
         let incomplete = unsafe { Codec::decode(&mut codec, input, 0) }
             .expect_err("a valid short universal escape should request more input");
@@ -412,8 +421,62 @@ fn test_codec_trait_rejects_invalid_c_universal_short_prefixes() {
         .expect_err("EOF should retain the existing truncated-escape error");
     assert!(matches!(
         invalid_source(eof),
-        MiscCodecError::InvalidEscape { index: 0, .. }
+        MiscCodecError::InvalidEscape {
+            index: 0,
+            escape,
+            reason
+        } if escape == r"\u12" && reason == "incomplete universal character escape"
     ));
+
+    let complete = CStringLiteralCodec::new()
+        .decode(r"\u12")
+        .expect_err("complete-text decoding should retain its truncated-escape error");
+    assert!(matches!(
+        complete,
+        MiscCodecError::InvalidEscape {
+            index: 0,
+            escape,
+            reason
+        } if escape == r"\u12" && reason == "incomplete escape sequence; expected at least 6 units"
+    ));
+}
+
+#[test]
+fn test_c_universal_escape_complete_values_decode() {
+    let mut codec = CStringLiteralCodec::new();
+    for (input, width) in [(br"\u00FF".as_slice(), 6), (br"\U000000FF", 10)] {
+        let (decoded, consumed) =
+            unsafe { Codec::decode(&mut codec, input, 0) }.expect("complete one-byte universal value should decode");
+        assert_eq!(255, decoded, "input={input:?}");
+        assert_eq!(width, consumed.get(), "input={input:?}");
+    }
+}
+
+#[test]
+fn test_c_universal_impossible_prefixes_are_invalid() {
+    for fragment in [r"\u1", r"\u01", r"\u12", r"\U1", r"\U000001"] {
+        for index in [0, 3] {
+            let mut input = vec![b'!'; index];
+            input.extend_from_slice(fragment.as_bytes());
+            let mut codec = CStringLiteralCodec::new();
+            // SAFETY: a readable escape marker exists at index.
+            let error = unsafe { Codec::decode(&mut codec, &input, index) }.unwrap_err();
+            assert!(
+                matches!(
+                    error.invalid_source(),
+                    Some(MiscCodecError::InvalidEscape { index: actual, escape, reason })
+                        if *actual == index && escape == fragment
+                            && reason == "universal character value must fit in one byte"
+                ),
+                "fragment={fragment}, index={index}, error={error:?}"
+            );
+            assert!(
+                error
+                    .consumed_units()
+                    .is_none_or(|width| width.get() <= input.len() - index)
+            );
+        }
+    }
 }
 
 #[test]
@@ -442,6 +505,57 @@ fn test_c_byte_encoding_contract_is_exhaustive() {
             assert_eq!(written, consumed.get());
         }
     }
+}
+
+fn assert_percent_byte_contract<C>(mut codec: C, form: bool)
+where
+    C: Codec<Value = u8, Unit = u8, EncodeError = MiscCodecError, DecodeError = MiscCodecError>,
+{
+    for byte in 0_u8..=u8::MAX {
+        let unescaped = byte.is_ascii_alphanumeric()
+            || if form {
+                b"*-._".contains(&byte)
+            } else {
+                b"-._~".contains(&byte)
+            };
+        let expected = if form && byte == b' ' {
+            "+".to_owned()
+        } else if unescaped {
+            char::from(byte).to_string()
+        } else {
+            format!("%{byte:02X}")
+        };
+
+        let required = Codec::encode_len(&codec, &byte);
+        assert_eq!(expected.len(), required, "byte={byte:#04x}, form={form}");
+        assert!(required <= C::MAX_ENCODE_UNITS_PER_VALUE);
+
+        for index in [0, 3] {
+            let mut storage = [0xa5_u8; 9];
+            // SAFETY: the writable slice contains exactly encode_len units at index.
+            let written = unsafe { Codec::encode(&mut codec, &byte, &mut storage[..index + required], index) }.unwrap();
+            assert_eq!(required, written, "byte={byte:#04x}, index={index}");
+            assert_eq!(expected.as_bytes(), &storage[index..index + written]);
+            assert!(storage[..index].iter().all(|unit| *unit == 0xa5));
+            assert!(storage[index + written..].iter().all(|unit| *unit == 0xa5));
+
+            // SAFETY: the encoded value is nonempty and ends at known EOF.
+            let (decoded, consumed) =
+                unsafe { Codec::decode_eof(&mut codec, &storage[..index + written], index) }.unwrap();
+            assert_eq!(byte, decoded);
+            assert_eq!(written, consumed.get());
+        }
+    }
+}
+
+#[test]
+fn test_percent_byte_encoding_contract_is_exhaustive() {
+    assert_percent_byte_contract(PercentCodec::new(), false);
+}
+
+#[test]
+fn test_form_byte_encoding_contract_is_exhaustive() {
+    assert_percent_byte_contract(FormUrlencodedCodec::new(), true);
 }
 
 #[test]

@@ -163,6 +163,21 @@ fn test_c_universal_adapter_rejects_invalid_short_prefix() {
 }
 
 #[test]
+fn test_c_universal_adapter_rejects_impossible_numeric_prefix() {
+    for input in [br"\u12".as_slice(), br"\U000001".as_slice()] {
+        let mut decoder = CodecTranscodeDecoder::new(CStringLiteralCodec::new());
+        let mut output = [0xa5; 2];
+        decoder.reset(&mut output, 0).unwrap();
+        let error = decoder.transcode(input, 0, &mut output, 0).unwrap_err();
+        assert!(matches!(
+            error.domain_ref(),
+            Some(MiscCodecError::InvalidEscape { index: 0, .. })
+        ));
+        assert_eq!([0xa5; 2], output);
+    }
+}
+
+#[test]
 fn test_safe_hex_adapter_readme() {
     let mut decoder = CodecTranscodeDecoder::new(HexByteCodec::new());
     let chunks: [&[u8]; 3] = [b"1", b"f8", b"b"];

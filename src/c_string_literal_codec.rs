@@ -43,7 +43,8 @@ const UPPER_HEX_DIGITS: [char; 16] = [
 ///
 /// The owned [`decode`](Self::decode) helper treats its input as complete text.
 /// For streaming input, use [`Codec::decode_eof`] after confirming EOF to
-/// resolve format-specific short escapes.
+/// resolve format-specific short escapes. Open-stream decoding requests more
+/// input only when the visible escape prefix can still form a valid byte value.
 /// See the [English README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.md#safe-streaming-hex-byte-adapter)
 /// and [Chinese README](https://github.com/qubit-ltd/rs-codec-misc/blob/main/README.zh_CN.md#安全的-hex-字节流式-adapter)
 /// for a safe streaming adapter example and the linked EOF short-escape test.
@@ -320,7 +321,7 @@ fn decode_c_string_literal_unit(
         }
         b'u' => {
             if context.is_streaming() && available < 6 {
-                validate_fixed_escape_prefix(input, index)?;
+                validate_fixed_escape_prefix(input, index, 4)?;
             }
             if matches!(context, CStringLiteralParseContext::CompleteText(_)) || context.is_streaming() {
                 ensure_fixed_escape_complete(available, nonzero(6))?;
@@ -329,7 +330,7 @@ fn decode_c_string_literal_unit(
         }
         b'U' => {
             if context.is_streaming() && available < 10 {
-                validate_fixed_escape_prefix(input, index)?;
+                validate_fixed_escape_prefix(input, index, 8)?;
             }
             if matches!(context, CStringLiteralParseContext::CompleteText(_)) || context.is_streaming() {
                 ensure_fixed_escape_complete(available, nonzero(10))?;
@@ -405,12 +406,14 @@ fn ensure_fixed_escape_complete(available: usize, required: core::num::NonZeroUs
 /// # Parameters
 /// - `input`: Encoded byte units.
 /// - `marker_index`: Start index of the `\u` or `\U` escape marker.
+/// - `digits`: Total number of hexadecimal digits in this escape form.
 ///
 /// # Errors
 /// Returns an invalid-digit parser outcome when a visible digit is not
-/// hexadecimal.
+/// hexadecimal, or an invalid-escape parser outcome when the visible high
+/// digits already exceed the one-byte range.
 #[inline]
-fn validate_fixed_escape_prefix(input: &[u8], marker_index: usize) -> Result<(), ParseError> {
+fn validate_fixed_escape_prefix(input: &[u8], marker_index: usize, digits: usize) -> Result<(), ParseError> {
     for (offset, byte) in input[marker_index + 2..].iter().copied().enumerate() {
         let character = char::from(byte);
         if hex_value(character).is_none() {
@@ -421,6 +424,15 @@ fn validate_fixed_escape_prefix(input: &[u8], marker_index: usize) -> Result<(),
             }
             .into());
         }
+    }
+    let visible_digits = &input[marker_index + 2..];
+    if visible_digits.iter().take(digits - 2).any(|byte| *byte != b'0') {
+        return Err(invalid_escape(
+            marker_index,
+            &escape_fragment(input, marker_index, input.len()),
+            "universal character value must fit in one byte",
+        )
+        .into());
     }
     Ok(())
 }
