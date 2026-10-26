@@ -90,6 +90,32 @@ fn test_encode_and_decode_into_existing_buffers() {
 }
 
 #[test]
+fn test_hex_codec_reuses_sufficient_capacity_for_structured_input() {
+    let bytes = vec![0x5a; 64 * 1024];
+    let codec = HexCodec::new().with_byte_prefix("0x").with_separator(" ");
+    let encoded = codec.encode(&bytes);
+    let mut output = Vec::with_capacity(bytes.len());
+    let capacity = output.capacity();
+
+    codec.decode_into(&encoded, &mut output).unwrap();
+
+    assert_eq!(bytes, output);
+    assert_eq!(capacity, output.capacity(), "sufficient capacity must be reused");
+}
+
+#[test]
+fn test_hex_codec_does_not_reserve_for_ignored_whitespace_only() {
+    let codec = HexCodec::new().with_ignored_ascii_whitespace(true);
+    let input = " ".repeat(2 * 1024 * 1024);
+    let mut output = Vec::new();
+
+    codec.decode_into(&input, &mut output).unwrap();
+
+    assert!(output.is_empty());
+    assert_eq!(0, output.capacity(), "ignored whitespace must not allocate output");
+}
+
+#[test]
 fn test_decode_into_is_atomic_when_later_input_is_invalid() {
     let codec = HexCodec::new();
     let mut bytes = vec![0x7f];

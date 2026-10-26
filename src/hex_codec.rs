@@ -295,7 +295,12 @@ impl HexCodec {
     #[inline]
     fn decode_append(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let start_index = self.consume_prefix(text)?;
-        output.reserve(text.len().saturating_sub(start_index) / 2);
+        let is_plain = !self.config.ignore_ascii_whitespace
+            && self.config.byte_prefix.as_deref().is_none_or(str::is_empty)
+            && self.config.separator.as_deref().is_none_or(str::is_empty);
+        if is_plain {
+            output.reserve(text.len().saturating_sub(start_index) / 2);
+        }
         if let Some(separator) = self
             .config
             .separator

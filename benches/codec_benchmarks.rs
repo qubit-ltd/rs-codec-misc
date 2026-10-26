@@ -9,6 +9,7 @@
 
 use std::hint::black_box;
 
+use criterion::BatchSize;
 use criterion::Criterion;
 use criterion::Throughput;
 use criterion::criterion_group;
@@ -91,6 +92,41 @@ fn benchmark_hex(c: &mut Criterion) {
                 black_box(&separated_output);
             });
         });
+
+        for (format, codec) in [
+            ("continuous", HexCodec::new()),
+            (
+                "prefixed_separated",
+                HexCodec::new().with_byte_prefix("0x").with_separator(" "),
+            ),
+        ] {
+            let encoded = codec.encode(&bytes);
+            for (allocation, initial_capacity) in [("empty", 0), ("presized", size)] {
+                let mut observed = Vec::with_capacity(initial_capacity);
+                let before = observed.capacity();
+                codec.decode_into(&encoded, &mut observed).expect("valid hex input");
+                let after = observed.capacity();
+                eprintln!(
+                    "hex cold capacity: input={} output={} mode={format}/{allocation} before={before} after={after} grew={}",
+                    encoded.len(),
+                    observed.len(),
+                    after > before
+                );
+
+                group.bench_function(format!("{format}_{size}B_cold_{allocation}"), |bencher| {
+                    bencher.iter_batched(
+                        || Vec::with_capacity(initial_capacity),
+                        |mut output| {
+                            codec
+                                .decode_into(black_box(&encoded), &mut output)
+                                .expect("valid hex input");
+                            black_box(output);
+                        },
+                        BatchSize::SmallInput,
+                    );
+                });
+            }
+        }
     }
     group.finish();
 }
