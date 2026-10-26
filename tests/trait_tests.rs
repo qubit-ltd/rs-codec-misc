@@ -274,7 +274,10 @@ fn assert_malformed_recovery_result(
     assert!(!outcome.failed, "recovery failed: {context}");
     assert_eq!(vec![(1, width, available)], outcome.spans, "{context}");
     assert_eq!(
-        vec![RecoveryDiagnostic { kind, sample_index: Some(sample_index) }],
+        vec![RecoveryDiagnostic {
+            kind,
+            sample_index: Some(sample_index)
+        }],
         outcome.errors,
         "{context}"
     );

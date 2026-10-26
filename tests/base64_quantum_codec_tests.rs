@@ -132,8 +132,8 @@ fn test_base64_quantum_respects_nonzero_offsets() {
             input.extend_from_slice(&units);
             input.extend_from_slice(b"@@");
             // SAFETY: four readable units start at offset.
-            let (decoded, consumed) = unsafe { Codec::decode(&mut codec, &input, offset) }
-                .expect("quantum at nonzero offset must decode");
+            let (decoded, consumed) =
+                unsafe { Codec::decode(&mut codec, &input, offset) }.expect("quantum at nonzero offset must decode");
             assert_eq!(value, decoded);
             assert_eq!(4, consumed.get());
 
