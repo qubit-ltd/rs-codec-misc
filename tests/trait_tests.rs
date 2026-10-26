@@ -240,6 +240,47 @@ where
     }
 }
 
+fn assert_malformed_recovery_result(
+    sample: &[u8],
+    input: &[u8],
+    ends: &[usize],
+    replace: bool,
+    outcome: &RecoveryResult,
+) {
+    let (trigger, limit, kind, sample_index) = match sample {
+        b"%zA" => (2, 3, "InvalidEscape", 0),
+        b"%AzB" => (3, 3, "InvalidEscape", 0),
+        b"%A" => (3, 3, "InvalidEscape", 0),
+        b"%" => (2, 3, "InvalidEscape", 0),
+        br"\uZABC" => (3, 6, "InvalidDigit", 2),
+        br"\u00ZGQ" => (5, 6, "InvalidDigit", 4),
+        br"\U000000ZGQ" => (9, 10, "InvalidDigit", 8),
+        br"\u12ABQ" => (3, 6, "InvalidEscape", 0),
+        br"\xGQ" => (3, 2, "InvalidEscape", 0),
+        _ => panic!("no explicit recovery expectation for {sample:?}"),
+    };
+    let available = ends
+        .iter()
+        .map(|end| end - 1)
+        .find(|available| *available >= trigger)
+        .expect("layout must expose the malformed fragment");
+    let width = available.min(limit);
+    let mut expected_output = Vec::new();
+    if replace {
+        expected_output.push(b'?');
+    }
+    expected_output.extend_from_slice(&input[1 + width..]);
+    let context = format!("sample={sample:?} ends={ends:?} replace={replace}");
+    assert!(!outcome.failed, "recovery failed: {context}");
+    assert_eq!(vec![(1, width, available)], outcome.spans, "{context}");
+    assert_eq!(
+        vec![RecoveryDiagnostic { kind, sample_index: Some(sample_index) }],
+        outcome.errors,
+        "{context}"
+    );
+    assert_eq!(expected_output, outcome.output, "{context}");
+}
+
 fn check_recovery_splits<C>(factory: fn() -> C, samples: &[&[u8]])
 where
     C: Codec<Value = u8, Unit = u8, DecodeError = MiscCodecError>,
@@ -266,6 +307,9 @@ where
                     );
                 }
                 let outcome = run_recovery_chunks(factory(), &input, ends, replace);
+                if !matches!(*sample, br"\xA" | br"\7") {
+                    assert_malformed_recovery_result(sample, &input, ends, replace, &outcome);
+                }
                 assert!(
                     outcome
                         .spans

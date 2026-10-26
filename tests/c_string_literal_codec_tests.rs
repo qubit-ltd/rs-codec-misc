@@ -15,6 +15,49 @@ use qubit_codec_misc::CStringLiteralCodec;
 use qubit_codec_misc::MiscCodecError;
 
 #[test]
+fn test_decode_bounds_unknown_unicode_escape_diagnostics() {
+    let suffix = format!("PRIVATE_TAIL_{}", "x".repeat(4096));
+    for prefix in ["", "AB"] {
+        for character in ['é', '中', '🦀'] {
+            for tail in ["", suffix.as_str()] {
+                let expected_escape = format!("\\{character}");
+                let input = format!("{prefix}{expected_escape}{tail}");
+                let error = CStringLiteralCodec::new()
+                    .decode(&input)
+                    .expect_err("unknown Unicode escape must be rejected");
+                assert!(
+                    !error.to_string().contains("PRIVATE_TAIL_"),
+                    "unrelated suffix leaked into diagnostic: {character:?}"
+                );
+                match error {
+                    MiscCodecError::InvalidEscape { index, escape, reason } => {
+                        assert_eq!(prefix.len(), index);
+                        assert_eq!(expected_escape, escape);
+                        assert_eq!("unsupported escape sequence", reason);
+                    }
+                    other => panic!("unexpected error: {other:?}"),
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_decode_bounds_unknown_ascii_escape_diagnostics() {
+    let error = CStringLiteralCodec::new()
+        .decode(r"AB\zTAIL")
+        .expect_err("unknown ASCII escape must be rejected");
+    match error {
+        MiscCodecError::InvalidEscape { index, escape, reason } => {
+            assert_eq!(2, index);
+            assert_eq!(r"\z", escape);
+            assert_eq!("unsupported escape sequence", reason);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
 fn test_decode_plain_text_and_simple_escapes() {
     let codec = CStringLiteralCodec::new();
 

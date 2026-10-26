@@ -67,10 +67,21 @@ impl CStringLiteralParseContext<'_> {
         }
     }
 
-    /// Builds an escape fragment for diagnostics.
+    /// Builds an escape fragment for diagnostics from a byte-indexed range.
+    ///
+    /// For complete text, the end of the range is rounded up to the next UTF-8
+    /// character boundary, so the fragment remains valid text without falling
+    /// back to the entire remaining suffix. Byte contexts retain their bounded
+    /// byte-to-character mapping.
     pub(crate) fn escape_fragment(self, input: &[u8], start: usize, end: usize) -> String {
         match self {
-            Self::CompleteText(text) => text.get(start..end).or(text.get(start..)).unwrap_or("\\").to_owned(),
+            Self::CompleteText(text) => {
+                let mut fragment_end = end.min(text.len());
+                while !text.is_char_boundary(fragment_end) {
+                    fragment_end += 1;
+                }
+                text.get(start..fragment_end).unwrap_or("\\").to_owned()
+            }
             Self::EofBytes | Self::StreamingBytes => input[start..end.min(input.len())]
                 .iter()
                 .map(|byte| char::from(*byte))
