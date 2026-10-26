@@ -119,6 +119,46 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 qubit-codec-misc = "0.7"
 ```
 
+## 示例：解析 magic 规则
+
+应用从 XML 中提取属性后，可以组合这些 codec 解析 magic 规则。下面展示的是应用层组合方式，并非完整的 MIME loader：库负责语法和数值解析，应用负责检查实际字段位宽与 mask 长度、将错误关联到源规则，并决定是否加载。解析失败时应拒绝该规则，不要静默保留只解析了一部分的值。
+
+这里的 `number` 是另一个用于演示的数值字段，并不表示字符串 magic 和数值属于同一条 MIME matcher 规则。示例中的 `u16` 仅用于演示，实际位宽应根据目标字段选择。
+
+```rust
+use qubit_codec_misc::CIntegerLiteralCodec;
+use qubit_codec_misc::CStringLiteralCodec;
+use qubit_codec_misc::HexCodec;
+
+fn parse_rule(value: &str, number: &str, mask: &str)
+    -> Result<(Vec<u8>, u16, Vec<u8>), String>
+{
+    let bytes = CStringLiteralCodec::new().decode(value).map_err(|e| e.to_string())?;
+    let number = CIntegerLiteralCodec::new().decode(number).map_err(|e| e.to_string())?;
+    let number = u16::try_from(number).map_err(|_| "value exceeds 16 bits".to_owned())?;
+    let mask = HexCodec::new()
+        .with_prefix("0x")
+        .with_ignore_prefix_case(true)
+        .decode(mask).map_err(|e| e.to_string())?;
+    if mask.len() != bytes.len() {
+        return Err("mask length must equal magic length".to_owned());
+    }
+    Ok((bytes, number, mask))
+}
+
+fn main() -> Result<(), String> {
+    let (bytes, number, mask) = parse_rule(r"PK\003\004", "0x1234", "0XFFFFFFFF")?;
+    assert_eq!(b"PK\x03\x04".as_slice(), bytes.as_slice());
+    assert_eq!(0x1234, number);
+    assert_eq!(vec![0xff; 4], mask);
+    assert_eq!(parse_rule("PK", "0x10000", "0xFFFF").unwrap_err(),
+        "value exceeds 16 bits");
+    assert_eq!(parse_rule("PK", "1", "0xFF").unwrap_err(),
+        "mask length must equal magic length");
+    Ok(())
+}
+```
+
 ## 快速开始
 
 ### 十六进制字节

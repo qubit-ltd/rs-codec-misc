@@ -152,6 +152,46 @@ Add this to your `Cargo.toml`:
 qubit-codec-misc = "0.7"
 ```
 
+## Example: Parsing a Magic Rule
+
+An application that has already extracted attributes from XML can use these codecs to parse a magic rule. This is an application composition example, not a complete MIME loader: the library parses syntax and numeric values, while the application checks the real field width and mask length, associates errors with the source rule, and decides whether to load it. A parse failure rejects the rule; it must not silently keep partially parsed values.
+
+Here, `number` is a separate illustrative numeric field; it does not imply that the string magic and the numeric value belong to the same MIME matcher rule. `u16` is for demonstration only; choose the width according to the actual target field.
+
+```rust
+use qubit_codec_misc::CIntegerLiteralCodec;
+use qubit_codec_misc::CStringLiteralCodec;
+use qubit_codec_misc::HexCodec;
+
+fn parse_rule(value: &str, number: &str, mask: &str)
+    -> Result<(Vec<u8>, u16, Vec<u8>), String>
+{
+    let bytes = CStringLiteralCodec::new().decode(value).map_err(|e| e.to_string())?;
+    let number = CIntegerLiteralCodec::new().decode(number).map_err(|e| e.to_string())?;
+    let number = u16::try_from(number).map_err(|_| "value exceeds 16 bits".to_owned())?;
+    let mask = HexCodec::new()
+        .with_prefix("0x")
+        .with_ignore_prefix_case(true)
+        .decode(mask).map_err(|e| e.to_string())?;
+    if mask.len() != bytes.len() {
+        return Err("mask length must equal magic length".to_owned());
+    }
+    Ok((bytes, number, mask))
+}
+
+fn main() -> Result<(), String> {
+    let (bytes, number, mask) = parse_rule(r"PK\003\004", "0x1234", "0XFFFFFFFF")?;
+    assert_eq!(b"PK\x03\x04".as_slice(), bytes.as_slice());
+    assert_eq!(0x1234, number);
+    assert_eq!(vec![0xff; 4], mask);
+    assert_eq!(parse_rule("PK", "0x10000", "0xFFFF").unwrap_err(),
+        "value exceeds 16 bits");
+    assert_eq!(parse_rule("PK", "1", "0xFF").unwrap_err(),
+        "mask length must equal magic length");
+    Ok(())
+}
+```
+
 ## Quick Start
 
 ### Hexadecimal Bytes
