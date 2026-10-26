@@ -13,6 +13,9 @@ use qubit_codec_misc::Base64Codec;
 use qubit_codec_misc::Base64ErrorKind;
 use qubit_codec_misc::MiscCodecError;
 
+type Base64Mode = (&'static str, fn() -> Base64Codec, bool, bool);
+type Base64PaddingCase = (&'static str, fn() -> Base64Codec, &'static str);
+
 #[test]
 fn test_standard_base64_roundtrip_with_padding() {
     let codec = Base64Codec::standard();
@@ -61,6 +64,104 @@ fn test_base64_constructors_cover_padding_and_alphabet_variants() {
             .decode("aGk=")
             .expect("default base64 should decode")
     );
+}
+
+#[test]
+fn test_base64_facades_accept_only_their_padding_and_alphabet_variants() {
+    let modes: [Base64Mode; 4] = [
+        ("standard padded", Base64Codec::standard, true, true),
+        ("standard unpadded", Base64Codec::standard_no_pad, false, true),
+        ("URL-safe padded", Base64Codec::url_safe, true, false),
+        ("URL-safe unpadded", Base64Codec::url_safe_no_pad, false, false),
+    ];
+
+    for (name, factory, has_padding, is_standard) in modes {
+        let codec = factory();
+        for (input, expected) in [("", b"".as_slice()), ("TWFu", b"Man".as_slice())] {
+            assert_eq!(
+                expected,
+                codec
+                    .decode(input)
+                    .unwrap_or_else(|error| { panic!("{name} should accept {input:?}: {error}") }),
+                "{name} decoding {input:?}"
+            );
+        }
+
+        for (padded, unpadded, expected) in [("Zg==", "Zg", b"f".as_slice()), ("Zm8=", "Zm8", b"fo".as_slice())] {
+            let accepted = if has_padding { padded } else { unpadded };
+            let rejected = if has_padding { unpadded } else { padded };
+            assert_eq!(
+                expected,
+                codec
+                    .decode(accepted)
+                    .unwrap_or_else(|error| { panic!("{name} should accept {accepted:?}: {error}") }),
+                "{name} decoding {accepted:?}"
+            );
+            assert!(
+                codec.decode(rejected).is_err(),
+                "{name} should reject padding mismatch {rejected:?}"
+            );
+        }
+
+        let (own_padded, own_unpadded, foreign_padded, foreign_unpadded) = if is_standard {
+            ("+/8=", "+/8", "-_8=", "-_8")
+        } else {
+            ("-_8=", "-_8", "+/8=", "+/8")
+        };
+        let own = if has_padding { own_padded } else { own_unpadded };
+        let foreign = if has_padding { foreign_padded } else { foreign_unpadded };
+        assert_eq!(
+            vec![0xfb, 0xff],
+            codec
+                .decode(own)
+                .unwrap_or_else(|error| panic!("{name} should accept {own:?}: {error}")),
+            "{name} decoding its alphabet"
+        );
+        assert!(
+            codec.decode(foreign).is_err(),
+            "{name} should reject the foreign alphabet {foreign:?}"
+        );
+
+        let malformed = ["Zg===", "Z=g=", "Zg=", "Z g==", "Zg==\n", "Zh==", "Zm9=", "Zh", "Zm9"];
+        for input in malformed {
+            assert!(
+                codec.decode(input).is_err(),
+                "{name} should reject malformed input {input:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_base64_facades_preserve_invalid_padding_source() {
+    let mismatched_padding: [Base64PaddingCase; 4] = [
+        ("standard padded", Base64Codec::standard, "Zg"),
+        ("standard unpadded", Base64Codec::standard_no_pad, "Zg=="),
+        ("URL-safe padded", Base64Codec::url_safe, "Zg"),
+        ("URL-safe unpadded", Base64Codec::url_safe_no_pad, "Zg=="),
+    ];
+
+    for (name, factory, input) in mismatched_padding {
+        let error = factory()
+            .decode(input)
+            .expect_err(&format!("{name} should reject {input:?}"));
+        assert!(matches!(
+            &error,
+            MiscCodecError::InvalidBase64 {
+                kind: Base64ErrorKind::InvalidPadding,
+                input_index: None,
+                symbol: None,
+                input_length: None,
+                ..
+            }
+        ));
+        let source = std::error::Error::source(&error).expect("invalid padding should retain its dependency source");
+        assert_eq!(
+            Some(&base64::DecodeError::InvalidPadding),
+            source.downcast_ref::<base64::DecodeError>(),
+            "{name} source error"
+        );
+    }
 }
 
 #[test]
