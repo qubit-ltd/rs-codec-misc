@@ -122,7 +122,7 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 ```toml
 [dependencies]
-qubit-codec-misc = "0.7"
+qubit-codec-misc = "0.8"
 ```
 
 ## 示例：解析 magic 规则

@@ -157,7 +157,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qubit-codec-misc = "0.7"
+qubit-codec-misc = "0.8"
 ```
 
 ## Example: Parsing a Magic Rule
