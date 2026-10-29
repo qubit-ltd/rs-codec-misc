@@ -6,8 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use qubit_codec::CapacityError;
+use qubit_codec::TranscodeDecodeError;
 use qubit_codec::TranscodeDecoder;
 use qubit_codec::TranscodeEncoder;
+use qubit_codec::TranscodeFailure;
 use qubit_codec::TranscodeStatus;
 use qubit_codec::Transcoder;
 use qubit_codec_misc::Base64Codec;
@@ -98,6 +100,48 @@ fn drive_decode_segment(
             }
         }
     }
+}
+
+/// Drives one decoder segment while preserving domain errors for contract
+/// checks.
+fn drive_decode_part(
+    decoder: &mut Base64Decoder,
+    input: &[u8],
+    eof: bool,
+    first_capacity: usize,
+    decoded: &mut Vec<u8>,
+) -> Result<usize, TranscodeDecodeError<MiscCodecError>> {
+    let mut cursor = 0;
+    let mut capacity = first_capacity;
+    for _ in 0..input.len() * 2 + 8 {
+        let mut scratch = vec![0xa5; capacity + 2];
+        let result = if eof {
+            decoder.transcode_eof(input, cursor, &mut scratch[1..1 + capacity], 0)
+        } else {
+            decoder.transcode(input, cursor, &mut scratch[1..1 + capacity], 0)
+        };
+        assert_eq!(scratch[0], 0xa5);
+        assert_eq!(scratch[capacity + 1], 0xa5);
+        let progress = result?;
+        progress.validate(cursor, input.len() - cursor, 0, capacity).unwrap();
+        cursor += progress.read();
+        decoded.extend_from_slice(&scratch[1..1 + progress.written()]);
+        match progress.status() {
+            TranscodeStatus::Complete => {
+                assert_eq!(cursor, input.len());
+                return Ok(cursor);
+            }
+            TranscodeStatus::NeedInput { .. } => {
+                assert!(!eof, "EOF must resolve or reject the retained tail");
+                return Ok(cursor);
+            }
+            TranscodeStatus::NeedOutput { required } => {
+                capacity = required.get();
+                assert!((1..=3).contains(&capacity));
+            }
+        }
+    }
+    panic!("decoder did not reach a boundary within the step limit");
 }
 
 #[test]
@@ -307,4 +351,81 @@ fn test_base64_transcoder_structured_errors_report_positions_and_source() {
     invalid_length.reset(&mut [], 0).unwrap();
     let error = invalid_length.transcode_eof(b"T", 0, &mut [0; 3], 0).unwrap_err();
     assert_eq!(error.domain_error_ref().and_then(|e| e.input_index()), Some(0));
+}
+
+#[test]
+fn test_base64_transcoder_malformed_every_split_and_capacity() {
+    let factories: [fn() -> Base64Codec; 4] = [
+        Base64Codec::standard,
+        Base64Codec::standard_no_pad,
+        Base64Codec::url_safe,
+        Base64Codec::url_safe_no_pad,
+    ];
+    let inputs = [
+        "",
+        "TWFu",
+        "TQ==",
+        "TQ",
+        "+/8=",
+        "-_8=",
+        "TWFuZh==",
+        "TWFuZm9=",
+        "TWFuZg=",
+        "Z=g=",
+        "Zg===",
+        "TQ==TQ==",
+        "TQ==A",
+        "TWFu@AAA",
+        "TWFuZg==\n",
+    ];
+    for (mode, make) in factories.into_iter().enumerate() {
+        let codec = make();
+        for text in inputs {
+            let expected = codec.decode(text);
+            let input = text.as_bytes();
+            let sufficient = codec.decoder().max_transcode_output_len(input.len()).unwrap().max(4);
+            for split in 0..=input.len() {
+                for capacity in [0, 1, 2, 3, sufficient] {
+                    let case = format!("mode={mode} input={text:?} split={split} capacity={capacity}");
+                    let mut decoder = codec.decoder();
+                    decoder.reset(&mut [], 0).unwrap();
+                    let mut actual = Vec::new();
+                    let result = (|| -> Result<(), TranscodeDecodeError<MiscCodecError>> {
+                        let read = drive_decode_part(&mut decoder, &input[..split], false, capacity, &mut actual)?;
+                        // Retain the unconsumed prefix and append the second chunk.
+                        drive_decode_part(&mut decoder, &input[read..], true, capacity, &mut actual)?;
+                        assert_eq!(decoder.finish(&mut [], 0)?, 0);
+                        Ok(())
+                    })();
+                    match (&expected, result) {
+                        (Ok(bytes), Ok(())) => assert_eq!(&actual, bytes, "{case}"),
+                        (Err(_), Err(error)) => {
+                            assert!(error.is_domain(), "{case}: {error}");
+                            let error = decoder.transcode(&[], 0, &mut [], 0).unwrap_err();
+                            assert!(
+                                matches!(error.failure_ref(), Some(TranscodeFailure::LifecyclePoisoned)),
+                                "{case}"
+                            );
+                            let error = decoder.finish(&mut [], 0).unwrap_err();
+                            assert!(
+                                matches!(error.failure_ref(), Some(TranscodeFailure::LifecyclePoisoned)),
+                                "{case}"
+                            );
+                            decoder.reset(&mut [], 0).unwrap();
+                            let mut output = [0; 3];
+                            let progress = decoder.transcode_eof(b"TWFu", 0, &mut output, 0).unwrap();
+                            assert_eq!(progress.read(), 4, "{case}");
+                            assert_eq!(progress.written(), 3, "{case}");
+                            assert_eq!(progress.status(), TranscodeStatus::Complete, "{case}");
+                            assert_eq!(&output, b"Man", "{case}");
+                            assert_eq!(decoder.finish(&mut [], 0).unwrap(), 0);
+                        }
+                        (_, outcome) => {
+                            panic!("acceptance mismatch: {case}, expected={expected:?}, actual={outcome:?}")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
