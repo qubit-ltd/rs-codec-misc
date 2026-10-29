@@ -130,6 +130,8 @@ offset.
 The encoder reports capacity from the advanced output position. This example
 retains the first output and retries only the unconsumed input:
 
+This streaming example requires both direct dependencies shown in [Installation](#installation).
+
 ```rust
 use qubit_codec::TranscodeStatus;
 use qubit_codec::Transcoder;
@@ -221,6 +223,15 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
+qubit-codec-misc = "0.8"
+```
+
+For traits, adapters, or streaming APIs imported from `qubit_codec`, also add
+`qubit-codec` as a direct dependency:
+
+```toml
+[dependencies]
+qubit-codec = "0.17"
 qubit-codec-misc = "0.8"
 ```
 

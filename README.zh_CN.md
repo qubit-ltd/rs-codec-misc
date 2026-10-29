@@ -98,6 +98,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 
 encoder 的 `NeedOutput.required` 从推进后的输出位置起算。下面的示例保留已有输出，并只重试尚未消费的输入：
 
+本流式示例需要直接声明两个依赖，见[安装](#安装)。
+
 ```rust
 use qubit_codec::TranscodeStatus;
 use qubit_codec::Transcoder;
@@ -171,6 +173,15 @@ assert_eq!(&larger, b"TWFuTWFu");
 
 ```toml
 [dependencies]
+qubit-codec-misc = "0.8"
+```
+
+使用从 `qubit_codec` 导入的 trait、adapter 或流式 API 时，还需将
+`qubit-codec` 声明为直接依赖：
+
+```toml
+[dependencies]
+qubit-codec = "0.17"
 qubit-codec-misc = "0.8"
 ```
 
