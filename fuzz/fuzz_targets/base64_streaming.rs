@@ -23,20 +23,11 @@ use qubit_codec_misc::Base64Codec;
 const MAX_INPUT_LEN: usize = 4 * 1024;
 
 fn control(seed: &[u8], step: usize) -> u8 {
-    if seed.is_empty() {
-        0
-    } else {
-        seed[step % seed.len()]
-    }
+    if seed.is_empty() { 0 } else { seed[step % seed.len()] }
 }
 
 /// Runs a transcoder through bounded, deterministic input and output windows.
-fn drive<T>(
-    transcoder: &mut T,
-    input: &[u8],
-    seed: &[u8],
-    decoder: bool,
-) -> Result<Vec<u8>, T::Error>
+fn drive<T>(transcoder: &mut T, input: &[u8], seed: &[u8], decoder: bool) -> Result<Vec<u8>, T::Error>
 where
     T: Transcoder<Input = u8, Output = u8>,
 {
@@ -81,11 +72,7 @@ where
             )
         };
         assert!(storage[..out_start].iter().all(|byte| *byte == 0xa5));
-        assert!(
-            storage[out_start + capacity..]
-                .iter()
-                .all(|byte| *byte == 0xa5)
-        );
+        assert!(storage[out_start + capacity..].iter().all(|byte| *byte == 0xa5));
         let progress = result?;
         progress
             .validate(cursor, visible - cursor, out_start, capacity)
@@ -116,9 +103,7 @@ where
 
 fuzz_target!(|data: &[u8]| {
     let data = &data[..data.len().min(MAX_INPUT_LEN)];
-    let (mode, rest) = data
-        .split_first()
-        .map_or((0, &[][..]), |(flag, rest)| (*flag, rest));
+    let (mode, rest) = data.split_first().map_or((0, &[][..]), |(flag, rest)| (*flag, rest));
     let seed_len = rest.len().min(8);
     let (seed, payload) = rest.split_at(seed_len);
     let (codec, engine) = match mode % 4 {
@@ -156,10 +141,7 @@ fuzz_target!(|data: &[u8]| {
         (Err(_), Err(error)) => {
             assert!(error.is_domain());
             assert!(matches!(
-                decoder
-                    .transcode(&[], 0, &mut [], 0)
-                    .unwrap_err()
-                    .failure_ref(),
+                decoder.transcode(&[], 0, &mut [], 0).unwrap_err().failure_ref(),
                 Some(TranscodeFailure::LifecyclePoisoned)
             ));
             assert!(matches!(
@@ -170,8 +152,5 @@ fuzz_target!(|data: &[u8]| {
         (expected, actual) => panic!("acceptance mismatch: {expected:?}, {actual:?}"),
     }
 
-    assert_eq!(
-        drive(&mut decoder, b"TWFu", seed, true).expect("reset decoder"),
-        b"Man",
-    );
+    assert_eq!(drive(&mut decoder, b"TWFu", seed, true).expect("reset decoder"), b"Man",);
 });
