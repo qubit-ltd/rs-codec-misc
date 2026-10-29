@@ -37,6 +37,43 @@ fn test_base64_encoder_retains_two_bytes_then_reports_output_pressure() {
 }
 
 #[test]
+fn test_base64_encoder_consumes_one_byte_per_call() {
+    let mut encoder = Base64Encoder::standard();
+    encoder.reset(&mut [], 0).expect("reset");
+    let mut out = [0; 4];
+    for (input, expected_read) in [(b"M".as_slice(), 1), (b"a".as_slice(), 1)] {
+        let progress = encoder.transcode(input, 0, &mut out, 0).expect("retain partial quantum");
+        assert_eq!(progress.status(), TranscodeStatus::Complete);
+        assert_eq!(progress.read(), expected_read);
+        assert_eq!(progress.written(), 0);
+    }
+    let progress = encoder.transcode(b"n", 0, &mut out, 0).expect("complete quantum");
+    assert_eq!(progress.status(), TranscodeStatus::Complete);
+    assert_eq!(progress.read(), 1);
+    assert_eq!(progress.written(), 4);
+    assert_eq!(&out, b"TWFu");
+}
+
+#[test]
+fn test_base64_encoder_output_pressure_at_nonzero_output_index() {
+    let mut encoder = Base64Encoder::standard();
+    encoder.reset(&mut [], 0).expect("reset");
+    let mut out = [0xa5; 6];
+    let progress = encoder.transcode(b"Man", 0, &mut out[..5], 2).expect("backpressure");
+    assert!(matches!(progress.status(), TranscodeStatus::NeedOutput { required } if required.get() == 4));
+    assert_eq!(progress.read(), 2);
+    assert_eq!(progress.written(), 0);
+    assert_eq!(out, [0xa5; 6]);
+
+    let progress = encoder.transcode(b"n", 0, &mut out, 2).expect("resume at same output index");
+    assert_eq!(progress.status(), TranscodeStatus::Complete);
+    assert_eq!(progress.read(), 1);
+    assert_eq!(progress.written(), 4);
+    assert_eq!(&out[2..6], b"TWFu");
+    assert_eq!(&out[..2], &[0xa5; 2]);
+}
+
+#[test]
 fn test_base64_encoder_finish_capacity_failure_preserves_tail() {
     let mut encoder = Base64Encoder::standard();
     encoder.reset(&mut [], 0).expect("reset");
