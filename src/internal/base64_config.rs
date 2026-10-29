@@ -8,7 +8,10 @@
 //! Shared static configuration for Base64 codecs and transcoders.
 
 use base64::engine::GeneralPurpose;
-use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::STANDARD_NO_PAD;
+use base64::engine::general_purpose::URL_SAFE;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use qubit_codec::CapacityError;
 
 static STANDARD_ENGINE: GeneralPurpose = STANDARD;
@@ -45,7 +48,7 @@ impl Base64Config {
 /// Returns a checked upper bound for encoding `n` bytes.
 pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 3)
-        .checked_add(usize::from(n % 3 != 0))
+        .checked_add(usize::from(!n.is_multiple_of(3)))
         .and_then(|groups| groups.checked_mul(4))
         .ok_or(CapacityError::OutputLengthOverflow)
 }
@@ -53,7 +56,7 @@ pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
 /// Returns a checked upper bound for decoding `n` Base64 bytes.
 pub(crate) fn base64_decode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 4)
-        .checked_add(usize::from(n % 4 != 0))
+        .checked_add(usize::from(!n.is_multiple_of(4)))
         .and_then(|groups| groups.checked_mul(3))
         .ok_or(CapacityError::OutputLengthOverflow)
 }

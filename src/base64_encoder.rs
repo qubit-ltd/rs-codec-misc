@@ -7,14 +7,19 @@
 // =============================================================================
 //! Streaming Base64 encoder configuration and state.
 
-use crate::internal::{Base64Config, Base64StreamPhase};
-use base64::Engine;
 use core::convert::Infallible;
 use core::num::NonZeroUsize;
-use qubit_codec::{
-    CapacityError, TranscodeEncodeError, TranscodeFailure, TranscodeProgress, TranscodeEncoder,
-    Transcoder,
-};
+
+use base64::Engine;
+use qubit_codec::CapacityError;
+use qubit_codec::TranscodeEncodeError;
+use qubit_codec::TranscodeEncoder;
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeProgress;
+use qubit_codec::Transcoder;
+
+use crate::internal::Base64Config;
+use crate::internal::Base64StreamPhase;
 
 /// Encodes bytes incrementally using a strict Base64 configuration.
 ///
@@ -128,7 +133,10 @@ impl Transcoder for Base64Encoder {
                     ));
                 }
                 let quantum = [self.tail[0], self.tail[1], input[i]];
-                let written = self.config.engine().encode_slice(quantum, &mut output[o..o + 4])
+                let written = self
+                    .config
+                    .engine()
+                    .encode_slice(quantum, &mut output[o..o + 4])
                     .expect("four output bytes fit one full quantum");
                 debug_assert_eq!(written, 4);
                 self.tail_len = 0;
@@ -140,10 +148,11 @@ impl Transcoder for Base64Encoder {
             if groups > 0 {
                 let consumed = groups * 3;
                 let emitted = groups * 4;
-                let written = self.config.engine().encode_slice(
-                    &input[i..i + consumed],
-                    &mut output[o..o + emitted],
-                ).expect("preflight reserves four bytes per full quantum");
+                let written = self
+                    .config
+                    .engine()
+                    .encode_slice(&input[i..i + consumed], &mut output[o..o + emitted])
+                    .expect("preflight reserves four bytes per full quantum");
                 debug_assert_eq!(written, emitted);
                 i += consumed;
                 o += written;
@@ -168,8 +177,13 @@ impl Transcoder for Base64Encoder {
             self.tail_len + 1
         };
         TranscodeFailure::ensure_output_capacity(output.len(), output_index, needed)?;
-        let written = self.config.engine()
-            .encode_slice(&self.tail[..self.tail_len], &mut output[output_index..output_index + needed])
+        let written = self
+            .config
+            .engine()
+            .encode_slice(
+                &self.tail[..self.tail_len],
+                &mut output[output_index..output_index + needed],
+            )
             .expect("preflight reserves the exact final encoded length");
         self.tail = [0; 2];
         self.tail_len = 0;

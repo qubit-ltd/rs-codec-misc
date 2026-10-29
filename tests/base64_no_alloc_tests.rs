@@ -1,8 +1,20 @@
-use std::alloc::{GlobalAlloc, Layout, System};
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+use std::alloc::GlobalAlloc;
+use std::alloc::Layout;
+use std::alloc::System;
 use std::cell::Cell;
 
-use qubit_codec::{TranscodeStatus, Transcoder};
-use qubit_codec_misc::{Base64Codec, Base64Decoder, Base64Encoder};
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Codec;
+use qubit_codec_misc::Base64Decoder;
+use qubit_codec_misc::Base64Encoder;
 
 thread_local! {
     // Const Cell initialization uses no heap allocation.
@@ -36,12 +48,14 @@ unsafe impl GlobalAlloc for ThreadCountingAllocator {
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         note_allocation();
-        // SAFETY: The caller supplied this pointer, layout, and size, all forwarded unchanged.
+        // SAFETY: The caller supplied this pointer, layout, and size, all forwarded
+        // unchanged.
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // SAFETY: The caller supplied this pointer and layout, both forwarded unchanged.
+        // SAFETY: The caller supplied this pointer and layout, both forwarded
+        // unchanged.
         unsafe { System.dealloc(ptr, layout) }
     }
 }
@@ -162,15 +176,13 @@ fn test_base64_streaming_and_errors_allocate_nothing() {
 
     let mut index_decoder = Base64Decoder::standard();
     index_decoder.reset(&mut [], 0).unwrap();
-    let (invalid_index, allocations) =
-        measured(|| index_decoder.transcode(b"TQ==", 5, &mut decoded, 0));
+    let (invalid_index, allocations) = measured(|| index_decoder.transcode(b"TQ==", 5, &mut decoded, 0));
     assert_eq!(allocations, 0);
     assert!(invalid_index.is_err());
 
     let mut failure_decoder = Base64Decoder::standard();
     failure_decoder.reset(&mut [], 0).unwrap();
-    let (error, allocations) =
-        measured(|| failure_decoder.transcode_eof(b"YR==", 0, &mut decoded, 0));
+    let (error, allocations) = measured(|| failure_decoder.transcode_eof(b"YR==", 0, &mut decoded, 0));
     assert_eq!(allocations, 0);
     assert!(error.unwrap_err().is_domain());
     let (poisoned, allocations) = measured(|| failure_decoder.finish(&mut [], 0));

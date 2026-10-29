@@ -7,15 +7,22 @@
 // =============================================================================
 //! Streaming Base64 decoder configuration and state.
 
-use base64::{DecodeError, DecodeSliceError, Engine};
 use core::num::NonZeroUsize;
-use qubit_codec::{
-    CapacityError, TranscodeDecodeError, TranscodeDecoder, TranscodeFailure, TranscodeProgress,
-    Transcoder,
-};
 
-use crate::internal::{base64_decode_bound, Base64Config, Base64StreamPhase};
+use base64::DecodeError;
+use base64::DecodeSliceError;
+use base64::Engine;
+use qubit_codec::CapacityError;
+use qubit_codec::TranscodeDecodeError;
+use qubit_codec::TranscodeDecoder;
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeProgress;
+use qubit_codec::Transcoder;
+
 use crate::MiscCodecError;
+use crate::internal::Base64Config;
+use crate::internal::Base64StreamPhase;
+use crate::internal::base64_decode_bound;
 
 /// Decodes Base64 incrementally using a strict configuration.
 ///
@@ -67,11 +74,7 @@ impl Base64Decoder {
         Self::from_config(Base64Config::UrlSafeNoPad)
     }
 
-    fn domain_error(
-        &mut self,
-        source: DecodeError,
-        segment_start: usize,
-    ) -> TranscodeDecodeError<MiscCodecError> {
+    fn domain_error(&mut self, source: DecodeError, segment_start: usize) -> TranscodeDecodeError<MiscCodecError> {
         let relative = match &source {
             DecodeError::InvalidByte(index, _) => *index,
             DecodeError::InvalidLastSymbol { offset, .. } => *offset,
@@ -89,12 +92,7 @@ impl Base64Decoder {
         output_index: usize,
         eof: bool,
     ) -> Result<TranscodeProgress, TranscodeDecodeError<MiscCodecError>> {
-        TranscodeFailure::ensure_transcode_indices(
-            input.len(),
-            input_index,
-            output.len(),
-            output_index,
-        )?;
+        TranscodeFailure::ensure_transcode_indices(input.len(), input_index, output.len(), output_index)?;
         self.phase.ensure_transcode()?;
         let mut i = input_index;
         let mut o = output_index;
@@ -103,24 +101,24 @@ impl Base64Decoder {
             return Err(self.domain_error(DecodeError::InvalidByte(0, input[i]), i));
         }
 
-        if eof && !self.terminal_padding {
-            if let Ok(bound) = base64_decode_bound(input.len() - i) {
-                if output.len() - o >= bound {
-                    let written = match self.config.engine().decode_slice(&input[i..], &mut output[o..]) {
-                        Ok(written) => written,
-                        Err(DecodeSliceError::DecodeError(source)) => {
-                            return Err(self.domain_error(source, i));
-                        }
-                        // The checked bound covers the engine's conservative
-                        // decode estimate for the full input suffix.
-                        Err(DecodeSliceError::OutputSliceTooSmall) => {
-                            unreachable!("decoded upper bound covers engine estimate")
-                        }
-                    };
-                    self.terminal_padding = input[i..].contains(&b'=');
-                    return Ok(TranscodeProgress::complete(input.len() - i, written));
+        if eof
+            && !self.terminal_padding
+            && let Ok(bound) = base64_decode_bound(input.len() - i)
+            && output.len() - o >= bound
+        {
+            let written = match self.config.engine().decode_slice(&input[i..], &mut output[o..]) {
+                Ok(written) => written,
+                Err(DecodeSliceError::DecodeError(source)) => {
+                    return Err(self.domain_error(source, i));
                 }
-            }
+                // The checked bound covers the engine's conservative
+                // decode estimate for the full input suffix.
+                Err(DecodeSliceError::OutputSliceTooSmall) => {
+                    unreachable!("decoded upper bound covers engine estimate")
+                }
+            };
+            self.terminal_padding = input[i..].contains(&b'=');
+            return Ok(TranscodeProgress::complete(input.len() - i, written));
         }
 
         while i < input.len() {
@@ -147,10 +145,11 @@ impl Base64Decoder {
             if groups_without_padding > 0 {
                 let take = groups_without_padding * 4;
                 let capacity = groups_without_padding * 3;
-                let written = match self.config.engine().decode_slice(
-                    &input[i..i + take],
-                    &mut output[o..o + capacity],
-                ) {
+                let written = match self
+                    .config
+                    .engine()
+                    .decode_slice(&input[i..i + take], &mut output[o..o + capacity])
+                {
                     Ok(written) => written,
                     Err(DecodeSliceError::DecodeError(source)) => {
                         return Err(self.domain_error(source, i));
@@ -194,10 +193,7 @@ impl Base64Decoder {
             o += written;
         }
 
-        Ok(TranscodeProgress::complete(
-            i - input_index,
-            o - output_index,
-        ))
+        Ok(TranscodeProgress::complete(i - input_index, o - output_index))
     }
 }
 

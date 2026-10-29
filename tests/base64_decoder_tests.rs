@@ -1,8 +1,17 @@
-use qubit_codec::{TranscodeFailure, TranscodeStatus, Transcoder};
-use qubit_codec_misc::Base64ErrorKind;
-use qubit_codec_misc::MiscCodecError;
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
 use qubit_codec_misc::Base64Codec;
 use qubit_codec_misc::Base64Decoder;
+use qubit_codec_misc::Base64ErrorKind;
+use qubit_codec_misc::MiscCodecError;
 
 #[test]
 fn test_base64_decoder_constructors_are_independent_of_codec_lifetime() {
@@ -33,9 +42,7 @@ fn test_base64_decoder_preserves_short_tail_until_eof() {
         TranscodeStatus::NeedInput { required } if required.get() == 4
     ));
     assert_eq!(out, [0xa5; 3]);
-    let p = decoder
-        .transcode_eof(b"TQ", 0, &mut out, 0)
-        .expect("EOF resolves tail");
+    let p = decoder.transcode_eof(b"TQ", 0, &mut out, 0).expect("EOF resolves tail");
     assert_eq!((p.read(), p.written()), (2, 1));
     assert_eq!(p.status(), TranscodeStatus::Complete);
     assert_eq!(out[0], b'M');
@@ -70,29 +77,17 @@ fn test_base64_decoder_padding_accepts_exact_output_and_rejects_next_call() {
     let mut decoder = Base64Decoder::standard();
     decoder.reset(&mut [], 0).expect("reset");
     let mut one = [0; 1];
-    let p = decoder
-        .transcode(b"TQ==", 0, &mut one, 0)
-        .expect("one-byte tail");
+    let p = decoder.transcode(b"TQ==", 0, &mut one, 0).expect("one-byte tail");
     assert_eq!((p.read(), p.written()), (4, 1));
     assert_eq!(one, [b'M']);
     let error = decoder
         .transcode(b"TWFu", 0, &mut [0; 3], 0)
         .expect_err("data after padding");
     assert!(error.is_domain());
-    let error = decoder
-        .finish(&mut [], 0)
-        .expect_err("poisoned after domain error");
-    assert!(matches!(
-        error.failure_ref(),
-        Some(TranscodeFailure::LifecyclePoisoned)
-    ));
+    let error = decoder.finish(&mut [], 0).expect_err("poisoned after domain error");
+    assert!(matches!(error.failure_ref(), Some(TranscodeFailure::LifecyclePoisoned)));
     decoder.reset(&mut [], 0).expect("reset clears terminal flag");
-    assert_eq!(
-        decoder
-            .transcode_complete_into(b"TWFu", &mut [0; 3])
-            .expect("reuse"),
-        3
-    );
+    assert_eq!(decoder.transcode_complete_into(b"TWFu", &mut [0; 3]).expect("reuse"), 3);
 }
 
 #[test]
@@ -134,9 +129,7 @@ fn test_base64_decoder_padding_backpressure_uses_actual_quantum_output() {
         ));
 
         let mut output = [0; 3];
-        let progress = decoder
-            .transcode(input, 0, &mut output, 0)
-            .expect("resume quantum");
+        let progress = decoder.transcode(input, 0, &mut output, 0).expect("resume quantum");
         assert_eq!((progress.read(), progress.written()), (input.len(), expected_required));
         assert_eq!(&output[..expected_required], expected_output);
     }
@@ -185,14 +178,24 @@ fn test_base64_decoder_strict_configurations_match_complete_codec() {
 #[test]
 fn test_base64_decoder_strict_alphabet_and_padding_variants() {
     let modes = [
-        (Base64Codec::standard(), Base64Decoder::standard(), b"+/8=".as_slice(), b"-_8=".as_slice()),
+        (
+            Base64Codec::standard(),
+            Base64Decoder::standard(),
+            b"+/8=".as_slice(),
+            b"-_8=".as_slice(),
+        ),
         (
             Base64Codec::standard_no_pad(),
             Base64Decoder::standard_no_pad(),
             b"+/8",
             b"-_8",
         ),
-        (Base64Codec::url_safe(), Base64Decoder::url_safe(), b"-_8=".as_slice(), b"+/8=".as_slice()),
+        (
+            Base64Codec::url_safe(),
+            Base64Decoder::url_safe(),
+            b"-_8=".as_slice(),
+            b"+/8=".as_slice(),
+        ),
         (
             Base64Codec::url_safe_no_pad(),
             Base64Decoder::url_safe_no_pad(),
@@ -208,20 +211,24 @@ fn test_base64_decoder_strict_alphabet_and_padding_variants() {
         assert_eq!(written, 2);
         assert_eq!(&output[..written], &[0xfb, 0xff]);
         assert!(codec.decode(core::str::from_utf8(rejected).expect("ASCII")).is_err());
-        assert!(decoder
-            .transcode_complete_into(rejected, &mut output)
-            .expect_err("foreign alphabet should fail")
-            .is_domain());
+        assert!(
+            decoder
+                .transcode_complete_into(rejected, &mut output)
+                .expect_err("foreign alphabet should fail")
+                .is_domain()
+        );
 
         let padding_mismatch = if accepted.ends_with(b"=") {
             &accepted[..accepted.len() - 1]
         } else {
             b"+/8=".as_slice()
         };
-        assert!(decoder
-            .transcode_complete_into(padding_mismatch, &mut output)
-            .expect_err("padding mismatch should fail")
-            .is_domain());
+        assert!(
+            decoder
+                .transcode_complete_into(padding_mismatch, &mut output)
+                .expect_err("padding mismatch should fail")
+                .is_domain()
+        );
     }
 }
 

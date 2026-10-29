@@ -16,8 +16,8 @@ use criterion::criterion_group;
 use criterion::criterion_main;
 use qubit_codec::TranscodeStatus;
 use qubit_codec::Transcoder;
-use qubit_codec_misc::Base64Decoder;
 use qubit_codec_misc::Base64Codec;
+use qubit_codec_misc::Base64Decoder;
 use qubit_codec_misc::Base64Encoder;
 use qubit_codec_misc::CIntegerLiteralCodec;
 use qubit_codec_misc::CStringLiteralCodec;
@@ -162,18 +162,11 @@ fn benchmark_base64_and_c_literals(c: &mut Criterion) {
     group.finish();
 }
 
-fn base64_encode_chunks(
-    encoder: &mut Base64Encoder,
-    input: &[u8],
-    output: &mut [u8],
-    chunk_size: usize,
-) -> usize {
+fn base64_encode_chunks(encoder: &mut Base64Encoder, input: &[u8], output: &mut [u8], chunk_size: usize) -> usize {
     encoder.reset(&mut [], 0).expect("reset");
     let mut written = 0;
     for chunk in input.chunks(chunk_size) {
-        let p = encoder
-            .transcode(chunk, 0, output, written)
-            .expect("encoding");
+        let p = encoder.transcode(chunk, 0, output, written).expect("encoding");
         assert_eq!(p.status(), TranscodeStatus::Complete);
         assert_eq!(p.read(), chunk.len());
         written += p.written();
@@ -181,12 +174,7 @@ fn base64_encode_chunks(
     written + encoder.finish(output, written).expect("finish")
 }
 
-fn base64_decode_chunks(
-    decoder: &mut Base64Decoder,
-    input: &[u8],
-    output: &mut [u8],
-    chunk_size: usize,
-) -> usize {
+fn base64_decode_chunks(decoder: &mut Base64Decoder, input: &[u8], output: &mut [u8], chunk_size: usize) -> usize {
     decoder.reset(&mut [], 0).expect("reset");
     let mut cursor = 0;
     let mut written = 0;
@@ -219,9 +207,7 @@ fn base64_decode_chunks(
 fn benchmark_base64_transcoders(c: &mut Criterion) {
     let mut group = c.benchmark_group("base64-transcoders");
     for size in [64_usize, 64 * 1024] {
-        let payload: Vec<u8> = (0..size)
-            .map(|i| (i as u8).wrapping_mul(37))
-            .collect();
+        let payload: Vec<u8> = (0..size).map(|i| (i as u8).wrapping_mul(37)).collect();
         let codec = Base64Codec::standard();
         let encoded = codec.encode(&payload);
         let mut encoder = codec.encoder();
@@ -248,42 +234,33 @@ fn benchmark_base64_transcoders(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     decoder
-                        .transcode_complete_into(
-                            black_box(encoded.as_bytes()),
-                            black_box(&mut raw),
-                        )
+                        .transcode_complete_into(black_box(encoded.as_bytes()), black_box(&mut raw))
                         .expect("bound"),
                 )
             });
         });
 
         for chunk_size in [7, 4096] {
-            group.bench_function(
-                format!("encode_stream_{size}B_chunk{chunk_size}"),
-                |b| {
-                    b.iter(|| {
-                        black_box(base64_encode_chunks(
-                            &mut encoder,
-                            black_box(&payload),
-                            black_box(&mut text),
-                            chunk_size,
-                        ))
-                    });
-                },
-            );
-            group.bench_function(
-                format!("decode_stream_{size}B_chunk{chunk_size}"),
-                |b| {
-                    b.iter(|| {
-                        black_box(base64_decode_chunks(
-                            &mut decoder,
-                            black_box(encoded.as_bytes()),
-                            black_box(&mut raw),
-                            chunk_size,
-                        ))
-                    });
-                },
-            );
+            group.bench_function(format!("encode_stream_{size}B_chunk{chunk_size}"), |b| {
+                b.iter(|| {
+                    black_box(base64_encode_chunks(
+                        &mut encoder,
+                        black_box(&payload),
+                        black_box(&mut text),
+                        chunk_size,
+                    ))
+                });
+            });
+            group.bench_function(format!("decode_stream_{size}B_chunk{chunk_size}"), |b| {
+                b.iter(|| {
+                    black_box(base64_decode_chunks(
+                        &mut decoder,
+                        black_box(encoded.as_bytes()),
+                        black_box(&mut raw),
+                        chunk_size,
+                    ))
+                });
+            });
         }
     }
 

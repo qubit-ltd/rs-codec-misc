@@ -1,6 +1,15 @@
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+use qubit_codec::TranscodeFailure;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
 use qubit_codec_misc::Base64Codec;
 use qubit_codec_misc::Base64Encoder;
-use qubit_codec::{TranscodeFailure, TranscodeStatus, Transcoder};
 
 #[test]
 fn test_base64_encoder_constructors_are_independent_of_codec_lifetime() {
@@ -42,7 +51,9 @@ fn test_base64_encoder_consumes_one_byte_per_call() {
     encoder.reset(&mut [], 0).expect("reset");
     let mut out = [0; 4];
     for (input, expected_read) in [(b"M".as_slice(), 1), (b"a".as_slice(), 1)] {
-        let progress = encoder.transcode(input, 0, &mut out, 0).expect("retain partial quantum");
+        let progress = encoder
+            .transcode(input, 0, &mut out, 0)
+            .expect("retain partial quantum");
         assert_eq!(progress.status(), TranscodeStatus::Complete);
         assert_eq!(progress.read(), expected_read);
         assert_eq!(progress.written(), 0);
@@ -65,7 +76,9 @@ fn test_base64_encoder_output_pressure_at_nonzero_output_index() {
     assert_eq!(progress.written(), 0);
     assert_eq!(out, [0xa5; 6]);
 
-    let progress = encoder.transcode(b"n", 0, &mut out, 2).expect("resume at same output index");
+    let progress = encoder
+        .transcode(b"n", 0, &mut out, 2)
+        .expect("resume at same output index");
     assert_eq!(progress.status(), TranscodeStatus::Complete);
     assert_eq!(progress.read(), 1);
     assert_eq!(progress.written(), 4);
@@ -82,7 +95,14 @@ fn test_base64_encoder_finish_capacity_failure_preserves_tail() {
     assert_eq!(p.status(), TranscodeStatus::Complete);
     let mut short = [0xa5; 3];
     let error = encoder.finish(&mut short, 0).expect_err("short output");
-    assert!(matches!(error.failure_ref(), Some(TranscodeFailure::InsufficientOutput { required: 4, available: 3, .. })));
+    assert!(matches!(
+        error.failure_ref(),
+        Some(TranscodeFailure::InsufficientOutput {
+            required: 4,
+            available: 3,
+            ..
+        })
+    ));
     assert_eq!(short, [0xa5; 3]);
     let mut out = [0; 4];
     assert_eq!(encoder.finish(&mut out, 0).expect("retry finish"), 4);
@@ -107,10 +127,14 @@ fn test_base64_encoder_all_modes_and_every_input_split() {
                 for split in 0..=payload.len() {
                     let mut output = [0xa5; 32];
                     encoder.reset(&mut [], 0).expect("reset");
-                    let first = encoder.transcode(&payload[..split], 0, &mut output, 0).expect("first segment");
+                    let first = encoder
+                        .transcode(&payload[..split], 0, &mut output, 0)
+                        .expect("first segment");
                     assert_eq!(first.status(), TranscodeStatus::Complete);
                     assert_eq!(first.read(), split);
-                    let second = encoder.transcode_eof(&payload[split..], 0, &mut output, first.written()).expect("final segment");
+                    let second = encoder
+                        .transcode_eof(&payload[split..], 0, &mut output, first.written())
+                        .expect("final segment");
                     assert_eq!(second.status(), TranscodeStatus::Complete);
                     assert_eq!(second.read(), payload.len() - split);
                     let before_finish = first.written() + second.written();
@@ -125,7 +149,10 @@ fn test_base64_encoder_all_modes_and_every_input_split() {
 #[test]
 fn test_base64_encoder_lifecycle_indices_and_reset() {
     let mut encoder = Base64Encoder::standard();
-    assert!(matches!(encoder.finish(&mut [], 0).unwrap_err().failure_ref(), Some(TranscodeFailure::FinishBeforeReset)));
+    assert!(matches!(
+        encoder.finish(&mut [], 0).unwrap_err().failure_ref(),
+        Some(TranscodeFailure::FinishBeforeReset)
+    ));
     encoder.reset(&mut [], 0).expect("reset");
     let mut output = [0xa5; 8];
     let first = encoder.transcode(b"xM", 1, &mut output, 2).expect("nonzero indices");
@@ -133,8 +160,14 @@ fn test_base64_encoder_lifecycle_indices_and_reset() {
     assert_eq!(first.read(), 1);
     assert_eq!(encoder.finish(&mut output, 2).expect("finish"), 4);
     assert_eq!(&output[2..6], b"TQ==");
-    assert!(matches!(encoder.finish(&mut output, 0).unwrap_err().failure_ref(), Some(TranscodeFailure::FinishAfterFinish)));
-    assert!(matches!(encoder.transcode(b"", 0, &mut output, 0).unwrap_err().failure_ref(), Some(TranscodeFailure::TranscodeAfterFinish)));
+    assert!(matches!(
+        encoder.finish(&mut output, 0).unwrap_err().failure_ref(),
+        Some(TranscodeFailure::FinishAfterFinish)
+    ));
+    assert!(matches!(
+        encoder.transcode(b"", 0, &mut output, 0).unwrap_err().failure_ref(),
+        Some(TranscodeFailure::TranscodeAfterFinish)
+    ));
 
     encoder.reset(&mut [], 0).expect("reset after finish");
     let p = encoder.transcode(b"M", 0, &mut output, 0).expect("retain tail");

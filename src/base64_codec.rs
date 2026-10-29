@@ -128,10 +128,7 @@ impl Base64Codec {
     /// has non-canonical trailing bits.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.config
-            .engine()
-            .decode(text)
-            .map_err(MiscCodecError::from)
+        self.config.engine().decode(text).map_err(MiscCodecError::from)
     }
 
     /// Creates an independent encoder with this codec's configuration.
