@@ -167,8 +167,6 @@ fn base64_encode_chunks(encoder: &mut Base64Encoder, input: &[u8], output: &mut 
     let mut written = 0;
     for chunk in input.chunks(chunk_size) {
         let p = encoder.transcode(chunk, 0, output, written).expect("encoding");
-        assert_eq!(p.status(), TranscodeStatus::Complete);
-        assert_eq!(p.read(), chunk.len());
         written += p.written();
     }
     written + encoder.finish(output, written).expect("finish")
@@ -192,7 +190,9 @@ fn base64_decode_chunks(decoder: &mut Base64Decoder, input: &[u8], output: &mut 
         match p.status() {
             TranscodeStatus::Complete if eof => break,
             TranscodeStatus::Complete | TranscodeStatus::NeedInput { .. } => {
-                assert!(!eof, "no successful NeedInput at EOF");
+                if eof {
+                    panic!("valid input must resolve at EOF");
+                }
                 visible_end = visible_end.saturating_add(chunk_size).min(input.len());
             }
             TranscodeStatus::NeedOutput { .. } => {
@@ -200,7 +200,6 @@ fn base64_decode_chunks(decoder: &mut Base64Decoder, input: &[u8], output: &mut 
             }
         }
     }
-    assert_eq!(cursor, input.len());
     written + decoder.finish(output, written).expect("finish")
 }
 
@@ -241,6 +240,12 @@ fn benchmark_base64_transcoders(c: &mut Criterion) {
         });
 
         for chunk_size in [7, 4096] {
+            let text_len = base64_encode_chunks(&mut encoder, &payload, &mut text, chunk_size);
+            assert_eq!(&text[..text_len], encoded.as_bytes());
+            assert_eq!(text_len, encoded.len());
+            let raw_len = base64_decode_chunks(&mut decoder, encoded.as_bytes(), &mut raw, chunk_size);
+            assert_eq!(&raw[..raw_len], payload.as_slice());
+            assert_eq!(raw_len, payload.len());
             group.bench_function(format!("encode_stream_{size}B_chunk{chunk_size}"), |b| {
                 b.iter(|| {
                     black_box(base64_encode_chunks(
@@ -276,6 +281,12 @@ fn benchmark_base64_transcoders(c: &mut Criterion) {
         let mut text = vec![0; encoder.max_total_output_len(payload.len()).expect("bound")];
         let mut raw = vec![0; decoder.max_total_output_len(encoded.len()).expect("bound")];
         group.throughput(Throughput::Bytes(payload.len() as u64));
+        let text_len = base64_encode_chunks(&mut encoder, &payload, &mut text, 7);
+        assert_eq!(&text[..text_len], encoded.as_bytes());
+        assert_eq!(text_len, encoded.len());
+        let raw_len = base64_decode_chunks(&mut decoder, encoded.as_bytes(), &mut raw, 7);
+        assert_eq!(&raw[..raw_len], payload.as_slice());
+        assert_eq!(raw_len, payload.len());
         group.bench_function(format!("encode_stream_{name}_64KiB_chunk7"), |b| {
             b.iter(|| {
                 black_box(base64_encode_chunks(
