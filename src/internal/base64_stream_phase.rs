@@ -12,9 +12,13 @@ use qubit_codec::TranscodeFailure;
 /// Lifecycle phase for a Base64 stream transcoder.
 #[derive(Debug)]
 pub(crate) enum Base64StreamPhase {
+    /// Reset has not started a stream yet.
     Uninitialized,
+    /// Reset has started a stream and transcode/finish operations are allowed.
     Active,
+    /// Finish completed; further transcode or finish operations are rejected.
     Finished,
+    /// A domain error invalidated the stream; reset is required to reuse it.
     Poisoned,
 }
 

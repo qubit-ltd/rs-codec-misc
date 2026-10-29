@@ -24,17 +24,45 @@ use crate::internal::Base64StreamPhase;
 /// Encodes bytes incrementally using a strict Base64 configuration.
 ///
 /// The encoder uses fixed-size state and does not allocate. Call `reset`
-/// before streaming. Input and output buffers remain caller-owned.
+/// before streaming. Input and output buffers remain caller-owned. It may
+/// retain up to two consumed input bytes until a complete quantum is available
+/// or `finish` encodes the final partial quantum. Retained bytes are already
+/// included in the reported input consumption and must not be submitted again.
+/// If output capacity is insufficient, use the returned progress to retry with
+/// the unconsumed input and a larger output buffer.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec::Transcoder;
+/// use qubit_codec_misc::Base64Encoder;
+///
+/// let mut encoder = Base64Encoder::standard();
+/// let mut output = [0; 4];
+/// encoder.reset(&mut output, 0).unwrap();
+/// let progress = encoder.transcode(b"M", 0, &mut output, 0).unwrap();
+/// assert_eq!(progress.read(), 1);
+/// assert_eq!(progress.written(), 0);
+/// let written = encoder.finish(&mut output, 0).unwrap();
+/// assert_eq!(&output[..written], b"TQ==");
+/// ```
 #[must_use]
 #[derive(Debug)]
 pub struct Base64Encoder {
+    /// Strict alphabet and padding policy used for encoding.
     pub(crate) config: Base64Config,
+    /// Lifecycle state; streaming requires reset and finish is terminal.
     pub(crate) phase: Base64StreamPhase,
+    /// Up to two input bytes already reported as consumed but not yet encoded.
     pub(crate) tail: [u8; 2],
+    /// Number of valid bytes in `tail`, always in `0..=2`.
     pub(crate) tail_len: usize,
 }
 
 impl Base64Encoder {
+    /// Creates an encoder for `config` in the uninitialized phase.
+    ///
+    /// Callers must reset the returned encoder before streaming.
     pub(crate) fn from_config(config: Base64Config) -> Self {
         Self {
             config,

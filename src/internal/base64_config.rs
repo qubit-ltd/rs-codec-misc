@@ -22,9 +22,13 @@ static URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = URL_SAFE_NO_PAD;
 /// The supported strict Base64 alphabets and padding policies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Base64Config {
+    /// Standard alphabet with required padding for partial groups.
     Standard,
+    /// Standard alphabet without output padding.
     StandardNoPad,
+    /// URL-safe alphabet with required padding for partial groups.
     UrlSafe,
+    /// URL-safe alphabet without output padding.
     UrlSafeNoPad,
 }
 

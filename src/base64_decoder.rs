@@ -28,16 +28,48 @@ use crate::internal::base64_decode_bound;
 ///
 /// The decoder uses fixed-size state and does not allocate. Call `reset`
 /// before streaming. Incomplete non-EOF input remains caller-owned and must be
-/// supplied again with additional input or to `transcode_eof`.
+/// supplied again with additional input or to `transcode_eof`. `Complete`
+/// describes the currently visible input and does not establish source EOF;
+/// call `transcode_eof` only after the source confirms EOF. A domain error may
+/// occur after earlier bytes in the same operation were written, and poisons
+/// the decoder; call `reset` before reusing it. If output capacity is
+/// insufficient, use the returned progress to retry with unconsumed input and
+/// a larger output buffer.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_codec::TranscodeStatus;
+/// use qubit_codec::Transcoder;
+/// use qubit_codec_misc::Base64Decoder;
+///
+/// let mut decoder = Base64Decoder::standard();
+/// let mut output = [0; 3];
+/// decoder.reset(&mut output, 0).unwrap();
+/// let progress = decoder.transcode(b"TQ", 0, &mut output, 0).unwrap();
+/// assert_eq!(progress.read(), 0);
+/// assert!(matches!(progress.status(), TranscodeStatus::NeedInput { .. }));
+/// // Keep the unconsumed TQ, append ==, and confirm EOF with the source.
+/// let progress = decoder.transcode_eof(b"TQ==", 0, &mut output, 0).unwrap();
+/// assert_eq!(progress.read(), 4);
+/// assert_eq!(&output[..progress.written()], b"M");
+/// assert_eq!(decoder.finish(&mut [], 0).unwrap(), 0);
+/// ```
 #[must_use]
 #[derive(Debug)]
 pub struct Base64Decoder {
+    /// Strict alphabet and padding policy used for decoding.
     pub(crate) config: Base64Config,
+    /// Lifecycle state; domain errors poison the stream until reset.
     pub(crate) phase: Base64StreamPhase,
+    /// Whether a successfully committed quantum contained terminal padding.
     pub(crate) terminal_padding: bool,
 }
 
 impl Base64Decoder {
+    /// Creates a decoder for `config` in the uninitialized phase.
+    ///
+    /// Callers must reset the returned decoder before streaming.
     pub(crate) fn from_config(config: Base64Config) -> Self {
         Self {
             config,
@@ -74,6 +106,11 @@ impl Base64Decoder {
         Self::from_config(Base64Config::UrlSafeNoPad)
     }
 
+    /// Converts an engine error to the stream error, mapping its relative
+    /// position to the current input slice and poisoning this stream.
+    ///
+    /// Errors without a precise engine position use the start of the current
+    /// segment, matching the existing decode error mapping.
     fn domain_error(&mut self, source: DecodeError, segment_start: usize) -> TranscodeDecodeError<MiscCodecError> {
         let relative = match &source {
             DecodeError::InvalidByte(index, _) => *index,
@@ -84,6 +121,13 @@ impl Base64Decoder {
         TranscodeDecodeError::domain_main(MiscCodecError::from(source), segment_start + relative)
     }
 
+    /// Decodes one visible input segment, optionally treating its end as EOF.
+    ///
+    /// At EOF, a sufficiently large output buffer permits a whole-suffix
+    /// engine call. Otherwise complete unpadded groups are decoded before a
+    /// final quantum is handled separately. Errors can follow writes from
+    /// earlier groups; a capacity failure on the final quantum leaves that
+    /// quantum unconsumed and its decoder state uncommitted.
     fn decode_segment(
         &mut self,
         input: &[u8],
