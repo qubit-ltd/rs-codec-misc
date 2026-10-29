@@ -118,7 +118,7 @@ impl CStringLiteralCodec {
         while index < input.len() {
             let (decoded, consumed) =
                 decode_c_string_literal_unit(input, index, CStringLiteralParseContext::CompleteText(text))
-                    .map_err(|error| c_string_parse_error_to_misc(error, input, index))?;
+                    .map_err(|error| c_string_parse_error_to_misc(error, text, index))?;
             debug_assert!(consumed > 0);
             output.push(decoded);
             index += consumed;
@@ -750,17 +750,17 @@ fn uppercase_hex_digit(value: u8) -> char {
 ///
 /// # Parameters
 /// - `error`: Parser outcome to convert.
-/// - `input`: Encoded source units.
+/// - `text`: Complete encoded source text.
 /// - `index`: Start index of the current value.
 ///
 /// # Returns
 /// A concrete codec error suitable for complete or EOF-confirmed input.
 #[inline]
-fn c_string_parse_error_to_misc(error: ParseError, input: &[u8], index: usize) -> MiscCodecError {
+fn c_string_parse_error_to_misc(error: ParseError, text: &str, index: usize) -> MiscCodecError {
     match error {
         ParseError::Incomplete { required, .. } => MiscCodecError::InvalidEscape {
             index,
-            escape: escape_fragment(input, index, input.len()),
+            escape: CStringLiteralParseContext::CompleteText(text).escape_fragment(text.as_bytes(), index, text.len()),
             reason: format!("incomplete escape sequence; expected at least {required} units"),
         },
         ParseError::Invalid(error) => error,

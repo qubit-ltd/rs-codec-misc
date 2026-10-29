@@ -43,6 +43,33 @@ fn test_decode_bounds_unknown_unicode_escape_diagnostics() {
 }
 
 #[test]
+fn test_decode_preserves_unicode_in_truncated_universal_escape_diagnostics() {
+    let cases = [("\\ué", 6), ("\\u中", 6), ("\\Ué", 10), ("\\U中", 10), ("\\U🦀", 10)];
+    for prefix in ["", "AB"] {
+        for (escape, required) in cases {
+            assert!(escape.len() < required);
+            let input = format!("{prefix}{escape}");
+            let error = CStringLiteralCodec::new().decode(&input).unwrap_err();
+            match error {
+                MiscCodecError::InvalidEscape {
+                    index,
+                    escape: actual,
+                    reason,
+                } => {
+                    assert_eq!(index, prefix.len(), "{input:?}");
+                    assert_eq!(actual, escape, "{input:?}");
+                    assert_eq!(
+                        reason,
+                        format!("incomplete escape sequence; expected at least {required} units")
+                    );
+                }
+                other => panic!("unexpected error for {input:?}: {other:?}"),
+            }
+        }
+    }
+}
+
+#[test]
 fn test_decode_bounds_unknown_ascii_escape_diagnostics() {
     let error = CStringLiteralCodec::new()
         .decode(r"AB\zTAIL")
