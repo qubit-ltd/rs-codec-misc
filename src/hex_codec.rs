@@ -68,12 +68,21 @@ impl HexCodec {
     }
 
     /// Creates a codec from an explicit configuration.
+    ///
+    /// # Parameters
+    /// - `config`: Configuration moved into the codec without cloning.
+    ///
+    /// # Returns
+    /// A codec owning the supplied configuration.
     #[inline]
     pub fn from_config(config: HexCodecConfig) -> Self {
         Self { config }
     }
 
     /// Returns the configuration used by this codec.
+    ///
+    /// # Returns
+    /// A shared reference to this codec's configuration, borrowed from `self`.
     #[inline]
     pub fn config(&self) -> &HexCodecConfig {
         &self.config
@@ -357,6 +366,8 @@ impl HexCodec {
     /// - `text`: Text to decode.
     /// - `index`: Byte index where parsing should start.
     /// - `separator`: Required separator between complete bytes.
+    /// - `output`: Existing buffer to which decoded bytes are appended; an
+    ///   error may leave bytes appended before the failure.
     ///
     /// # Returns
     /// `Ok(())` when all bytes are decoded.
@@ -493,6 +504,9 @@ impl HexCodec {
     ///
     /// # Parameters
     /// - `text`: Text to decode.
+    /// - `index`: Byte index where parsing should start.
+    /// - `output`: Existing buffer to which decoded bytes are appended; an
+    ///   error may leave bytes appended before the failure.
     ///
     /// # Returns
     /// `Ok(())` when all bytes are decoded.
@@ -535,6 +549,8 @@ impl HexCodec {
     /// - `text`: Text to decode.
     /// - `prefix`: Required prefix before each byte.
     /// - `index`: Byte index where parsing should start.
+    /// - `output`: Existing buffer to which decoded bytes are appended; an
+    ///   error may leave bytes appended before the failure.
     ///
     /// # Returns
     /// `Ok(())` when all bytes are decoded.

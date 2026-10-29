@@ -7,6 +7,8 @@
 // =============================================================================
 //! `application/x-www-form-urlencoded` text codec.
 
+use core::num::NonZeroUsize;
+
 use qubit_codec::Codec;
 use qubit_codec::DecodeFailure;
 use qubit_codec::ValueDecoder;
@@ -137,7 +139,7 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true).map_err(|error| {
@@ -180,7 +182,7 @@ impl Codec for FormUrlencodedCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index < input.len());
 
         let (value, consumed) = percent_decode_byte(input, input_index, true).map_err(|error| match error {

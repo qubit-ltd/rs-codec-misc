@@ -7,6 +7,8 @@
 // =============================================================================
 //! Low-level hexadecimal byte codec.
 
+use core::num::NonZeroUsize;
+
 use qubit_codec::Codec;
 use qubit_codec::DecodeFailure;
 use qubit_utils::nonzero;
@@ -116,7 +118,7 @@ impl Codec for HexByteCodec {
         &mut self,
         input: &[u8],
         input_index: usize,
-    ) -> Result<(u8, core::num::NonZeroUsize), DecodeFailure<Self::DecodeError>> {
+    ) -> Result<(u8, NonZeroUsize), DecodeFailure<Self::DecodeError>> {
         debug_assert!(input_index + 2 <= input.len());
 
         let high_char = char::from(input[input_index]);

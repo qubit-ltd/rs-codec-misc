@@ -7,6 +7,9 @@
 // =============================================================================
 //! Tests for lightweight encoder and decoder traits.
 
+use core::convert::Infallible;
+use core::num::NonZeroUsize;
+
 use qubit_codec::Codec;
 use qubit_codec::CodecTranscodeDecoder;
 use qubit_codec::CodecTranscodeEncoder;
@@ -62,7 +65,7 @@ where
         &mut self,
         _codec: &mut C,
         error: &MiscCodecError,
-        consumed: Option<core::num::NonZeroUsize>,
+        consumed: Option<NonZeroUsize>,
         context: DecodeContext,
     ) -> Result<DecodeInvalidAction<u8>, TranscodeDecodeError<MiscCodecError>> {
         let consumed = consumed.expect("investigated codecs report known invalid spans");
@@ -425,16 +428,14 @@ fn test_core_codec_adapter_types_can_wrap_misc_codecs() {
     assert_codec_transcode_decoder::<CodecTranscodeDecoder<HexByteCodec>>();
     assert_codec_transcode_encoder::<CodecTranscodeEncoder<HexByteCodec>>();
 
-    let encode_error = TranscodeEncodeError::<core::convert::Infallible, u8>::unencodable(2, 0xff);
+    let encode_error = TranscodeEncodeError::<Infallible, u8>::unencodable(2, 0xff);
     assert!(matches!(encode_error, TranscodeEncodeError::Unencodable { .. }));
-    let decode_error: TranscodeDecodeError<core::convert::Infallible> =
-        TranscodeFailure::incomplete_input(2, 3, 1).into();
+    let decode_error: TranscodeDecodeError<Infallible> = TranscodeFailure::incomplete_input(2, 3, 1).into();
     assert!(matches!(
         decode_error,
         TranscodeDecodeError::Failure(TranscodeFailure::IncompleteInput { .. })
     ));
-    let transcode_error: TranscodeDecodeError<core::convert::Infallible> =
-        TranscodeFailure::invalid_input_index(2, 1).into();
+    let transcode_error: TranscodeDecodeError<Infallible> = TranscodeFailure::invalid_input_index(2, 1).into();
     assert!(matches!(
         transcode_error,
         TranscodeDecodeError::Failure(TranscodeFailure::InvalidInputIndex { .. })
@@ -606,7 +607,7 @@ fn test_safe_hex_adapter_readme() {
     let error = decoder.transcode(b"1g", 0, &mut output, 0).unwrap_err();
     assert!(matches!(
         error.domain_ref(),
-        Some(qubit_codec_misc::MiscCodecError::InvalidDigit { index: 1, .. })
+        Some(MiscCodecError::InvalidDigit { index: 1, .. })
     ));
     assert_eq!([0xa5; 2], output);
 }

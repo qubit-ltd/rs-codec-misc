@@ -394,7 +394,7 @@ fn ensure_variable_hex_escape_complete(input: &[u8], index: usize, available: us
 /// # Errors
 /// Returns an internal incomplete parser outcome when more units are required.
 #[inline]
-fn ensure_fixed_escape_complete(available: usize, required: core::num::NonZeroUsize) -> Result<(), ParseError> {
+fn ensure_fixed_escape_complete(available: usize, required: NonZeroUsize) -> Result<(), ParseError> {
     if available < required.get() {
         return Err(ParseError::Incomplete { required });
     }
