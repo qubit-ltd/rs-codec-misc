@@ -7,7 +7,9 @@
 // =============================================================================
 //! Tests for complete Base64 quantum encoding and decoding.
 
+use base64::DecodeError;
 use qubit_codec::Codec;
+use qubit_codec_misc::Base64ErrorKind;
 use qubit_codec_misc::Base64QuantumCodec;
 use qubit_codec_misc::MiscCodecError;
 
@@ -56,9 +58,12 @@ fn test_base64_quantum_alphabet_and_errors() {
     let invalid = unsafe { Codec::decode(&mut url_safe, b"@@@@", 0) }.expect_err("invalid Base64 quantum should fail");
     assert!(matches!(
         super::invalid_source(invalid),
-        MiscCodecError::InvalidInput {
-            codec: "base64-quantum",
-            ..
+        MiscCodecError::InvalidBase64 {
+            kind: Base64ErrorKind::InvalidByte,
+            input_index: Some(0),
+            symbol: Some(b'@'),
+            input_length: None,
+            source: DecodeError::InvalidByte(0, b'@'),
         }
     ));
 }
@@ -76,8 +81,11 @@ fn test_base64_quantum_reports_invalid_units_at_each_position() {
             .expect_err("invalid Base64 unit should fail");
         assert!(matches!(
             super::invalid_source(invalid),
-            MiscCodecError::InvalidInput {
-                codec: "base64-quantum",
+            MiscCodecError::InvalidBase64 {
+                kind: Base64ErrorKind::InvalidByte,
+                symbol: Some(b'@'),
+                input_length: None,
+                source: DecodeError::InvalidByte(_, b'@'),
                 ..
             }
         ));
@@ -93,7 +101,13 @@ fn test_base64_quantum_rejects_foreign_alphabet_and_padding() {
         assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
         assert!(matches!(
             failure.invalid_source(),
-            Some(MiscCodecError::InvalidInput { .. })
+            Some(MiscCodecError::InvalidBase64 {
+                kind: Base64ErrorKind::InvalidByte,
+                input_index: Some(0),
+                symbol: Some(_),
+                input_length: None,
+                source: DecodeError::InvalidByte(0, _),
+            })
         ));
     }
     for input in [b"+AAA".as_slice(), b"/AAA"] {
@@ -103,7 +117,13 @@ fn test_base64_quantum_rejects_foreign_alphabet_and_padding() {
         assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
         assert!(matches!(
             failure.invalid_source(),
-            Some(MiscCodecError::InvalidInput { .. })
+            Some(MiscCodecError::InvalidBase64 {
+                kind: Base64ErrorKind::InvalidByte,
+                input_index: Some(0),
+                symbol: Some(_),
+                input_length: None,
+                source: DecodeError::InvalidByte(0, _),
+            })
         ));
     }
     for input in [b"AA==".as_slice(), b"AAA="] {
@@ -114,8 +134,62 @@ fn test_base64_quantum_rejects_foreign_alphabet_and_padding() {
             assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
             assert!(matches!(
                 failure.invalid_source(),
-                Some(MiscCodecError::InvalidInput { .. })
+                Some(MiscCodecError::InvalidBase64 {
+                    kind: Base64ErrorKind::InvalidByte,
+                    symbol: Some(b'='),
+                    input_length: None,
+                    source: DecodeError::InvalidByte(_, b'='),
+                    ..
+                })
             ));
+        }
+    }
+}
+
+#[test]
+fn test_base64_quantum_structured_invalid_symbols_and_source() {
+    let cases = [
+        (Base64QuantumCodec::standard(), b'-'),
+        (Base64QuantumCodec::standard(), b'_'),
+        (Base64QuantumCodec::url_safe(), b'+'),
+        (Base64QuantumCodec::url_safe(), b'/'),
+        (Base64QuantumCodec::standard(), b'='),
+        (Base64QuantumCodec::url_safe(), b'='),
+        (Base64QuantumCodec::standard(), b' '),
+        (Base64QuantumCodec::url_safe(), b' '),
+        (Base64QuantumCodec::standard(), 0xff),
+        (Base64QuantumCodec::url_safe(), 0xff),
+    ];
+    for (codec, invalid) in cases {
+        for position in 0..4 {
+            let mut codec = codec;
+            let mut input = *b"__AAAA";
+            let index = 2 + position;
+            input[index] = invalid;
+            // SAFETY: four readable units start at input index two.
+            let failure = unsafe { Codec::decode(&mut codec, &input, 2) }.unwrap_err();
+            assert_eq!(failure.consumed_units().map(|n| n.get()), Some(4));
+            let error = failure.invalid_source().expect("domain error");
+            match error {
+                MiscCodecError::InvalidBase64 {
+                    kind,
+                    input_index,
+                    symbol,
+                    input_length,
+                    source,
+                } => {
+                    assert_eq!(*kind, Base64ErrorKind::InvalidByte);
+                    assert_eq!(*input_index, Some(index));
+                    assert_eq!(*symbol, Some(invalid));
+                    assert_eq!(*input_length, None);
+                    assert_eq!(*source, DecodeError::InvalidByte(index, invalid));
+                }
+                other => panic!("unexpected error: {other:?}"),
+            }
+            assert_eq!(
+                std::error::Error::source(error).and_then(|source| source.downcast_ref::<DecodeError>()),
+                Some(&DecodeError::InvalidByte(index, invalid)),
+            );
         }
     }
 }
@@ -163,12 +237,18 @@ fn test_base64_quantum_reports_absolute_invalid_indices() {
                     .expect_err("invalid quantum unit must be rejected");
                 assert_eq!(Some(4), failure.consumed_units().map(|width| width.get()));
                 match failure.invalid_source() {
-                    Some(MiscCodecError::InvalidInput { codec, reason }) => {
-                        assert_eq!("base64-quantum", *codec);
-                        assert_eq!(
-                            format!("invalid Base64 unit '@' at index {}", offset + position),
-                            *reason
-                        );
+                    Some(MiscCodecError::InvalidBase64 {
+                        kind,
+                        input_index,
+                        symbol,
+                        input_length,
+                        source,
+                    }) => {
+                        assert_eq!(*kind, Base64ErrorKind::InvalidByte);
+                        assert_eq!(*input_index, Some(offset + position));
+                        assert_eq!(*symbol, Some(b'@'));
+                        assert_eq!(*input_length, None);
+                        assert_eq!(*source, DecodeError::InvalidByte(offset + position, b'@'));
                     }
                     other => panic!("unexpected failure: {other:?}"),
                 }

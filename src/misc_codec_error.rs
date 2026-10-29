@@ -38,7 +38,8 @@ pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 #[must_use]
 #[derive(Debug, Error)]
 pub enum MiscCodecError {
-    /// Base64 decoding failed in the configured dependency engine.
+    /// Base64 decoding failed with a structured error represented by the
+    /// dependency type.
     #[error("invalid Base64 input ({kind:?}): {source}")]
     InvalidBase64 {
         /// Structured category of the Base64 failure.
@@ -124,7 +125,7 @@ pub enum MiscCodecError {
 }
 
 impl From<DecodeError> for MiscCodecError {
-    /// Preserves a Base64 dependency error and exposes its structured fields.
+    /// Converts a Base64 decoding error and exposes its structured fields.
     #[inline]
     fn from(source: DecodeError) -> Self {
         Self::InvalidBase64 {

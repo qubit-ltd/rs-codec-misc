@@ -9,6 +9,7 @@
 
 use core::num::NonZeroUsize;
 
+use base64::DecodeError;
 use qubit_codec::Codec;
 use qubit_codec::DecodeFailure;
 use qubit_utils::nonzero;
@@ -88,8 +89,10 @@ impl Base64QuantumCodec {
     /// Sextet value.
     ///
     /// # Errors
-    /// Returns [`MiscCodecError::InvalidInput`] when `unit` is not valid for
-    /// this quantum codec's alphabet.
+    /// Returns [`MiscCodecError::InvalidBase64`] with an
+    /// [`base64::DecodeError::InvalidByte`] source when `unit` is not valid for
+    /// this quantum codec's alphabet. The index is relative to the original
+    /// input slice.
     fn decode_unit(&self, unit: u8, index: usize) -> MiscCodecResult<u8> {
         match unit {
             b'A'..=b'Z' => Ok(unit - b'A'),
@@ -99,10 +102,7 @@ impl Base64QuantumCodec {
             b'/' if !self.url_safe => Ok(63),
             b'-' if self.url_safe => Ok(62),
             b'_' if self.url_safe => Ok(63),
-            _ => Err(MiscCodecError::InvalidInput {
-                codec: "base64-quantum",
-                reason: format!("invalid Base64 unit '{}' at index {}", char::from(unit), index),
-            }),
+            _ => Err(MiscCodecError::from(DecodeError::InvalidByte(index, unit))),
         }
     }
 }
@@ -136,8 +136,10 @@ impl Codec for Base64QuantumCodec {
     /// The decoded three-byte value and the number of consumed input units.
     ///
     /// # Errors
-    /// Returns a decode failure when any unit is not valid for the selected
-    /// alphabet. The failure reports the invalid unit's input index.
+    /// Returns a decode failure with [`MiscCodecError::InvalidBase64`] when any
+    /// unit is not valid for the selected alphabet. Its input index is relative
+    /// to `input`, and the failure reports that the complete four-unit quantum
+    /// was consumed.
     ///
     /// # Safety
     /// The caller must ensure that four units starting at `input_index` are
