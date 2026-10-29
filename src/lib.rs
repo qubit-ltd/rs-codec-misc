@@ -16,6 +16,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod base64_codec;
+mod base64_decoder;
+mod base64_encoder;
 mod base64_error_kind;
 mod base64_quantum_codec;
 mod c_integer_literal_codec;
@@ -29,6 +31,8 @@ mod misc_codec_error;
 mod percent_codec;
 
 pub use base64_codec::Base64Codec;
+pub use base64_decoder::Base64Decoder;
+pub use base64_encoder::Base64Encoder;
 pub use base64_error_kind::Base64ErrorKind;
 pub use base64_quantum_codec::Base64QuantumCodec;
 pub use c_integer_literal_codec::CIntegerLiteralCodec;

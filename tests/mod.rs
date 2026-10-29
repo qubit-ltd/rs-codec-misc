@@ -9,6 +9,8 @@
 
 mod assertions_tests;
 mod base64_codec_tests;
+mod base64_decoder_tests;
+mod base64_encoder_tests;
 mod base64_error_kind_tests;
 mod base64_quantum_codec_tests;
 mod c_integer_literal_codec_tests;

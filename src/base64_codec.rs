@@ -8,25 +8,14 @@
 //! Base64 byte codec.
 
 use ::base64::Engine;
-use ::base64::engine::GeneralPurpose;
-use ::base64::engine::general_purpose::STANDARD;
-use ::base64::engine::general_purpose::STANDARD_NO_PAD;
-use ::base64::engine::general_purpose::URL_SAFE;
-use ::base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use qubit_codec::ValueDecoder;
 use qubit_codec::ValueEncoder;
 
+use crate::Base64Decoder;
+use crate::Base64Encoder;
 use crate::MiscCodecError;
 use crate::MiscCodecResult;
-
-/// Stable identity for the standard padded Base64 configuration.
-static STANDARD_ENGINE: GeneralPurpose = STANDARD;
-/// Stable identity for the standard unpadded Base64 configuration.
-static STANDARD_NO_PAD_ENGINE: GeneralPurpose = STANDARD_NO_PAD;
-/// Stable identity for the URL-safe padded Base64 configuration.
-static URL_SAFE_ENGINE: GeneralPurpose = URL_SAFE;
-/// Stable identity for the URL-safe unpadded Base64 configuration.
-static URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = URL_SAFE_NO_PAD;
+use crate::internal::Base64Config;
 
 /// Encodes and decodes Base64 byte strings.
 ///
@@ -50,17 +39,14 @@ static URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = URL_SAFE_NO_PAD;
 #[must_use]
 #[derive(Debug, Clone, Copy)]
 pub struct Base64Codec {
-    /// Static engine that defines this codec's alphabet and padding policy.
-    engine: &'static GeneralPurpose,
+    /// Configuration that defines this codec's alphabet and padding policy.
+    config: Base64Config,
 }
 
 impl PartialEq for Base64Codec {
-    // Every constructor refers to one of this module's four explicit static
-    // engines, so engine address identity represents the fixed configuration.
-    // Do not construct this facade from references to dependency const values.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        core::ptr::eq(self.engine, other.engine)
+        self.config == other.config
     }
 }
 
@@ -75,7 +61,7 @@ impl Base64Codec {
     #[inline]
     pub fn standard() -> Self {
         Self {
-            engine: &STANDARD_ENGINE,
+            config: Base64Config::Standard,
         }
     }
 
@@ -87,7 +73,7 @@ impl Base64Codec {
     #[inline]
     pub fn standard_no_pad() -> Self {
         Self {
-            engine: &STANDARD_NO_PAD_ENGINE,
+            config: Base64Config::StandardNoPad,
         }
     }
 
@@ -99,7 +85,7 @@ impl Base64Codec {
     #[inline]
     pub fn url_safe() -> Self {
         Self {
-            engine: &URL_SAFE_ENGINE,
+            config: Base64Config::UrlSafe,
         }
     }
 
@@ -111,7 +97,7 @@ impl Base64Codec {
     #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self {
-            engine: &URL_SAFE_NO_PAD_ENGINE,
+            config: Base64Config::UrlSafeNoPad,
         }
     }
 
@@ -125,7 +111,7 @@ impl Base64Codec {
     #[inline]
     #[must_use]
     pub fn encode(&self, bytes: &[u8]) -> String {
-        self.engine.encode(bytes)
+        self.config.engine().encode(bytes)
     }
 
     /// Decodes Base64 text into bytes.
@@ -142,7 +128,28 @@ impl Base64Codec {
     /// has non-canonical trailing bits.
     #[inline]
     pub fn decode(&self, text: &str) -> MiscCodecResult<Vec<u8>> {
-        self.engine.decode(text).map_err(MiscCodecError::from)
+        self.config
+            .engine()
+            .decode(text)
+            .map_err(MiscCodecError::from)
+    }
+
+    /// Creates an independent encoder with this codec's configuration.
+    ///
+    /// The returned encoder does not borrow this codec, uses fixed-size state,
+    /// and must be reset before streaming.
+    #[inline]
+    pub fn encoder(&self) -> Base64Encoder {
+        Base64Encoder::from_config(self.config)
+    }
+
+    /// Creates an independent decoder with this codec's configuration.
+    ///
+    /// The returned decoder does not borrow this codec, uses fixed-size state,
+    /// and must be reset before streaming.
+    #[inline]
+    pub fn decoder(&self) -> Base64Decoder {
+        Base64Decoder::from_config(self.config)
     }
 }
 
