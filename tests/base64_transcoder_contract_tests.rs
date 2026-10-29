@@ -354,6 +354,138 @@ fn test_base64_transcoder_structured_errors_report_positions_and_source() {
 }
 
 #[test]
+fn test_base64_encoder_need_output_uses_advanced_output_position() {
+    for start in [0, 2] {
+        let mut encoder = Base64Encoder::standard();
+        encoder.reset(&mut [], 0).expect("start stream");
+        let mut output = vec![0xa5; start + 4];
+        let progress = encoder
+            .transcode(b"ManMan", 0, &mut output, start)
+            .expect("encode first complete quantum");
+        progress.validate(0, 6, start, 4).expect("valid progress");
+        assert_eq!((progress.read(), progress.written()), (5, 4));
+        assert_eq!(&output[start..start + 4], b"TWFu");
+        let required = match progress.status() {
+            TranscodeStatus::NeedOutput { required } => required.get(),
+            status => panic!("expected NeedOutput, got {status:?}"),
+        };
+        assert_eq!(required, 4);
+
+        let next_output = start + progress.written();
+        let next_len = next_output.checked_add(required).expect("capacity fits");
+        output.resize(next_len, 0xa5);
+        let retry = encoder
+            .transcode(b"ManMan", progress.read(), &mut output, next_output)
+            .expect("retry unconsumed input");
+        retry
+            .validate(progress.read(), 6 - progress.read(), next_output, required)
+            .expect("valid retry progress");
+        assert_eq!((retry.read(), retry.written()), (1, 4));
+        assert_eq!(&output[start..start + 8], b"TWFuTWFu");
+        assert!(output[..start].iter().all(|byte| *byte == 0xa5));
+        let finish_index = next_output + retry.written();
+        assert_eq!(encoder.finish(&mut output, finish_index).unwrap(), 0);
+    }
+}
+
+fn decode_long_chunks(
+    decoder: &mut Base64Decoder,
+    input: &[u8],
+    chunk_size: usize,
+    first_capacity: usize,
+) -> Result<Vec<u8>, TranscodeDecodeError<MiscCodecError>> {
+    decoder.reset(&mut [], 0).expect("start decoder");
+    let mut output = Vec::new();
+    let mut cursor = 0;
+    let mut visible = chunk_size.min(input.len());
+    let mut capacity = first_capacity;
+    let limit = input.len().saturating_mul(4).saturating_add(64);
+
+    for _ in 0..limit {
+        let eof = visible == input.len();
+        let mut scratch = vec![0xa5; capacity];
+        let progress = if eof {
+            decoder.transcode_eof(&input[..visible], cursor, &mut scratch, 0)?
+        } else {
+            decoder.transcode(&input[..visible], cursor, &mut scratch, 0)?
+        };
+        progress
+            .validate(cursor, visible - cursor, 0, capacity)
+            .expect("valid decoder progress");
+        cursor += progress.read();
+        output.extend_from_slice(&scratch[..progress.written()]);
+        match progress.status() {
+            TranscodeStatus::Complete if eof => {
+                decoder.finish(&mut [], 0).expect("finish decoder");
+                return Ok(output);
+            }
+            TranscodeStatus::Complete | TranscodeStatus::NeedInput { .. } => {
+                assert!(!eof, "EOF must complete or reject input");
+                visible = visible.saturating_add(chunk_size).min(input.len());
+                capacity = first_capacity;
+            }
+            TranscodeStatus::NeedOutput { required } => {
+                capacity = required.get();
+                assert!((1..=3).contains(&capacity));
+            }
+        }
+    }
+    panic!("decoder failed to converge within the bounded step count");
+}
+
+#[test]
+fn test_base64_transcoder_long_inputs_and_recovery() {
+    let factories: [fn() -> Base64Codec; 4] = [
+        Base64Codec::standard,
+        Base64Codec::standard_no_pad,
+        Base64Codec::url_safe,
+        Base64Codec::url_safe_no_pad,
+    ];
+    for make in factories {
+        let codec = make();
+        for len in [31, 32, 33, 63, 64, 65, 4095, 4096, 4097] {
+            let payload: Vec<u8> = (0..len).map(|index| (index as u8).wrapping_mul(37)).collect();
+            let text = codec.encode(&payload);
+            let bound = codec.decoder().max_total_output_len(text.len()).expect("output bound");
+            for chunk_size in [1, 7, 16, 4096] {
+                for capacity in [0, 1, 2, 3, bound] {
+                    let mut decoder = codec.decoder();
+                    let actual = decode_long_chunks(&mut decoder, text.as_bytes(), chunk_size, capacity)
+                        .expect("valid long input");
+                    assert_eq!(actual, payload, "len={len}, chunk={chunk_size}, cap={capacity}");
+                }
+                let mut encoder = codec.encoder();
+                encoder.reset(&mut [], 0).expect("start encoder");
+                let mut encoded = Vec::new();
+                for chunk in payload.chunks(chunk_size) {
+                    drive_encode_segment(&mut encoder, chunk, 0, &mut encoded);
+                }
+                let mut tail = [0; 4];
+                let written = encoder.finish(&mut tail, 0).expect("finish encoder");
+                encoded.extend_from_slice(&tail[..written]);
+                assert_eq!(encoded, text.as_bytes());
+            }
+        }
+
+        let mut long_malformed = codec.encode(&vec![0x5a; 4096]).into_bytes();
+        long_malformed.push(b'@');
+        for malformed in [long_malformed, b"TQ==TWFu".to_vec()] {
+            let mut decoder = codec.decoder();
+            let error = decode_long_chunks(&mut decoder, &malformed, 7, 1).expect_err("malformed input must fail");
+            assert!(error.is_domain());
+            assert!(matches!(
+                decoder.finish(&mut [], 0).unwrap_err().failure_ref(),
+                Some(TranscodeFailure::LifecyclePoisoned)
+            ));
+            assert_eq!(
+                decode_long_chunks(&mut decoder, b"TWFu", 1, 0).expect("reset recovery"),
+                b"Man"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_base64_transcoder_malformed_every_split_and_capacity() {
     let factories: [fn() -> Base64Codec; 4] = [
         Base64Codec::standard,

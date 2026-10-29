@@ -102,12 +102,57 @@ and ignored ASCII whitespace may consume additional adjacent whitespace.
   incomplete non-EOF suffix unconsumed; the caller must retain it and present
   it again with more input, or pass it to `transcode_eof` once EOF is known.
   `Complete` only describes the visible input for that call, not source EOF.
-- **Capacity and recovery**: `NeedOutput.required` is the total output capacity
-  needed from the supplied output index, not an additional byte count. Capacity
+- **Capacity and recovery**: `NeedOutput.required` is the minimum total capacity
+  needed from the advanced output position (`output_index + progress.written()`)
+  for the next step, not the whole-call output length or an additional byte
+  count. When retaining the buffer, its length must cover that position plus
+  `required`; when switching to an empty buffer at index zero, provide at least
+  `required` slots. Advance input by `progress.read()` before retrying. Capacity
   bounds are conservative, including for empty input. A malformed-input error
   can follow partial output; the stream is then poisoned and must be reset
-  before reuse. Source error coordinates are relative to the current input
-  slice, with the transcoder error also carrying the segment's input index.
+  before reuse. A general driver should use checked arithmetic for the
+  advanced output position and required buffer length, and handle overflow
+  before allocating.
+- **Error coordinates**: `error.domain_error_ref().and_then(|error|
+  error.input_index())` reports a position in the input slice passed to the
+  current call, not a cumulative stream offset. `MiscCodecError::InvalidBase64`
+  and its `base64::DecodeError` source preserve the engine sub-slice position,
+  which can vary with batching, EOF handling, and output capacity. Errors
+  without an exact engine position use the failing segment's start in the outer
+  error. A driver that needs whole-stream positions must track discarded input
+  itself.
+
+For example, decoding `__TWFu@AAA` from index 2 reports outer position 6 in
+both a small-output call and an EOF call. The inner error/source position is 0
+for the small-output path and 4 for the EOF path; neither is a whole-stream
+offset.
+
+The encoder reports capacity from the advanced output position. This example
+retains the first output and retries only the unconsumed input:
+
+```rust
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Encoder;
+
+let mut encoder = Base64Encoder::standard();
+encoder.reset(&mut [], 0)?;
+let mut output = [0; 4];
+let first = encoder.transcode(b"ManMan", 0, &mut output, 0)?;
+assert_eq!((first.read(), first.written()), (5, 4));
+let required = match first.status() {
+    TranscodeStatus::NeedOutput { required } => required.get(),
+    status => panic!("expected NeedOutput, got {status:?}"),
+};
+let mut larger = [0; 8];
+larger[..4].copy_from_slice(&output);
+let next = encoder.transcode(b"ManMan", first.read(), &mut larger, first.written())?;
+assert_eq!(required, 4);
+assert_eq!(next.read(), 1);
+assert_eq!(encoder.finish(&mut larger, 8)?, 0);
+assert_eq!(&larger, b"TWFuTWFu");
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 
 When using streaming decode hooks that skip or replace malformed percent,
 form-URL, or C-string input, the codec reports the invalid span visible in the

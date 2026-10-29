@@ -78,14 +78,49 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
   decoder 遇到尚未确认 EOF 的不完整文本尾部时会保留其未消费状态；调用方须保留该输入，
   与新输入合并后重试，或在确认 EOF 后传给 `transcode_eof`。`Complete` 只描述本次调用可见的输入，
   不表示源已到 EOF。
-- **容量与错误恢复**：`NeedOutput.required` 表示从给定输出索引起算所需的总输出容量，
-  不是还需增加的字节数。容量上界是保守值，空输入也适用。畸形输入错误可能发生在部分输出之后；
-  此时流进入 Poisoned 状态，复用前必须 reset。source 错误坐标相对于当前输入切片，
-  transcoder 错误还携带该片段的输入索引。
+- **容量与错误恢复**：`NeedOutput.required` 表示从推进后的输出位置
+  （`output_index + progress.written()`）起算，完成下一步所需的最小总容量；它不是整次调用的输出总量，
+  也不是额外需要追加的字节数。保留原缓冲区时，长度至少为该位置加 `required`；换用从索引 0 开始的空缓冲区时，
+  至少提供 `required` 个槽位。重试前按 `progress.read()` 推进输入。容量上界是保守值，空输入也适用。
+  通用驱动计算推进后的输出位置和所需缓冲区长度时应使用 checked arithmetic，并在分配前处理溢出。
+  畸形输入错误可能发生在部分输出之后；此时流进入 Poisoned 状态，复用前必须 reset。
+- **错误坐标**：`error.domain_error_ref().and_then(|error| error.input_index())` 是当前调用传入的输入切片内位置，
+  不是累计流位置。`MiscCodecError::InvalidBase64` 及其 `base64::DecodeError` source 保留 engine 实际收到的子片段位置；
+  该位置可能随批处理、EOF 路径和输出容量变化。engine 未提供精确位置时，外层错误使用出错片段起点。
+  需要全流位置的驱动必须自行累计已丢弃的输入。
+
+例如，从索引 2 解码 `__TWFu@AAA`，小输出调用和 EOF 调用的外层错误位置都是 6；内层错误/source 位置分别为 0 和 4，
+二者都不是全流位置。
 
 使用流式解码 hook 跳过或替换畸形 percent、form URL 或 C 字符串输入时，codec
 报告当前输入 chunk 中可见的非法跨度，因此畸形输入的恢复结果可能受 chunk
 边界影响。此说明不适用于有效输入或严格解码。
+
+encoder 的 `NeedOutput.required` 从推进后的输出位置起算。下面的示例保留已有输出，并只重试尚未消费的输入：
+
+```rust
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Encoder;
+
+let mut encoder = Base64Encoder::standard();
+encoder.reset(&mut [], 0)?;
+let mut output = [0; 4];
+let first = encoder.transcode(b"ManMan", 0, &mut output, 0)?;
+assert_eq!((first.read(), first.written()), (5, 4));
+let required = match first.status() {
+    TranscodeStatus::NeedOutput { required } => required.get(),
+    status => panic!("expected NeedOutput, got {status:?}"),
+};
+let mut larger = [0; 8];
+larger[..4].copy_from_slice(&output);
+let next = encoder.transcode(b"ManMan", first.read(), &mut larger, first.written())?;
+assert_eq!(required, 4);
+assert_eq!(next.read(), 1);
+assert_eq!(encoder.finish(&mut larger, 8)?, 0);
+assert_eq!(&larger, b"TWFuTWFu");
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 
 ### 🔤 **C 字符串字面量字节**
 

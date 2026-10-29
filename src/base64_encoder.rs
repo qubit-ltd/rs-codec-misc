@@ -29,7 +29,12 @@ use crate::internal::Base64StreamPhase;
 /// or `finish` encodes the final partial quantum. Retained bytes are already
 /// included in the reported input consumption and must not be submitted again.
 /// If output capacity is insufficient, use the returned progress to retry with
-/// the unconsumed input and a larger output buffer.
+/// the unconsumed input and a larger output buffer. `NeedOutput.required` is
+/// the minimum total capacity from the advanced output position
+/// (`output_index + progress.written()`) for the next step. When retaining the
+/// output buffer, its length must cover that position plus `required`; when
+/// switching to an empty buffer at index zero, provide at least `required`
+/// slots.
 ///
 /// # Examples
 ///
@@ -45,6 +50,35 @@ use crate::internal::Base64StreamPhase;
 /// assert_eq!(progress.written(), 0);
 /// let written = encoder.finish(&mut output, 0).unwrap();
 /// assert_eq!(&output[..written], b"TQ==");
+/// ```
+///
+/// Retrying after output pressure must advance both indices. The encoder has
+/// already consumed the first five bytes of `ManMan`, so only the final `n`
+/// is submitted again:
+///
+/// ```
+/// use qubit_codec::TranscodeStatus;
+/// use qubit_codec::Transcoder;
+/// use qubit_codec_misc::Base64Encoder;
+///
+/// let mut encoder = Base64Encoder::standard();
+/// encoder.reset(&mut [], 0).unwrap();
+/// let mut output = [0; 4];
+/// let first = encoder.transcode(b"ManMan", 0, &mut output, 0).unwrap();
+/// assert_eq!((first.read(), first.written()), (5, 4));
+/// assert_eq!(&output, b"TWFu");
+/// let required = match first.status() {
+///     TranscodeStatus::NeedOutput { required } => required.get(),
+///     status => panic!("expected NeedOutput, got {status:?}"),
+/// };
+/// let mut larger = [0; 8];
+/// larger[..4].copy_from_slice(&output);
+/// let next = encoder.transcode(b"ManMan", first.read(), &mut larger, first.written()).unwrap();
+/// assert_eq!(next.read(), 1);
+/// assert_eq!(next.written(), 4);
+/// assert!(required <= larger.len() - first.written());
+/// assert_eq!(encoder.finish(&mut larger, first.written() + next.written()).unwrap(), 0);
+/// assert_eq!(&larger, b"TWFuTWFu");
 /// ```
 #[must_use]
 #[derive(Debug)]

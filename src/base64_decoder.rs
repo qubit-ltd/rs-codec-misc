@@ -34,7 +34,18 @@ use crate::internal::base64_decode_bound;
 /// occur after earlier bytes in the same operation were written, and poisons
 /// the decoder; call `reset` before reusing it. If output capacity is
 /// insufficient, use the returned progress to retry with unconsumed input and
-/// a larger output buffer.
+/// a larger output buffer. `NeedOutput.required` is the minimum total capacity
+/// from the advanced output position (`output_index + progress.written()`) for
+/// the next step. When retaining the output buffer, its length must cover that
+/// position plus `required`; when switching to an empty buffer at index zero,
+/// provide at least `required` slots.
+///
+/// The outer transcoder error reports a position in the input slice passed to
+/// the current call. Its `MiscCodecError` and `base64::DecodeError` source keep
+/// the engine sub-slice position, which can vary with batching, EOF handling,
+/// and output capacity. Errors without an exact engine position use the
+/// failing segment's start in the outer error. These positions are not
+/// cumulative stream offsets.
 ///
 /// # Examples
 ///
@@ -107,7 +118,9 @@ impl Base64Decoder {
     }
 
     /// Converts an engine error to the stream error, mapping its relative
-    /// position to the current input slice and poisoning this stream.
+    /// position to the current call's input slice in the outer error while
+    /// preserving the engine sub-slice position in the domain error, then
+    /// poisons this stream.
     ///
     /// Errors without a precise engine position use the start of the current
     /// segment, matching the existing decode error mapping.
