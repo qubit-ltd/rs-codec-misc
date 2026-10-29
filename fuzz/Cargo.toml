@@ -43,4 +43,11 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "base64_streaming"
+path = "fuzz_targets/base64_streaming.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
