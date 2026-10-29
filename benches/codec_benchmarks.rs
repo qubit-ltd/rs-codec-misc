@@ -14,7 +14,11 @@ use criterion::Criterion;
 use criterion::Throughput;
 use criterion::criterion_group;
 use criterion::criterion_main;
+use qubit_codec::TranscodeStatus;
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Decoder;
 use qubit_codec_misc::Base64Codec;
+use qubit_codec_misc::Base64Encoder;
 use qubit_codec_misc::CIntegerLiteralCodec;
 use qubit_codec_misc::CStringLiteralCodec;
 use qubit_codec_misc::FormUrlencodedCodec;
@@ -158,10 +162,172 @@ fn benchmark_base64_and_c_literals(c: &mut Criterion) {
     group.finish();
 }
 
+fn base64_encode_chunks(
+    encoder: &mut Base64Encoder,
+    input: &[u8],
+    output: &mut [u8],
+    chunk_size: usize,
+) -> usize {
+    encoder.reset(&mut [], 0).expect("reset");
+    let mut written = 0;
+    for chunk in input.chunks(chunk_size) {
+        let p = encoder
+            .transcode(chunk, 0, output, written)
+            .expect("encoding");
+        assert_eq!(p.status(), TranscodeStatus::Complete);
+        assert_eq!(p.read(), chunk.len());
+        written += p.written();
+    }
+    written + encoder.finish(output, written).expect("finish")
+}
+
+fn base64_decode_chunks(
+    decoder: &mut Base64Decoder,
+    input: &[u8],
+    output: &mut [u8],
+    chunk_size: usize,
+) -> usize {
+    decoder.reset(&mut [], 0).expect("reset");
+    let mut cursor = 0;
+    let mut written = 0;
+    let mut visible_end = chunk_size.min(input.len());
+    loop {
+        let eof = visible_end == input.len();
+        let p = if eof {
+            decoder.transcode_eof(&input[..visible_end], cursor, output, written)
+        } else {
+            decoder.transcode(&input[..visible_end], cursor, output, written)
+        }
+        .expect("valid Base64");
+        cursor += p.read();
+        written += p.written();
+        match p.status() {
+            TranscodeStatus::Complete if eof => break,
+            TranscodeStatus::Complete | TranscodeStatus::NeedInput { .. } => {
+                assert!(!eof, "no successful NeedInput at EOF");
+                visible_end = visible_end.saturating_add(chunk_size).min(input.len());
+            }
+            TranscodeStatus::NeedOutput { .. } => {
+                panic!("complete bound must cover this stream")
+            }
+        }
+    }
+    assert_eq!(cursor, input.len());
+    written + decoder.finish(output, written).expect("finish")
+}
+
+fn benchmark_base64_transcoders(c: &mut Criterion) {
+    let mut group = c.benchmark_group("base64-transcoders");
+    for size in [64_usize, 64 * 1024] {
+        let payload: Vec<u8> = (0..size)
+            .map(|i| (i as u8).wrapping_mul(37))
+            .collect();
+        let codec = Base64Codec::standard();
+        let encoded = codec.encode(&payload);
+        let mut encoder = codec.encoder();
+        let mut decoder = codec.decoder();
+        let mut text = vec![0; encoder.max_total_output_len(payload.len()).expect("bound")];
+        let mut raw = vec![0; decoder.max_total_output_len(encoded.len()).expect("bound")];
+        group.throughput(Throughput::Bytes(size as u64));
+        group.bench_function(format!("encode_owned_{size}B"), |b| {
+            b.iter(|| black_box(codec.encode(black_box(&payload))));
+        });
+        group.bench_function(format!("decode_owned_{size}B"), |b| {
+            b.iter(|| black_box(codec.decode(black_box(&encoded)).expect("valid input")));
+        });
+        group.bench_function(format!("encode_buffer_{size}B"), |b| {
+            b.iter(|| {
+                black_box(
+                    encoder
+                        .transcode_complete_into(black_box(&payload), black_box(&mut text))
+                        .expect("bound"),
+                )
+            });
+        });
+        group.bench_function(format!("decode_buffer_{size}B"), |b| {
+            b.iter(|| {
+                black_box(
+                    decoder
+                        .transcode_complete_into(
+                            black_box(encoded.as_bytes()),
+                            black_box(&mut raw),
+                        )
+                        .expect("bound"),
+                )
+            });
+        });
+
+        for chunk_size in [7, 4096] {
+            group.bench_function(
+                format!("encode_stream_{size}B_chunk{chunk_size}"),
+                |b| {
+                    b.iter(|| {
+                        black_box(base64_encode_chunks(
+                            &mut encoder,
+                            black_box(&payload),
+                            black_box(&mut text),
+                            chunk_size,
+                        ))
+                    });
+                },
+            );
+            group.bench_function(
+                format!("decode_stream_{size}B_chunk{chunk_size}"),
+                |b| {
+                    b.iter(|| {
+                        black_box(base64_decode_chunks(
+                            &mut decoder,
+                            black_box(encoded.as_bytes()),
+                            black_box(&mut raw),
+                            chunk_size,
+                        ))
+                    });
+                },
+            );
+        }
+    }
+
+    for (name, codec) in [
+        ("standard_no_pad", Base64Codec::standard_no_pad()),
+        ("url_safe", Base64Codec::url_safe()),
+        ("url_safe_no_pad", Base64Codec::url_safe_no_pad()),
+    ] {
+        let payload = vec![0xfb; 64 * 1024];
+        let encoded = codec.encode(&payload);
+        let mut encoder = codec.encoder();
+        let mut decoder = codec.decoder();
+        let mut text = vec![0; encoder.max_total_output_len(payload.len()).expect("bound")];
+        let mut raw = vec![0; decoder.max_total_output_len(encoded.len()).expect("bound")];
+        group.throughput(Throughput::Bytes(payload.len() as u64));
+        group.bench_function(format!("encode_stream_{name}_64KiB_chunk7"), |b| {
+            b.iter(|| {
+                black_box(base64_encode_chunks(
+                    &mut encoder,
+                    black_box(&payload),
+                    black_box(&mut text),
+                    7,
+                ))
+            });
+        });
+        group.bench_function(format!("decode_stream_{name}_64KiB_chunk7"), |b| {
+            b.iter(|| {
+                black_box(base64_decode_chunks(
+                    &mut decoder,
+                    black_box(encoded.as_bytes()),
+                    black_box(&mut raw),
+                    7,
+                ))
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     benchmark_percent_and_form,
     benchmark_hex,
-    benchmark_base64_and_c_literals
+    benchmark_base64_and_c_literals,
+    benchmark_base64_transcoders
 );
 criterion_main!(benches);

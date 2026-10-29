@@ -48,7 +48,8 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
 - **前缀大小写处理**：解码匹配已配置前缀时，可选择忽略 ASCII 大小写。
 - **命名配置**：当多个 codec 共享同一策略时，可通过 `HexCodecConfig` 和
   `HexCodec::from_config` 复用配置。
-- **缓冲区 API**：`encode_into` 和 `decode_into` 可追加写入已有缓冲区。
+- **Hex 缓冲区 API**：`HexCodec::encode_into` 和 `HexCodec::decode_into`
+  可追加写入已有缓冲区。
 
 空白处理规则取决于是否配置了非空分隔符。有分隔符时，同一字节的两位十六进制数字
 必须连续；例如，分隔符为 `:` 时会拒绝 `1 f:8b`。没有非空分隔符时，启用忽略空白
@@ -68,6 +69,19 @@ Qubit Misc Codec 提供小而明确的编解码器，用于 Qubit Rust crate 和
   quantum；final padding 留在 facade/transcoder 层。
 - **类型化错误**：畸形输入返回 `MiscCodecError::InvalidBase64`，并保留
   `base64::DecodeError` source、错误分类以及可用的输入位置。
+- **三层 API**：`Base64Codec` 编解码完整值；`Base64QuantumCodec` 处理完整的
+  三字节/四 unit quantum；`Base64Encoder` 和 `Base64Decoder` 跨多次调用流式处理完整值。
+- **独立流状态**：可直接按方向构造 encoder 或 decoder，也可用
+  `Base64Codec::encoder()` / `decoder()` 复制其字母表和 padding 配置。每个实例的状态相互独立，
+  第一次流式调用前必须先 reset。
+- **流式契约**：encoder 在内部最多保留两个输入字节，并在 `finish` 时输出末尾部分组。
+  decoder 遇到尚未确认 EOF 的不完整文本尾部时会保留其未消费状态；调用方须保留该输入，
+  与新输入合并后重试，或在确认 EOF 后传给 `transcode_eof`。`Complete` 只描述本次调用可见的输入，
+  不表示源已到 EOF。
+- **容量与错误恢复**：`NeedOutput.required` 表示从给定输出索引起算所需的总输出容量，
+  不是还需增加的字节数。容量上界是保守值，空输入也适用。畸形输入错误可能发生在部分输出之后；
+  此时流进入 Poisoned 状态，复用前必须 reset。source 错误坐标相对于当前输入切片，
+  transcoder 错误还携带该片段的输入索引。
 
 使用流式解码 hook 跳过或替换畸形 percent、form URL 或 C 字符串输入时，codec
 报告当前输入 chunk 中可见的非法跨度，因此畸形输入的恢复结果可能受 chunk
@@ -203,6 +217,61 @@ fn main() {
         .expect("Base64 text should decode");
     assert_eq!(b"hello".to_vec(), decoded);
 }
+```
+
+完整值转换与流式转换是两种独立 API。上面的完整值方法会分配返回的 `String` 或 `Vec`；
+transcoder 方法则写入调用方提供的缓冲区。
+
+```rust
+use qubit_codec::Transcoder;
+use qubit_codec_misc::{Base64Codec, Base64Decoder};
+
+let mut decoder = Base64Decoder::standard();
+let mut raw = [0; 3];
+let n = decoder.transcode_complete_into(b"TQ==", &mut raw).expect("valid Base64");
+assert_eq!(&raw[..n], b"M");
+
+let mut encoder = Base64Codec::standard().encoder();
+let mut text = [0; 8];
+let n = encoder.transcode_complete_into(b"M", &mut text).expect("sufficient bound");
+assert_eq!(&text[..n], b"TQ==");
+```
+
+流式处理时，在第一个 chunk 前调用 `reset`。decoder 不会保存不完整的文本尾部，
+所以调用方应保留未消费输入，并在新源数据到达后将其合并再试。只有数据源确认 EOF 后，
+才调用 `transcode_eof`；成功处理最终输入后再调用 `finish`。
+
+```rust
+use qubit_codec::{TranscodeStatus, Transcoder};
+use qubit_codec_misc::Base64Decoder;
+
+let mut decoder = Base64Decoder::standard();
+decoder.reset(&mut [], 0).expect("reset");
+let mut raw = [0; 3];
+let p = decoder.transcode(b"TQ", 0, &mut raw, 0).expect("open stream");
+assert_eq!(p.read(), 0);
+assert!(matches!(p.status(), TranscodeStatus::NeedInput { .. }));
+// 保留未消费的 TQ，并拼接源数据中的末尾 ==。
+let p = decoder.transcode_eof(b"TQ==", 0, &mut raw, 0).expect("final input");
+assert_eq!(&raw[..p.written()], b"M");
+decoder.finish(&mut [], 0).expect("close stream");
+```
+
+encoder 会在内部保留短输入，因此调用方不必在多次调用之间保存部分字节尾部；
+最终部分组只会由 `finish` 输出。
+
+```rust
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Encoder;
+
+let mut encoder = Base64Encoder::standard();
+let mut text = [0; 8];
+encoder.reset(&mut text, 0).expect("reset");
+assert_eq!(encoder.transcode(b"M", 0, &mut text, 0).unwrap().written(), 0);
+assert_eq!(encoder.transcode(b"a", 0, &mut text, 0).unwrap().written(), 0);
+assert_eq!(encoder.transcode(b"n", 0, &mut text, 0).unwrap().written(), 4);
+assert_eq!(&text[..4], b"TWFu");
+assert_eq!(encoder.finish(&mut text, 4).unwrap(), 0);
 ```
 
 ### 无 Padding 的 URL-Safe Base64
@@ -480,6 +549,11 @@ fn main() {
 | `encode(bytes)` | 已配置 | 已配置 | 将字节编码为 Base64 文本 |
 | `decode(text)` | 已配置 | 已配置 | 将 Base64 文本解码为字节 |
 
+`Base64Codec` 是完整值 owned facade，没有 `decode_into`；如需解码到调用方缓冲区，
+请使用 `Base64Decoder` 和 `Transcoder`。`Base64Codec::encoder()` 与 `decoder()` 会按 facade
+配置创建独立的流状态。两个方向的类型还分别提供 `standard()`、`standard_no_pad()`、
+`url_safe()` 和 `url_safe_no_pad()` 构造器；`Default` 对应标准带 padding 的 Base64。
+
 带 padding 与无 padding 模式不会互相接受对方的部分组形式。例如，
 `Base64Codec::standard().decode("Zg")` 和
 `Base64Codec::standard_no_pad().decode("Zg==")` 都会返回错误；完整三字节组
@@ -546,7 +620,10 @@ fn main() {
 Codec 实现直接操作借用的 byte slice 或字符串，只在目标格式确实需要时返回 owned output。
 配置存放在小型值类型中，泛型 trait 用法也不要求动态分发。
 
-可运行 `cargo bench --all-features` 测量代表性的文本和 Hex 工作负载。
+可运行 `cargo bench --bench codec_benchmarks -- base64-transcoders` 测量 64 B 和 64 KiB
+输入下的 Base64 owned、调用方缓冲区和流式路径。流式用例包含 7 字节与 4096 字节分片；
+模式抽样也覆盖其他字母表及 padding 配置。输出缓冲区在计时循环前分配。owned 用例包含输出分配，
+因此其耗时不能直接视为 codec 本身的处理耗时。基准运行时会报告实测吞吐，本文不预设吞吐数值。
 `fuzz/` 下的 target 可用 `cargo +nightly fuzz build` 编译，并用
 `cargo +nightly fuzz run percent_and_form`（或其他 target 名称）运行。
 

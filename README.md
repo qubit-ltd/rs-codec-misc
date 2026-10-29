@@ -64,7 +64,8 @@ It intentionally does not replace Rust's `Display`, `FromStr`, `TryFrom`, or
   configured prefixes while decoding.
 - **Named Configuration**: reuse a `HexCodecConfig` through
   `HexCodec::from_config` when several codecs share the same policy.
-- **Buffer APIs**: `encode_into` and `decode_into` append into existing buffers.
+- **Hex buffer APIs**: `HexCodec::encode_into` and `HexCodec::decode_into` append
+  into existing buffers.
 
 Whitespace policy depends on the separator configuration. With a non-empty
 separator, each byte requires two adjacent hex digits: `1 f:8b` is rejected
@@ -89,6 +90,24 @@ and ignored ASCII whitespace may consume additional adjacent whitespace.
 - **Typed Errors**: malformed input is reported as
   `MiscCodecError::InvalidBase64`, retaining the `base64::DecodeError` source,
   error category, and input index when available.
+- **Three layers**: `Base64Codec` encodes or decodes a whole value;
+  `Base64QuantumCodec` handles complete three-byte/four-unit quanta;
+  `Base64Encoder` and `Base64Decoder` stream complete values across calls.
+- **Independent streaming state**: construct a direction-specific encoder or
+  decoder directly, or use `Base64Codec::encoder()` / `decoder()` to copy its
+  alphabet and padding configuration. Each instance has independent state and
+  must be reset before its first streaming call.
+- **Streaming contract**: the encoder retains up to two input bytes internally
+  and emits a partial final group from `finish`. The decoder leaves an
+  incomplete non-EOF suffix unconsumed; the caller must retain it and present
+  it again with more input, or pass it to `transcode_eof` once EOF is known.
+  `Complete` only describes the visible input for that call, not source EOF.
+- **Capacity and recovery**: `NeedOutput.required` is the total output capacity
+  needed from the supplied output index, not an additional byte count. Capacity
+  bounds are conservative, including for empty input. A malformed-input error
+  can follow partial output; the stream is then poisoned and must be reset
+  before reuse. Source error coordinates are relative to the current input
+  slice, with the transcoder error also carrying the segment's input index.
 
 When using streaming decode hooks that skip or replace malformed percent,
 form-URL, or C-string input, the codec reports the invalid span visible in the
@@ -238,6 +257,63 @@ fn main() {
         .expect("Base64 text should decode");
     assert_eq!(b"hello".to_vec(), decoded);
 }
+```
+
+Whole-value conversion and streaming conversion are separate APIs. The
+whole-value methods below allocate their returned `String` or `Vec`; the
+transcoder methods write to caller-owned buffers.
+
+```rust
+use qubit_codec::Transcoder;
+use qubit_codec_misc::{Base64Codec, Base64Decoder};
+
+let mut decoder = Base64Decoder::standard();
+let mut raw = [0; 3];
+let n = decoder.transcode_complete_into(b"TQ==", &mut raw).expect("valid Base64");
+assert_eq!(&raw[..n], b"M");
+
+let mut encoder = Base64Codec::standard().encoder();
+let mut text = [0; 8];
+let n = encoder.transcode_complete_into(b"M", &mut text).expect("sufficient bound");
+assert_eq!(&text[..n], b"TQ==");
+```
+
+For streaming, call `reset` before the first chunk. The decoder does not store
+an incomplete text suffix, so keep unconsumed input and append new source bytes
+before retrying. Confirm EOF with the source before calling `transcode_eof`;
+after a successful final call, call `finish`.
+
+```rust
+use qubit_codec::{TranscodeStatus, Transcoder};
+use qubit_codec_misc::Base64Decoder;
+
+let mut decoder = Base64Decoder::standard();
+decoder.reset(&mut [], 0).expect("reset");
+let mut raw = [0; 3];
+let p = decoder.transcode(b"TQ", 0, &mut raw, 0).expect("open stream");
+assert_eq!(p.read(), 0);
+assert!(matches!(p.status(), TranscodeStatus::NeedInput { .. }));
+// Keep the unconsumed TQ and append the final == from the source.
+let p = decoder.transcode_eof(b"TQ==", 0, &mut raw, 0).expect("final input");
+assert_eq!(&raw[..p.written()], b"M");
+decoder.finish(&mut [], 0).expect("close stream");
+```
+
+The encoder retains short input internally, so callers do not need to carry a
+partial byte tail between calls. It emits the final group only from `finish`.
+
+```rust
+use qubit_codec::Transcoder;
+use qubit_codec_misc::Base64Encoder;
+
+let mut encoder = Base64Encoder::standard();
+let mut text = [0; 8];
+encoder.reset(&mut text, 0).expect("reset");
+assert_eq!(encoder.transcode(b"M", 0, &mut text, 0).unwrap().written(), 0);
+assert_eq!(encoder.transcode(b"a", 0, &mut text, 0).unwrap().written(), 0);
+assert_eq!(encoder.transcode(b"n", 0, &mut text, 0).unwrap().written(), 4);
+assert_eq!(&text[..4], b"TWFu");
+assert_eq!(encoder.finish(&mut text, 4).unwrap(), 0);
 ```
 
 ### URL-Safe Base64 Without Padding
@@ -519,6 +595,13 @@ padding are handled by value helpers or future buffered layers.
 | `encode(bytes)` | Configured | Configured | Encode bytes into Base64 text |
 | `decode(text)` | Configured | Configured | Decode Base64 text into bytes |
 
+`Base64Codec` is the owned whole-value facade. It does not provide
+`decode_into`; use `Base64Decoder` and `Transcoder` when decoding into a
+caller-owned buffer. `Base64Codec::encoder()` and `decoder()` create independent
+streaming states with the facade's configuration. The direction-specific types
+also expose `standard()`, `standard_no_pad()`, `url_safe()`, and
+`url_safe_no_pad()` constructors; their `Default` is standard padded Base64.
+
 The padded and unpadded modes reject each other's partial-group form. For
 example, `Base64Codec::standard().decode("Zg")` and
 `Base64Codec::standard_no_pad().decode("Zg==")` both return an error, while
@@ -591,8 +674,14 @@ Codec implementations operate on borrowed byte slices or strings and return
 owned output only when the target format requires it. Configuration is stored in
 small value types, and generic trait use does not require dynamic dispatch.
 
-Run `cargo bench --all-features` to measure representative text and Hex
-workloads. The fuzz targets under `fuzz/` can be compiled with
+Run `cargo bench --bench codec_benchmarks -- base64-transcoders` to measure
+Base64 owned, caller-buffer, and streaming paths at 64 B and 64 KiB. Streaming
+cases include 7-byte and 4096-byte chunks; the mode sample includes the other
+alphabet and padding configurations. Output buffers are allocated before each
+timed loop. Owned cases include output allocation, so their timings are not a
+direct measure of codec work alone. The benchmark reports measured throughput
+when run; no throughput value is assumed here. The fuzz targets under `fuzz/`
+can be compiled with
 `cargo +nightly fuzz build` and run with `cargo +nightly fuzz run
 percent_and_form` (or the other target names).
 
