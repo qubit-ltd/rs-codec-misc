@@ -594,9 +594,22 @@ For the related short-escape boundary, see the [CStringLiteralCodec EOF short-es
 | `ValueDecoder<Input>` | `decode(&Input)` | Decode borrowed input into an associated output type |
 | `Codec` with associated `Value` and `Unit` | `decode`, `encode` | Convert one value or codec quantum against caller-provided unit buffers |
 
-The low-level `Codec` implementations intentionally exclude facade concerns:
-hex prefix/separator handling, UTF-8 `String` validation, and Base64 final
-padding are handled by value helpers or future buffered layers.
+The low-level codecs convert one byte or one complete quantum.
+[`HexByteCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.HexByteCodec.html)
+excludes prefixes and separators, which are handled by
+[`HexCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.HexCodec.html).
+[`PercentCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.PercentCodec.html)
+and
+[`FormUrlencodedCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.FormUrlencodedCodec.html)
+validate UTF-8 when their whole-value decode helpers return a `String`.
+[`Base64QuantumCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64QuantumCodec.html)
+handles only complete quanta;
+[`Base64Codec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Codec.html),
+[`Base64Encoder`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Encoder.html),
+and
+[`Base64Decoder`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Decoder.html)
+already handle final partial groups and padding according to their configured
+policies.
 
 ### `HexCodec` Operations
 
@@ -671,6 +684,13 @@ needs no padding.
 | `standard()` | Standard | 4 | Create a standard Base64 quantum codec |
 | `url_safe()` | URL-safe | 4 | Create a URL-safe Base64 quantum codec |
 | `Codec<Value = [u8; 3], Unit = u8>` | Configured | 4 | Encode or decode one complete Base64 quantum without padding finalization |
+
+Invalid quantum units now return `MiscCodecError::InvalidBase64` with
+`Base64ErrorKind::InvalidByte`, rather than
+`InvalidInput { codec: "base64-quantum", .. }`. Read `input_index` and `symbol`
+instead of parsing the diagnostic text. The index is relative to the input
+slice passed to the call; the invalid quantum still consumes four units.
+Padding is unsupported by this layer, so `=` is classified as an invalid byte.
 
 ### `CStringLiteralCodec` Operations
 

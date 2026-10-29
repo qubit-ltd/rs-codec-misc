@@ -225,11 +225,29 @@ impl HexCodec {
         output
     }
 
-    /// Encodes bytes into an existing string.
+    /// Appends the hexadecimal encoding of bytes to an existing string.
+    ///
+    /// Existing contents are preserved. Call `output.clear()` first to
+    /// replace them. Each call writes its own configured whole-output prefix;
+    /// no separator is inserted between existing contents and this call's
+    /// output.
     ///
     /// # Parameters
     /// - `bytes`: Bytes to encode.
-    /// - `output`: Destination string.
+    /// - `output`: Destination string to append to.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_codec_misc::HexCodec;
+    /// let codec = HexCodec::new();
+    /// let mut output = String::from("header:");
+    /// codec.encode_into(&[0xab], &mut output);
+    /// assert_eq!(output, "header:ab");
+    /// output.clear();
+    /// codec.encode_into(&[0xcd], &mut output);
+    /// assert_eq!(output, "cd");
+    /// ```
     #[inline]
     pub fn encode_into(&self, bytes: &[u8], output: &mut String) {
         if let Some(prefix) = &self.config.prefix {
@@ -267,16 +285,36 @@ impl HexCodec {
         Ok(output)
     }
 
-    /// Decodes hexadecimal text into an existing byte vector.
+    /// Appends decoded hexadecimal bytes to an existing vector.
+    ///
+    /// Successful calls append decoded bytes. Call `output.clear()` first to
+    /// replace existing contents. If decoding fails, elements and length from
+    /// before this call are restored, though capacity may change. Contents
+    /// cleared by the caller before this call are not protected by rollback.
     ///
     /// # Parameters
     /// - `text`: Hexadecimal text.
-    /// - `output`: Destination byte vector.
+    /// - `output`: Destination byte vector to append to.
     ///
     /// # Errors
     /// Returns [`MiscCodecError`] when the input is malformed. On such an
     /// error, the vector's elements and length remain unchanged; its capacity
     /// may have changed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_codec_misc::HexCodec;
+    /// let codec = HexCodec::new();
+    /// let mut output = vec![0xa5];
+    /// codec.decode_into("ab", &mut output).unwrap();
+    /// assert_eq!(output, [0xa5, 0xab]);
+    /// assert!(codec.decode_into("cd0g", &mut output).is_err());
+    /// assert_eq!(output, [0xa5, 0xab]);
+    /// output.clear();
+    /// codec.decode_into("cd", &mut output).unwrap();
+    /// assert_eq!(output, [0xcd]);
+    /// ```
     #[inline]
     pub fn decode_into(&self, text: &str, output: &mut Vec<u8>) -> MiscCodecResult<()> {
         let original_len = output.len();

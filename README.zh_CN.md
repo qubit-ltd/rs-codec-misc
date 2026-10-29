@@ -539,8 +539,22 @@ fn main() {
 | `ValueDecoder<Input>` | `decode(&Input)` | 将借用输入解码为关联输出类型 |
 | `Codec`（关联类型 `Value` 与 `Unit`） | `decode`, `encode` | 在调用方提供的 unit 缓冲区上转换一个值或一个 codec quantum |
 
-低层 `Codec` 实现刻意排除 facade 关注点：十六进制 prefix/separator、UTF-8
-`String` 校验和 Base64 final padding 都由 value helper 或后续 buffered 层处理。
+底层 codec 每次转换一个字节或一个完整 quantum。
+[`HexByteCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.HexByteCodec.html)
+不处理前缀和分隔符，这些格式选项由
+[`HexCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.HexCodec.html)
+负责。
+[`PercentCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.PercentCodec.html)
+和
+[`FormUrlencodedCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.FormUrlencodedCodec.html)
+的完整值解码方法在返回 `String` 时校验 UTF-8。
+[`Base64QuantumCodec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64QuantumCodec.html)
+只处理完整 quantum；
+[`Base64Codec`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Codec.html)、
+[`Base64Encoder`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Encoder.html)
+和
+[`Base64Decoder`](https://docs.rs/qubit-codec-misc/0.8/qubit_codec_misc/struct.Base64Decoder.html)
+已按各自配置处理末尾部分组和 padding。
 
 ### `HexCodec` 操作
 
@@ -612,6 +626,12 @@ fn main() {
 | `standard()` | 标准 | 4 | 创建标准 Base64 quantum codec |
 | `url_safe()` | URL-safe | 4 | 创建 URL-safe Base64 quantum codec |
 | `Codec<Value = [u8; 3], Unit = u8>` | 已配置 | 4 | 编码或解码一个完整 Base64 quantum，不处理 padding finalization |
+
+非法 quantum 单位改为返回分类为 `Base64ErrorKind::InvalidByte` 的
+`MiscCodecError::InvalidBase64`，原先匹配
+`InvalidInput { codec: "base64-quantum", .. }` 的调用方需要迁移。直接读取
+`input_index` 和 `symbol`，不要解析诊断文本。位置相对于本次调用传入的输入切片，
+非法 quantum 的消费宽度仍为四个单位。本层不支持 padding，因此 `=` 按非法字节分类。
 
 ### `CStringLiteralCodec` 操作
 
