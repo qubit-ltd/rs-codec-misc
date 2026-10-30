@@ -19,13 +19,13 @@ use crate::MiscCodecError;
 use crate::MiscCodecResult;
 use crate::internal::ParseError;
 use crate::internal::PercentEncodingMode;
-use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
-use crate::percent_codec::percent_decode_byte;
-use crate::percent_codec::percent_decode_bytes;
-use crate::percent_codec::percent_encode_byte;
-use crate::percent_codec::percent_encode_bytes;
-use crate::percent_codec::percent_encode_len;
-use crate::percent_codec::percent_invalid_consumed;
+use crate::misc_error::map_misc_decode_failure_with_consumed;
+use crate::percent::percent_decode_byte;
+use crate::percent::percent_decode_bytes;
+use crate::percent::percent_encode_byte;
+use crate::percent::percent_encode_bytes;
+use crate::percent::percent_encode_len;
+use crate::percent::percent_invalid_consumed;
 
 /// Encodes and decodes `application/x-www-form-urlencoded` text fragments.
 ///
@@ -67,8 +67,8 @@ impl FormUrlencodedCodec {
     ///
     /// # Returns
     /// Form-url-encoded text.
-    #[inline]
     #[must_use]
+    #[inline]
     pub fn encode(&self, text: &str) -> String {
         percent_encode_bytes(text.as_bytes(), PercentEncodingMode::FormUrlencoded)
     }
@@ -95,6 +95,15 @@ impl ValueEncoder<str> for FormUrlencodedCodec {
     type Output = String;
 
     /// Encodes text, using `+` for spaces.
+    ///
+    /// # Parameters
+    /// - `input`: Text to encode.
+    ///
+    /// # Returns
+    /// The form-url-encoded text.
+    ///
+    /// # Errors
+    /// This implementation does not fail for UTF-8 text.
     #[inline]
     fn encode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         Ok(FormUrlencodedCodec::encode(self, input))
@@ -106,6 +115,16 @@ impl ValueDecoder<str> for FormUrlencodedCodec {
     type Output = String;
 
     /// Decodes form-url-encoded text.
+    ///
+    /// # Parameters
+    /// - `input`: Form-url-encoded text to decode.
+    ///
+    /// # Returns
+    /// The decoded UTF-8 text.
+    ///
+    /// # Errors
+    /// Returns an error when an escape is malformed or decoded bytes are not
+    /// valid UTF-8.
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         FormUrlencodedCodec::decode(self, input)
@@ -124,12 +143,28 @@ impl Codec for FormUrlencodedCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 3;
 
     /// Returns the exact form-url-encoded width for one byte.
+    ///
+    /// # Parameters
+    /// - `value`: Byte whose encoded width is queried.
+    ///
+    /// # Returns
+    /// The number of output bytes required to encode `value`.
     #[inline]
     fn encode_len(&self, value: &u8) -> usize {
         percent_encode_len(*value, PercentEncodingMode::FormUrlencoded)
     }
 
     /// Decodes one raw byte, `+`, or `%XX` escape.
+    ///
+    /// # Parameters
+    /// - `input`: Encoded input bytes.
+    /// - `input_index`: Index of the value to decode.
+    ///
+    /// # Returns
+    /// The decoded byte and the non-zero number of consumed input units.
+    ///
+    /// # Errors
+    /// Returns a decode failure when the input is malformed or incomplete.
     ///
     /// # Safety
     /// The caller must provide an input index with at least one readable unit
@@ -154,6 +189,18 @@ impl Codec for FormUrlencodedCodec {
 
     /// Encodes one byte using form URL encoding.
     ///
+    /// # Parameters
+    /// - `value`: Byte to encode.
+    /// - `output`: Destination buffer.
+    /// - `output_index`: Index at which encoding begins.
+    ///
+    /// # Returns
+    /// The number of output bytes written.
+    ///
+    /// # Errors
+    /// This implementation does not fail when the caller satisfies the safety
+    /// preconditions.
+    ///
     /// # Safety
     /// The caller must provide enough writable output units for
     /// [`Self::encode_len`].
@@ -173,6 +220,17 @@ impl Codec for FormUrlencodedCodec {
     }
 
     /// Decodes one value after end of input has been confirmed.
+    ///
+    /// # Parameters
+    /// - `input`: Encoded input bytes.
+    /// - `input_index`: Index of the value to decode.
+    ///
+    /// # Returns
+    /// The decoded byte and the non-zero number of consumed input units.
+    ///
+    /// # Errors
+    /// Returns a decode failure when the input is malformed or incomplete at
+    /// end of input.
     ///
     /// # Safety
     /// The caller must provide an input index with at least one readable unit

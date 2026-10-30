@@ -16,7 +16,7 @@ use qubit_utils::nonzero;
 
 use crate::MiscCodecError;
 use crate::MiscCodecResult;
-use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
+use crate::misc_error::map_misc_decode_failure_with_consumed;
 
 /// Encodes and decodes one complete Base64 quantum.
 ///
@@ -109,6 +109,9 @@ impl Base64QuantumCodec {
 
 impl Default for Base64QuantumCodec {
     /// Creates a standard-alphabet Base64 quantum codec.
+    ///
+    /// # Returns
+    /// A codec configured to use the standard Base64 alphabet.
     #[inline]
     fn default() -> Self {
         Self::standard()

@@ -9,4 +9,3 @@
 
 mod c_string_literal_parse_context_tests;
 mod parse_error_tests;
-mod percent_encoding_mode_tests;

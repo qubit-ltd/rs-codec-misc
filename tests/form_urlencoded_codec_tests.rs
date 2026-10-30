@@ -30,7 +30,7 @@ fn test_form_urlencoded_codec_uses_plus_for_spaces() {
 #[test]
 fn test_form_urlencoded_codec_matches_whatwg_byte_serializer() {
     let codec = FormUrlencodedCodec::new();
-    let text = "*~-._!\'() +/\u{4e2d}";
+    let text = "*~-._!'() +/\u{4e2d}";
     let expected: String = form_urlencoded::byte_serialize(text.as_bytes()).collect();
 
     assert_eq!(expected, codec.encode(text));

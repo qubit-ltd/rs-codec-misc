@@ -5,19 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Shared codec error type.
+//! Error returned by codec operations when input cannot be encoded or decoded.
 
-use core::num::NonZeroUsize;
 use std::string::FromUtf8Error;
 
 use ::base64::DecodeError;
-use qubit_codec::DecodeFailure;
 use thiserror::Error;
 
 use crate::base64_error_kind::Base64ErrorKind;
-
-/// Result alias returned by codec operations.
-pub type MiscCodecResult<T> = Result<T, MiscCodecError>;
 
 /// Error returned by codec operations when input cannot be encoded or decoded.
 ///
@@ -136,13 +131,4 @@ impl From<DecodeError> for MiscCodecError {
             source,
         }
     }
-}
-
-/// Maps a malformed value to a decode failure with a known input width.
-#[inline]
-pub(crate) fn map_misc_decode_failure_with_consumed(
-    error: MiscCodecError,
-    consumed: NonZeroUsize,
-) -> DecodeFailure<MiscCodecError> {
-    DecodeFailure::invalid(error, consumed)
 }

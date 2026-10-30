@@ -9,6 +9,7 @@
 
 use std::error::Error;
 
+use base64::DecodeError;
 use qubit_codec_misc::Base64ErrorKind;
 use qubit_codec_misc::MiscCodecError;
 use qubit_codec_misc::MiscCodecResult;
@@ -60,7 +61,7 @@ fn test_misc_codec_error_display_messages_include_context() {
                 input_index: Some(0),
                 symbol: Some(b'@'),
                 input_length: None,
-                source: base64::DecodeError::InvalidByte(0, b'@'),
+                source: DecodeError::InvalidByte(0, b'@'),
             },
             "invalid Base64 input (InvalidByte): Invalid symbol 64, offset 0.",
         ),

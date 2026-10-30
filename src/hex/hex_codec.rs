@@ -83,6 +83,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// A shared reference to this codec's configuration, borrowed from `self`.
+    #[must_use = "inspect the configuration or retain the reference for later use"]
     #[inline]
     pub fn config(&self) -> &HexCodecConfig {
         &self.config
@@ -492,6 +493,7 @@ impl HexCodec {
     /// # Returns
     /// Index where the separator must start, or `text.len()` when only ignored
     /// trailing whitespace remains.
+    #[must_use]
     #[inline]
     fn next_separator_index(&self, text: &str, index: usize, separator: &str) -> usize {
         if separator.chars().all(|ch| ch.is_ascii_whitespace()) {
@@ -523,6 +525,7 @@ impl HexCodec {
     /// The current index when a configured per-byte prefix matches, otherwise
     /// the first non-ignored-whitespace index. A structural prefix takes
     /// precedence over whitespace skipping.
+    #[must_use]
     #[inline]
     fn next_byte_start(&self, text: &str, mut index: usize) -> usize {
         let prefix = self.config.byte_prefix.as_deref().filter(|prefix| !prefix.is_empty());
@@ -656,6 +659,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The next byte index that should be parsed.
+    #[must_use]
     #[inline]
     fn skip_ignored(&self, text: &str, mut index: usize) -> usize {
         while index < text.len() {
@@ -677,6 +681,7 @@ impl HexCodec {
     ///
     /// # Returns
     /// The next byte index after ignored ASCII whitespace.
+    #[must_use]
     #[inline]
     fn skip_ascii_whitespace(&self, text: &str, mut index: usize) -> usize {
         while self.config.ignore_ascii_whitespace && index < text.len() {
@@ -697,6 +702,7 @@ impl HexCodec {
     /// # Returns
     /// `true` when `text` starts with `prefix`, honoring the configured
     /// ASCII case sensitivity for decoding prefixes.
+    #[must_use]
     #[inline]
     fn starts_with_prefix(&self, text: &str, prefix: &str) -> bool {
         if !self.config.ignore_prefix_case {
@@ -711,6 +717,9 @@ impl HexCodec {
 
 impl Default for HexCodec {
     /// Creates a lowercase codec without prefix or separators.
+    ///
+    /// # Returns
+    /// A codec configured with lowercase digits and no formatting tokens.
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -721,7 +730,17 @@ impl ValueEncoder<[u8]> for HexCodec {
     type Error = MiscCodecError;
     type Output = String;
 
-    /// Encodes bytes into hexadecimal text.
+    /// Encodes the supplied bytes as lowercase or configured-case hexadecimal
+    /// text, including the codec's configured prefixes and separators.
+    ///
+    /// # Parameters
+    /// - `input`: Byte slice to encode.
+    ///
+    /// # Returns
+    /// The complete encoded hexadecimal string.
+    ///
+    /// # Errors
+    /// This implementation always succeeds and returns `Ok`.
     #[inline]
     fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(HexCodec::encode(self, input))
@@ -732,7 +751,18 @@ impl ValueDecoder<str> for HexCodec {
     type Error = MiscCodecError;
     type Output = Vec<u8>;
 
-    /// Decodes hexadecimal text into bytes.
+    /// Decodes hexadecimal text according to this codec's configured prefix,
+    /// separator, and whitespace rules.
+    ///
+    /// # Parameters
+    /// - `input`: Hexadecimal text to decode.
+    ///
+    /// # Returns
+    /// The decoded bytes when the input is valid.
+    ///
+    /// # Errors
+    /// Returns the parsing error when the input is malformed or violates the
+    /// configured formatting rules.
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         HexCodec::decode(self, input)
@@ -746,6 +776,7 @@ impl ValueDecoder<str> for HexCodec {
 ///
 /// # Returns
 /// Nibble value, or `None` when `ch` is not a hex digit.
+#[must_use]
 #[inline]
 pub(crate) fn hex_value(ch: char) -> Option<u8> {
     match ch {
@@ -835,6 +866,7 @@ fn read_required_hex_digit(text: &str, index: usize) -> MiscCodecResult<(usize, 
 /// The decoded byte.
 ///
 /// The callers validate both characters before constructing the pair.
+#[must_use]
 #[inline]
 fn decode_hex_pair(high_char: char, low_char: char) -> u8 {
     let high = hex_value(high_char).expect("validated hexadecimal digit");
@@ -862,6 +894,7 @@ fn push_hex_byte(byte: u8, uppercase: bool, output: &mut String) {
 ///
 /// # Returns
 /// Hexadecimal digit. Values above `0x0f` are masked to their low nibble.
+#[must_use]
 #[inline]
 pub(crate) fn hex_digit(value: u8, uppercase: bool) -> char {
     let digits = if uppercase {

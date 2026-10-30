@@ -11,6 +11,9 @@ use qubit_codec::Codec;
 use qubit_codec_misc::HexByteCodec;
 use qubit_codec_misc::MiscCodecError;
 
+use crate::invalid_consumed;
+use crate::invalid_source;
+
 #[test]
 fn test_hex_byte_codec_roundtrips_one_byte() {
     let mut codec = HexByteCodec::upper();
@@ -38,11 +41,11 @@ fn test_hex_byte_codec_reports_digit_positions() {
     let high_source = unsafe { Codec::decode(&mut codec, b"xf", 0) }.expect_err("invalid high hex digit should fail");
     let low_source = unsafe { Codec::decode(&mut codec, b"fx", 0) }.expect_err("invalid low hex digit should fail");
 
-    assert_eq!(Some(2), super::invalid_consumed(high_consumed));
-    assert_eq!(Some(2), super::invalid_consumed(low_consumed));
+    assert_eq!(Some(2), invalid_consumed(high_consumed));
+    assert_eq!(Some(2), invalid_consumed(low_consumed));
 
     assert!(matches!(
-        super::invalid_source(high_source),
+        invalid_source(high_source),
         MiscCodecError::InvalidDigit {
             radix: 16,
             index: 0,
@@ -50,7 +53,7 @@ fn test_hex_byte_codec_reports_digit_positions() {
         }
     ));
     assert!(matches!(
-        super::invalid_source(low_source),
+        invalid_source(low_source),
         MiscCodecError::InvalidDigit {
             radix: 16,
             index: 1,

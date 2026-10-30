@@ -14,10 +14,10 @@ use qubit_codec::DecodeFailure;
 use qubit_utils::nonzero;
 
 use crate::MiscCodecError;
-use crate::hex_codec::hex_digit;
-use crate::hex_codec::hex_value;
-use crate::hex_codec::invalid_hex_digit;
-use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
+use crate::hex::hex_digit;
+use crate::hex::hex_value;
+use crate::hex::invalid_hex_digit;
+use crate::misc_error::map_misc_decode_failure_with_consumed;
 
 /// Encodes and decodes one byte as two ASCII hexadecimal units.
 ///
