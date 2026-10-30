@@ -24,18 +24,31 @@ pub(crate) enum CStringLiteralParseContext<'a> {
 
 impl CStringLiteralParseContext<'_> {
     /// Tests whether parsing is for a complete text fragment.
+    #[must_use]
     #[inline]
     pub(crate) fn is_complete_text(self) -> bool {
         matches!(self, Self::CompleteText(_) | Self::EofBytes)
     }
 
     /// Tests whether parsing is for an open stream.
+    #[must_use]
     #[inline]
     pub(crate) fn is_streaming(self) -> bool {
         matches!(self, Self::StreamingBytes)
     }
 
     /// Builds the error for a trailing escape marker.
+    ///
+    /// # Parameters
+    ///
+    /// - `marker_index` is the byte offset of the trailing escape marker.
+    /// - `_available` is the visible byte count supplied by the parser; this
+    ///   helper currently does not use it to choose the error.
+    ///
+    /// # Returns
+    ///
+    /// A malformed-input error for complete input, or an incomplete-input
+    ///   error for an open stream.
     pub(crate) fn trailing_escape_error(self, marker_index: usize, _available: usize) -> ParseError {
         match self {
             Self::CompleteText(_) | Self::EofBytes => {
@@ -46,6 +59,17 @@ impl CStringLiteralParseContext<'_> {
     }
 
     /// Gets the source character at a byte index for diagnostics.
+    ///
+    /// # Parameters
+    ///
+    /// - `input` is the byte representation of the source being parsed.
+    /// - `index` is a valid byte index into `input`.
+    ///
+    /// # Returns
+    ///
+    /// The character beginning at `index`; byte contexts map that byte
+    ///   directly to a character.
+    #[must_use]
     pub(crate) fn source_character(self, input: &[u8], index: usize) -> char {
         match self {
             Self::CompleteText(text) => text
@@ -57,6 +81,11 @@ impl CStringLiteralParseContext<'_> {
     }
 
     /// Builds a raw source character rejection reason.
+    ///
+    /// # Returns
+    ///
+    /// A static explanation that distinguishes text input from byte input.
+    #[must_use]
     #[inline]
     pub(crate) fn raw_source_reason(self) -> &'static str {
         match self {
@@ -73,6 +102,19 @@ impl CStringLiteralParseContext<'_> {
     /// character boundary, so the fragment remains valid text without falling
     /// back to the entire remaining suffix. Byte contexts retain their bounded
     /// byte-to-character mapping.
+    ///
+    /// # Parameters
+    ///
+    /// - `input` is the byte representation of the source being parsed.
+    /// - `start` is the inclusive byte offset of the fragment.
+    /// - `end` is the exclusive byte offset of the fragment.
+    ///
+    /// # Returns
+    ///
+    /// An owned diagnostic fragment. `start` must be within the source byte
+    ///   slice; `end` is capped at its length, and text ranges are adjusted to
+    ///   a UTF-8 character boundary at the end.
+    #[must_use]
     pub(crate) fn escape_fragment(self, input: &[u8], start: usize, end: usize) -> String {
         match self {
             Self::CompleteText(text) => {

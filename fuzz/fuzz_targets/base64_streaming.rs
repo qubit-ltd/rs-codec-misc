@@ -22,7 +22,10 @@ use qubit_codec_misc::Base64Codec;
 
 const MAX_INPUT_LEN: usize = 4 * 1024;
 
-fn control(seed: &[u8], step: usize) -> u8 {
+/// Returns the deterministic control byte for a streaming step.
+///
+/// Empty seeds select zero; otherwise, the seed is reused cyclically.
+fn control_byte(seed: &[u8], step: usize) -> u8 {
     if seed.is_empty() { 0 } else { seed[step % seed.len()] }
 }
 
@@ -32,7 +35,7 @@ where
     T: Transcoder<Input = u8, Output = u8>,
 {
     assert_eq!(transcoder.reset(&mut [], 0)?, 0);
-    let prefix = usize::from(control(seed, 0) % 4);
+    let prefix = usize::from(control_byte(seed, 0) % 4);
     let mut source = vec![0xa5; prefix];
     source.extend_from_slice(input);
     let bound = transcoder
@@ -46,14 +49,14 @@ where
     let mut forced_capacity = None;
     for step in 0..input.len() * 4 + 64 {
         if forced_capacity.is_none() && visible < source.len() {
-            visible = (visible + 1 + usize::from(control(seed, step + 1) % 16)).min(source.len());
+            visible = (visible + 1 + usize::from(control_byte(seed, step + 1) % 16)).min(source.len());
         }
         let eof = visible == source.len();
-        let out_start = usize::from(control(seed, step + 2) % 4);
+        let out_start = usize::from(control_byte(seed, step + 2) % 4);
         let choices = [0, 1, 2, 3, 4, bound];
         let capacity = forced_capacity
             .take()
-            .unwrap_or(choices[usize::from(control(seed, step + 3)) % choices.len()]);
+            .unwrap_or(choices[usize::from(control_byte(seed, step + 3)) % choices.len()]);
         assert!(capacity <= bound);
         storage.fill(0xa5);
         let result = if eof {

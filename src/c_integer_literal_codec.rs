@@ -72,7 +72,18 @@ impl ValueDecoder<str> for CIntegerLiteralCodec {
     type Error = MiscCodecError;
     type Output = u64;
 
-    /// Decodes a C integer literal into a `u64`.
+    /// Decodes a complete C integer token into a `u64`.
+    ///
+    /// # Parameters
+    /// - `input`: C integer literal text.
+    ///
+    /// # Returns
+    /// The decoded unsigned integer.
+    ///
+    /// # Errors
+    /// Returns [`MiscCodecError::InvalidInput`] when the input is empty, lacks
+    /// digits, or overflows `u64`; returns [`MiscCodecError::InvalidDigit`]
+    /// when a character is not valid for the detected radix.
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         CIntegerLiteralCodec::decode(self, input)

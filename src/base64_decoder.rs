@@ -81,6 +81,15 @@ impl Base64Decoder {
     /// Creates a decoder for `config` in the uninitialized phase.
     ///
     /// Callers must reset the returned decoder before streaming.
+    ///
+    /// # Parameters
+    ///
+    /// - `config`: Alphabet and padding policy applied by the decoder.
+    ///
+    /// # Returns
+    ///
+    /// Returns an uninitialized decoder with the selected configuration.
+    #[inline]
     pub(crate) fn from_config(config: Base64Config) -> Self {
         Self {
             config,
@@ -92,6 +101,12 @@ impl Base64Decoder {
     /// Creates a strict standard Base64 decoder with padding.
     ///
     /// The decoder requires `reset` before streaming and does not allocate.
+    ///
+    /// # Returns
+    ///
+    /// Returns an uninitialized decoder using the standard alphabet and
+    /// required padding.
+    #[inline]
     pub fn standard() -> Self {
         Self::from_config(Base64Config::Standard)
     }
@@ -99,6 +114,12 @@ impl Base64Decoder {
     /// Creates a strict standard Base64 decoder without padding.
     ///
     /// The decoder requires `reset` before streaming and does not allocate.
+    ///
+    /// # Returns
+    ///
+    /// Returns an uninitialized decoder using the standard alphabet without
+    /// required padding.
+    #[inline]
     pub fn standard_no_pad() -> Self {
         Self::from_config(Base64Config::StandardNoPad)
     }
@@ -106,6 +127,12 @@ impl Base64Decoder {
     /// Creates a strict URL-safe Base64 decoder with padding.
     ///
     /// The decoder requires `reset` before streaming and does not allocate.
+    ///
+    /// # Returns
+    ///
+    /// Returns an uninitialized decoder using the URL-safe alphabet and
+    /// required padding.
+    #[inline]
     pub fn url_safe() -> Self {
         Self::from_config(Base64Config::UrlSafe)
     }
@@ -113,6 +140,12 @@ impl Base64Decoder {
     /// Creates a strict URL-safe Base64 decoder without padding.
     ///
     /// The decoder requires `reset` before streaming and does not allocate.
+    ///
+    /// # Returns
+    ///
+    /// Returns an uninitialized decoder using the URL-safe alphabet without
+    /// required padding.
+    #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self::from_config(Base64Config::UrlSafeNoPad)
     }
@@ -124,6 +157,16 @@ impl Base64Decoder {
     ///
     /// Errors without a precise engine position use the start of the current
     /// segment, matching the existing decode error mapping.
+    ///
+    /// # Parameters
+    ///
+    /// - `source`: Engine error whose position is relative to the decoded
+    ///   segment.
+    /// - `segment_start`: Segment start in the current call's input slice.
+    ///
+    /// # Returns
+    ///
+    /// Returns the mapped error with the decoder moved to the poisoned phase.
     fn domain_error(&mut self, source: DecodeError, segment_start: usize) -> TranscodeDecodeError<MiscCodecError> {
         let relative = match &source {
             DecodeError::InvalidByte(index, _) => *index,
@@ -134,6 +177,40 @@ impl Base64Decoder {
         TranscodeDecodeError::domain_main(MiscCodecError::from(source), segment_start + relative)
     }
 
+    /// Decodes and commits one final or partial Base64 quantum.
+    ///
+    /// The decoded bytes are copied only after the destination capacity is
+    /// confirmed, so a capacity failure leaves the input position and padding
+    /// state unchanged.
+    fn decode_quantum(
+        &mut self,
+        input: &[u8],
+        input_index: usize,
+        output: &mut [u8],
+        output_index: usize,
+        take: usize,
+    ) -> Result<Result<(usize, usize), usize>, TranscodeDecodeError<MiscCodecError>> {
+        let segment = &input[input_index..input_index + take];
+        let mut scratch = [0; 3];
+        let written = match self.config.engine().decode_slice(segment, &mut scratch) {
+            Ok(written) => written,
+            Err(DecodeSliceError::DecodeError(source)) => {
+                return Err(self.domain_error(source, input_index));
+            }
+            // A Base64 quantum can produce at most three bytes.
+            Err(DecodeSliceError::OutputSliceTooSmall) => {
+                unreachable!("three-byte scratch holds one Base64 quantum")
+            }
+        };
+
+        if output.len() - output_index < written {
+            return Ok(Err(written));
+        }
+        output[output_index..output_index + written].copy_from_slice(&scratch[..written]);
+        self.terminal_padding = segment.contains(&b'=');
+        Ok(Ok((input_index + take, output_index + written)))
+    }
+
     /// Decodes one visible input segment, optionally treating its end as EOF.
     ///
     /// At EOF, a sufficiently large output buffer permits a whole-suffix
@@ -141,6 +218,30 @@ impl Base64Decoder {
     /// final quantum is handled separately. Errors can follow writes from
     /// earlier groups; a capacity failure on the final quantum leaves that
     /// quantum unconsumed and its decoder state uncommitted.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Visible encoded input.
+    /// - `input_index`: Absolute position where this call begins reading.
+    /// - `output`: Destination for decoded bytes.
+    /// - `output_index`: Absolute position where this call begins writing.
+    /// - `eof`: Whether the caller has confirmed that the input source ended.
+    ///
+    /// # Returns
+    ///
+    /// Returns progress relative to the supplied indices when decoding can
+    /// continue or the visible input is complete.
+    ///
+    /// # Errors
+    ///
+    /// Returns invalid-index or lifecycle errors before decoding, and mapped
+    /// domain errors for invalid Base64 input. A domain error may follow bytes
+    /// written by earlier groups and poisons the decoder.
+    ///
+    /// # Panics
+    ///
+    /// Internal assertions rely on non-empty valid Base64 quanta producing
+    /// output and on the checked decode bound covering the engine estimate.
     fn decode_segment(
         &mut self,
         input: &[u8],
@@ -224,30 +325,18 @@ impl Base64Decoder {
             }
 
             let take = remaining.min(4);
-            let segment = &input[i..i + take];
-            let mut scratch = [0; 3];
-            let written = match self.config.engine().decode_slice(segment, &mut scratch) {
-                Ok(written) => written,
-                Err(DecodeSliceError::DecodeError(source)) => {
-                    return Err(self.domain_error(source, i));
-                }
-                // A Base64 quantum can produce at most three bytes.
-                Err(DecodeSliceError::OutputSliceTooSmall) => {
-                    unreachable!("three-byte scratch holds one Base64 quantum")
+            let (next_i, next_o) = match self.decode_quantum(input, i, output, o, take)? {
+                Ok(indices) => indices,
+                Err(written) => {
+                    return Ok(TranscodeProgress::need_output(
+                        NonZeroUsize::new(written).expect("valid nonempty quantum produces bytes"),
+                        i - input_index,
+                        o - output_index,
+                    ));
                 }
             };
-
-            if output.len() - o < written {
-                return Ok(TranscodeProgress::need_output(
-                    NonZeroUsize::new(written).expect("valid nonempty quantum produces bytes"),
-                    i - input_index,
-                    o - output_index,
-                ));
-            }
-            output[o..o + written].copy_from_slice(&scratch[..written]);
-            self.terminal_padding = segment.contains(&b'=');
-            i += take;
-            o += written;
+            i = next_i;
+            o = next_o;
         }
 
         Ok(TranscodeProgress::complete(i - input_index, o - output_index))
@@ -255,6 +344,7 @@ impl Base64Decoder {
 }
 
 impl Default for Base64Decoder {
+    #[inline]
     fn default() -> Self {
         Self::standard()
     }
@@ -269,6 +359,7 @@ impl Transcoder for Base64Decoder {
     type Output = u8;
     type Error = TranscodeDecodeError<MiscCodecError>;
 
+    #[inline]
     fn max_transcode_output_len(&self, input_len: usize) -> Result<usize, CapacityError> {
         base64_decode_bound(input_len)
     }

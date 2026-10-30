@@ -382,13 +382,13 @@ fn decode_complete_fragment_through_codec_trait(
     let bytes = input.as_bytes();
     let mut input_index = 0;
     while input_index < bytes.len() {
-        let (decoded, consumed) =
-            unsafe { Codec::decode_eof(codec, bytes, input_index) }.map_err(|failure| match failure {
-                DecodeFailure::Invalid { source, .. } => source,
-                DecodeFailure::Incomplete { .. } => {
-                    panic!("EOF-aware C string decode remained incomplete")
-                }
-            })?;
+        let result = unsafe { Codec::decode_eof(codec, bytes, input_index) };
+        let (decoded, consumed) = result.map_err(|failure| match failure {
+            DecodeFailure::Invalid { source, .. } => source,
+            DecodeFailure::Incomplete { .. } => {
+                panic!("EOF-aware C string decode remained incomplete")
+            }
+        })?;
         output.push(decoded);
         input_index += consumed.get();
     }

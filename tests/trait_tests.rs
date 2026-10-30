@@ -450,7 +450,10 @@ fn test_hex_adapter_encoder_retries_small_output() {
     let short = encoder.transcode(&[0, 0x1f], 1, &mut output[..2], 1).unwrap();
     assert_eq!(0, short.read());
     assert_eq!(0, short.written());
-    assert!(matches!(short.status(), TranscodeStatus::NeedOutput { required } if required.get() == 2));
+    assert!(matches!(
+        short.status(),
+        TranscodeStatus::NeedOutput { required } if required.get() == 2
+    ));
     assert_eq!([0xa5; 4], output);
     let done = encoder.transcode(&[0, 0x1f], 1, &mut output[..3], 1).unwrap();
     assert_eq!(1, done.read());
@@ -468,7 +471,10 @@ fn test_hex_adapter_decoder_preserves_incomplete_tail_and_eof() {
     let short = decoder.transcode(b"!1", 1, &mut output, 1).unwrap();
     assert_eq!(0, short.read());
     assert_eq!(0, short.written());
-    assert!(matches!(short.status(), TranscodeStatus::NeedInput { required } if required.get() == 2));
+    assert!(matches!(
+        short.status(),
+        TranscodeStatus::NeedInput { required } if required.get() == 2
+    ));
     assert_eq!([0xa5; 3], output);
     let done = decoder.transcode_eof(b"!1f", 1, &mut output, 1).unwrap();
     assert_eq!(2, done.read());
@@ -505,7 +511,10 @@ where
     let progress = decoder.transcode(b"!%A", 1, &mut output, 1).unwrap();
     assert_eq!(0, progress.read());
     assert_eq!(0, progress.written());
-    assert!(matches!(progress.status(), TranscodeStatus::NeedInput { required } if required.get() == 3));
+    assert!(matches!(
+        progress.status(),
+        TranscodeStatus::NeedInput { required } if required.get() == 3
+    ));
 
     let progress = decoder.transcode_eof(b"!%A0", 1, &mut output, 1).unwrap();
     assert_eq!(3, progress.read());

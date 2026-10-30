@@ -19,7 +19,7 @@ use crate::MiscCodecError;
 use crate::MiscCodecResult;
 use crate::internal::CStringLiteralParseContext;
 use crate::internal::ParseError;
-use crate::misc_codec_error::map_misc_decode_failure_with_consumed;
+use crate::misc_error::map_misc_decode_failure_with_consumed;
 
 const UPPER_HEX_DIGITS: [char; 16] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
@@ -596,6 +596,7 @@ fn parse_fixed_hex_escape_units(
 /// # Returns
 /// Decoded byte and consumed unit count. Values above `0o377` are truncated to
 /// their low byte to match the owned decoder.
+#[must_use]
 #[inline]
 fn parse_octal_escape_units(input: &[u8], marker_index: usize) -> (u8, usize) {
     let mut value = 0u16;
@@ -741,6 +742,7 @@ fn octal_value(character: char) -> Option<u8> {
 ///
 /// # Returns
 /// Uppercase hexadecimal digit.
+#[must_use]
 #[inline]
 fn uppercase_hex_digit(value: u8) -> char {
     UPPER_HEX_DIGITS[(value & 0x0f) as usize]
@@ -800,6 +802,7 @@ fn map_c_string_parse_error_to_decode_failure(
 /// # Returns
 /// A non-zero width clamped to the available input length, with a minimum of
 /// one to satisfy the decoding failure contract.
+#[must_use]
 #[inline]
 fn c_string_invalid_consumed(input: &[u8], index: usize) -> NonZeroUsize {
     let available = input.len().saturating_sub(index);

@@ -162,6 +162,8 @@ fn benchmark_base64_and_c_literals(c: &mut Criterion) {
     group.finish();
 }
 
+/// Encodes the input incrementally using fixed-size chunks and finishes the
+/// stream.
 fn base64_encode_chunks(encoder: &mut Base64Encoder, input: &[u8], output: &mut [u8], chunk_size: usize) -> usize {
     encoder.reset(&mut [], 0).expect("reset");
     let mut written = 0;
@@ -172,6 +174,8 @@ fn base64_encode_chunks(encoder: &mut Base64Encoder, input: &[u8], output: &mut 
     written + encoder.finish(output, written).expect("finish")
 }
 
+/// Decodes progressively visible input chunks and finishes after the final
+/// chunk.
 fn base64_decode_chunks(decoder: &mut Base64Decoder, input: &[u8], output: &mut [u8], chunk_size: usize) -> usize {
     decoder.reset(&mut [], 0).expect("reset");
     let mut cursor = 0;

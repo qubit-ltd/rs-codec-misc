@@ -135,6 +135,10 @@ impl Base64Codec {
     ///
     /// The returned encoder does not borrow this codec, uses fixed-size state,
     /// and must be reset before streaming.
+    ///
+    /// # Returns
+    /// An independent streaming encoder with the same alphabet and padding
+    /// policy.
     #[inline]
     pub fn encoder(&self) -> Base64Encoder {
         Base64Encoder::from_config(self.config)
@@ -144,6 +148,10 @@ impl Base64Codec {
     ///
     /// The returned decoder does not borrow this codec, uses fixed-size state,
     /// and must be reset before streaming.
+    ///
+    /// # Returns
+    /// An independent streaming decoder with the same alphabet and padding
+    /// policy.
     #[inline]
     pub fn decoder(&self) -> Base64Decoder {
         Base64Decoder::from_config(self.config)
@@ -162,7 +170,16 @@ impl ValueEncoder<[u8]> for Base64Codec {
     type Error = MiscCodecError;
     type Output = String;
 
-    /// Encodes bytes into Base64 text.
+    /// Encodes bytes into Base64 text without a fallible operation.
+    ///
+    /// # Parameters
+    /// - `input`: Bytes to encode.
+    ///
+    /// # Returns
+    /// Encoded Base64 text.
+    ///
+    /// # Errors
+    /// This implementation does not return an error.
     #[inline]
     fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(Base64Codec::encode(self, input))
@@ -173,7 +190,18 @@ impl ValueDecoder<str> for Base64Codec {
     type Error = MiscCodecError;
     type Output = Vec<u8>;
 
-    /// Decodes Base64 text into bytes.
+    /// Decodes Base64 text into bytes using this codec's alphabet and padding
+    /// policy.
+    ///
+    /// # Parameters
+    /// - `input`: Base64 text to decode.
+    ///
+    /// # Returns
+    /// Decoded bytes.
+    ///
+    /// # Errors
+    /// Returns [`MiscCodecError::InvalidBase64`] when the input is malformed
+    /// or violates this codec's alphabet or padding policy.
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         Base64Codec::decode(self, input)

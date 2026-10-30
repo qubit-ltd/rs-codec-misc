@@ -32,6 +32,8 @@ fuzz_target!(|data: &[u8]| {
     for chunk in payload.chunks_exact(3) {
         let expected = engine.encode(chunk);
         let mut encoded = [0u8; 4];
+        // SAFETY: `chunk` has exactly three bytes and `encoded` has room for
+        // the four units written by one quantum.
         let written = unsafe {
             Codec::encode(&mut codec, chunk.try_into().expect("chunk width"), &mut encoded, 0)
                 .expect("quantum encoding should succeed")
@@ -39,6 +41,8 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(4, written);
         assert_eq!(expected.as_bytes(), &encoded);
 
+        // SAFETY: `encoded` contains the four units written by the quantum
+        // encoder, so four units are readable from index zero.
         let (decoded, consumed) =
             unsafe { Codec::decode(&mut codec, &encoded, 0).expect("encoded quantum should decode") };
         assert_eq!(chunk, decoded);
@@ -51,7 +55,8 @@ fuzz_target!(|data: &[u8]| {
         } else {
             engine.decode(window).ok().filter(|bytes| bytes.len() == 3)
         };
-        // SAFETY: every window contains the four units required by this codec.
+        // SAFETY: every window contains the four units required by this codec,
+        // so four units are readable from index zero.
         let actual = unsafe { Codec::decode(&mut codec, window, 0) };
         match expected {
             Some(expected) => {

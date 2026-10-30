@@ -71,6 +71,10 @@ impl Drop for CountingGuard {
     }
 }
 
+/// Runs an operation while counting allocations on the current thread.
+///
+/// The guard stops counting even if the operation unwinds.
+#[must_use]
 fn measured<T>(operation: impl FnOnce() -> T) -> (T, usize) {
     COUNTING.with(|enabled| assert!(!enabled.get(), "no nested measurements"));
     ALLOCATIONS.with(|count| count.set(0));

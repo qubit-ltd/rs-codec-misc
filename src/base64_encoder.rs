@@ -97,6 +97,7 @@ impl Base64Encoder {
     /// Creates an encoder for `config` in the uninitialized phase.
     ///
     /// Callers must reset the returned encoder before streaming.
+    #[inline]
     pub(crate) fn from_config(config: Base64Config) -> Self {
         Self {
             config,
@@ -109,6 +110,7 @@ impl Base64Encoder {
     /// Creates a strict standard Base64 encoder with padding.
     ///
     /// The encoder requires `reset` before streaming and does not allocate.
+    #[inline]
     pub fn standard() -> Self {
         Self::from_config(Base64Config::Standard)
     }
@@ -116,6 +118,7 @@ impl Base64Encoder {
     /// Creates a strict standard Base64 encoder without padding.
     ///
     /// The encoder requires `reset` before streaming and does not allocate.
+    #[inline]
     pub fn standard_no_pad() -> Self {
         Self::from_config(Base64Config::StandardNoPad)
     }
@@ -123,6 +126,7 @@ impl Base64Encoder {
     /// Creates a strict URL-safe Base64 encoder with padding.
     ///
     /// The encoder requires `reset` before streaming and does not allocate.
+    #[inline]
     pub fn url_safe() -> Self {
         Self::from_config(Base64Config::UrlSafe)
     }
@@ -130,12 +134,14 @@ impl Base64Encoder {
     /// Creates a strict URL-safe Base64 encoder without padding.
     ///
     /// The encoder requires `reset` before streaming and does not allocate.
+    #[inline]
     pub fn url_safe_no_pad() -> Self {
         Self::from_config(Base64Config::UrlSafeNoPad)
     }
 }
 
 impl Default for Base64Encoder {
+    #[inline]
     fn default() -> Self {
         Self::standard()
     }

@@ -34,6 +34,7 @@ pub(crate) enum Base64Config {
 
 impl Base64Config {
     /// Returns the static engine for this configuration.
+    #[inline]
     pub(crate) fn engine(self) -> &'static GeneralPurpose {
         match self {
             Self::Standard => &STANDARD_ENGINE,
@@ -44,12 +45,14 @@ impl Base64Config {
     }
 
     /// Returns whether this configuration requires padding for partial groups.
+    #[inline]
     pub(crate) fn padded(self) -> bool {
         matches!(self, Self::Standard | Self::UrlSafe)
     }
 }
 
 /// Returns a checked upper bound for encoding `n` bytes.
+#[inline]
 pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 3)
         .checked_add(usize::from(!n.is_multiple_of(3)))
@@ -58,6 +61,7 @@ pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
 }
 
 /// Returns a checked upper bound for decoding `n` Base64 bytes.
+#[inline]
 pub(crate) fn base64_decode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 4)
         .checked_add(usize::from(!n.is_multiple_of(4)))

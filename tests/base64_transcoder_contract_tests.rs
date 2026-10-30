@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use base64::DecodeError;
 use qubit_codec::CapacityError;
 use qubit_codec::TranscodeDecodeError;
 use qubit_codec::TranscodeDecoder;
@@ -18,7 +19,10 @@ use qubit_codec_misc::Base64Encoder;
 use qubit_codec_misc::Base64ErrorKind;
 use qubit_codec_misc::MiscCodecError;
 
+/// Checks at compile time that the encoder exposes the expected byte types.
 fn require_encoder<T: TranscodeEncoder<Input = u8, Output = u8>>(_: &T) {}
+
+/// Checks at compile time that the decoder exposes the expected byte types.
 fn require_decoder<T: TranscodeDecoder<Input = u8, Output = u8>>(_: &T) {}
 
 #[test]
@@ -57,6 +61,8 @@ fn test_base64_transcoder_encode_bound_distinguishes_main_and_total_overflow() {
     );
 }
 
+/// Drives one input segment until the decoder reaches an input or output
+/// boundary.
 fn drive_decode_segment(
     decoder: &mut Base64Decoder,
     input: &[u8],
@@ -180,6 +186,7 @@ fn test_base64_transcoder_decode_every_split_and_small_output() {
     }
 }
 
+/// Encodes a segment, retrying with the encoder-reported quantum capacity.
 fn drive_encode_segment(encoder: &mut Base64Encoder, input: &[u8], first_capacity: usize, encoded: &mut Vec<u8>) {
     let mut cursor = 0;
     let mut capacity = first_capacity;
@@ -244,7 +251,7 @@ fn test_base64_transcoder_complete_preflight_preserves_existing_stream() {
     let error = encoder.transcode_complete_into(b"a", &mut short).unwrap_err();
     assert!(matches!(
         error.failure_ref(),
-        Some(qubit_codec::TranscodeFailure::InsufficientOutput {
+        Some(TranscodeFailure::InsufficientOutput {
             required: 8,
             available: 7,
             ..
@@ -262,7 +269,7 @@ fn test_base64_transcoder_complete_preflight_preserves_existing_stream() {
     let error = decoder.transcode_complete_into(b"M", &mut too_small).unwrap_err();
     assert!(matches!(
         error.failure_ref(),
-        Some(qubit_codec::TranscodeFailure::InsufficientOutput { .. })
+        Some(TranscodeFailure::InsufficientOutput { .. })
     ));
     assert_eq!(too_small, [0xa5; 2]);
     let error = decoder.transcode(b"TWFu", 0, &mut [0; 3], 0).unwrap_err();
@@ -313,8 +320,8 @@ fn test_base64_transcoder_structured_errors_report_positions_and_source() {
     assert_eq!(error.domain_error_ref().and_then(|e| e.input_index()), Some(6));
     let source = std::error::Error::source(domain).unwrap();
     assert_eq!(
-        source.downcast_ref::<base64::DecodeError>(),
-        Some(&base64::DecodeError::InvalidByte(0, b'@'))
+        source.downcast_ref::<DecodeError>(),
+        Some(&DecodeError::InvalidByte(0, b'@'))
     );
     assert!(
         decoder
@@ -343,8 +350,8 @@ fn test_base64_transcoder_structured_errors_report_positions_and_source() {
     assert_eq!(error.domain_error_ref().and_then(|e| e.input_index()), Some(6));
     let source = std::error::Error::source(domain).unwrap();
     assert_eq!(
-        source.downcast_ref::<base64::DecodeError>(),
-        Some(&base64::DecodeError::InvalidByte(4, b'@'))
+        source.downcast_ref::<DecodeError>(),
+        Some(&DecodeError::InvalidByte(4, b'@'))
     );
 
     let mut invalid_length = Base64Decoder::standard();
@@ -388,6 +395,8 @@ fn test_base64_encoder_need_output_uses_advanced_output_position() {
     }
 }
 
+/// Decodes progressively revealed chunks, preserving decoder state between
+/// them.
 fn decode_long_chunks(
     decoder: &mut Base64Decoder,
     input: &[u8],

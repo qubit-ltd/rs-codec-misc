@@ -7,6 +7,9 @@
 // =============================================================================
 //! Tests for Base64 encoding variants.
 
+use std::error::Error;
+
+use base64::DecodeError;
 use qubit_codec::ValueDecoder;
 use qubit_codec::ValueEncoder;
 use qubit_codec_misc::Base64Codec;
@@ -155,10 +158,10 @@ fn test_base64_facades_preserve_invalid_padding_source() {
                 ..
             }
         ));
-        let source = std::error::Error::source(&error).expect("invalid padding should retain its dependency source");
+        let source = Error::source(&error).expect("invalid padding should retain its dependency source");
         assert_eq!(
-            Some(&base64::DecodeError::InvalidPadding),
-            source.downcast_ref::<base64::DecodeError>(),
+            Some(&DecodeError::InvalidPadding),
+            source.downcast_ref::<DecodeError>(),
             "{name} source error"
         );
     }
@@ -208,10 +211,10 @@ fn test_decode_rejects_invalid_base64() {
             ..
         }
     ));
-    let source = std::error::Error::source(&error).expect("Base64 error should retain its dependency source");
+    let source = Error::source(&error).expect("Base64 error should retain its dependency source");
     assert_eq!(
-        Some(&base64::DecodeError::InvalidByte(0, b'@')),
-        source.downcast_ref::<base64::DecodeError>()
+        Some(&DecodeError::InvalidByte(0, b'@')),
+        source.downcast_ref::<DecodeError>()
     );
 }
 
