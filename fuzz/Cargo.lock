@@ -16,9 +16,9 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "cc"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877bf67ac8e52449eb2f9e98a344ea163beb70dd1f9eebe3cc5357dcfeaee4df"
+checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -101,9 +101,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-codec"
-version = "0.17.0"
+version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f58b5436807beeab95fef99586f12feb3f3ce2ae3a963a5b4a5ace52ce71b42"
+checksum = "0e81b1f38615a1b0c2dcbd58d8b849241995a286ce33075b085c0df755c611f4"
 dependencies = [
  "qubit-utils",
  "thiserror",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-codec-misc"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "base64",
  "percent-encoding",
@@ -133,9 +133,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-utils"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9da2a76c1f983bc036d4135036db57f9d066c6fd6e8cdfbfacee72de4e2309"
+checksum = "0488fb46cb58bfc4f4237a9b15889e6cb2700ad68dc65837e82e6c3f2c5d571e"
 
 [[package]]
 name = "quote"
