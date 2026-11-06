@@ -34,6 +34,10 @@ pub enum Base64ErrorKind {
 
 impl Base64ErrorKind {
     /// Classifies a Base64 dependency error without discarding its source.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` is the decoding error whose category is classified.
     #[inline]
     pub(crate) const fn from_decode_error(error: &DecodeError) -> Self {
         match error {
@@ -45,6 +49,10 @@ impl Base64ErrorKind {
     }
 
     /// Returns the input offset carried by this Base64 error, when available.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` is the decoding error to inspect.
     #[inline]
     pub(crate) const fn input_index(error: &DecodeError) -> Option<usize> {
         match error {
@@ -54,6 +62,10 @@ impl Base64ErrorKind {
     }
 
     /// Returns the invalid symbol carried by this Base64 error, when present.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` is the decoding error to inspect.
     #[inline]
     pub(crate) const fn symbol(error: &DecodeError) -> Option<u8> {
         match error {
@@ -64,6 +76,10 @@ impl Base64ErrorKind {
 
     /// Returns the invalid input length carried by this Base64 error, when
     /// present.
+    ///
+    /// # Parameters
+    ///
+    /// * `error` is the decoding error to inspect.
     #[inline]
     pub(crate) const fn input_length(error: &DecodeError) -> Option<usize> {
         match error {

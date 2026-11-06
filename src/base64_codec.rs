@@ -44,6 +44,10 @@ pub struct Base64Codec {
 }
 
 impl PartialEq for Base64Codec {
+    /// Compares codecs by their alphabet and padding configuration.
+    ///
+    /// # Parameters
+    /// - `other`: Codec configuration to compare with this one.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
@@ -167,7 +171,10 @@ impl Default for Base64Codec {
 }
 
 impl ValueEncoder<[u8]> for Base64Codec {
+    /// The encoding operation is infallible for byte slices.
     type Error = MiscCodecError;
+
+    /// Encoded Base64 text.
     type Output = String;
 
     /// Encodes bytes into Base64 text without a fallible operation.
@@ -187,7 +194,10 @@ impl ValueEncoder<[u8]> for Base64Codec {
 }
 
 impl ValueDecoder<str> for Base64Codec {
+    /// Decoding failures are reported as Base64 codec errors.
     type Error = MiscCodecError;
+
+    /// Decoded bytes.
     type Output = Vec<u8>;
 
     /// Decodes Base64 text into bytes using this codec's alphabet and padding

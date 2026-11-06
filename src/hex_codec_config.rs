@@ -44,6 +44,10 @@ pub struct HexCodecConfig {
 
 impl HexCodecConfig {
     /// Creates a lowercase configuration without prefixes or separators.
+    ///
+    /// # Returns
+    /// A configuration with lowercase encoding and all optional formatting
+    /// tokens disabled.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -57,6 +61,9 @@ impl HexCodecConfig {
     }
 
     /// Returns whether encoded digits use uppercase characters.
+    ///
+    /// # Returns
+    /// `true` if uppercase hexadecimal digits are used during encoding.
     #[must_use]
     #[inline]
     pub fn is_uppercase(&self) -> bool {
@@ -94,6 +101,9 @@ impl HexCodecConfig {
     }
 
     /// Returns whether ASCII whitespace is ignored while decoding.
+    ///
+    /// # Returns
+    /// `true` if ASCII whitespace is skipped during decoding.
     #[must_use]
     #[inline]
     pub fn ignores_ascii_whitespace(&self) -> bool {
@@ -101,6 +111,9 @@ impl HexCodecConfig {
     }
 
     /// Returns whether configured prefixes are matched case-insensitively.
+    ///
+    /// # Returns
+    /// `true` if ASCII letter case is ignored when matching prefixes.
     #[must_use]
     #[inline]
     pub fn ignores_prefix_case(&self) -> bool {
@@ -209,6 +222,12 @@ impl HexCodecConfig {
 }
 
 impl Default for HexCodecConfig {
+    /// Creates the default lowercase configuration without prefixes or
+    /// separators.
+    ///
+    /// # Returns
+    /// A configuration with lowercase encoding and all optional formatting
+    /// tokens disabled.
     #[inline]
     fn default() -> Self {
         Self::new()

@@ -15,7 +15,7 @@ use crate::internal::ParseError;
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum CStringLiteralParseContext<'a> {
     /// Parsing a complete UTF-8 literal fragment.
-    CompleteText(&'a str),
+    CompleteText(#[doc = "The complete UTF-8 source, used to preserve character boundaries in diagnostics."] &'a str),
     /// Parsing one byte value after EOF has been confirmed.
     EofBytes,
     /// Parsing one byte unit for a streaming codec caller.

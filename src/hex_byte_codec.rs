@@ -72,6 +72,15 @@ impl HexByteCodec {
     }
 
     /// Sets whether encoded digits should be uppercase.
+    ///
+    /// # Parameters
+    ///
+    /// - `uppercase`: Whether alphabetic hexadecimal digits are emitted in
+    ///   uppercase.
+    ///
+    /// # Returns
+    ///
+    /// The updated codec, allowing further configuration before use.
     #[must_use]
     #[inline]
     pub const fn with_uppercase(mut self, uppercase: bool) -> Self {
@@ -81,9 +90,17 @@ impl HexByteCodec {
 }
 
 impl Codec for HexByteCodec {
+    /// A single byte decoded from the hexadecimal representation.
     type Value = u8;
+
+    /// An ASCII byte used as one encoded hexadecimal digit.
     type Unit = u8;
+
+    /// The codec error reported when either input digit is invalid.
     type DecodeError = MiscCodecError;
+
+    /// The codec error type required by the trait; this implementation does
+    /// not produce encoding errors for byte values.
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 2;

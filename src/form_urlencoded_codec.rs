@@ -91,7 +91,13 @@ impl FormUrlencodedCodec {
 }
 
 impl ValueEncoder<str> for FormUrlencodedCodec {
+    /// Errors produced while converting an encoded value.
+    ///
+    /// Form URL encoding accepts every UTF-8 string, so this implementation
+    /// does not produce an error.
     type Error = MiscCodecError;
+
+    /// Owned form-url-encoded text produced from the input string.
     type Output = String;
 
     /// Encodes text, using `+` for spaces.
@@ -111,7 +117,10 @@ impl ValueEncoder<str> for FormUrlencodedCodec {
 }
 
 impl ValueDecoder<str> for FormUrlencodedCodec {
+    /// Errors produced when the encoded value is malformed or not valid UTF-8.
     type Error = MiscCodecError;
+
+    /// Owned UTF-8 text produced from a successfully decoded input string.
     type Output = String;
 
     /// Decodes form-url-encoded text.
@@ -132,9 +141,16 @@ impl ValueDecoder<str> for FormUrlencodedCodec {
 }
 
 impl Codec for FormUrlencodedCodec {
+    /// A decoded or encoded value is one input byte.
     type Value = u8;
+
+    /// The encoded representation is stored in byte units.
     type Unit = u8;
+
+    /// Errors raised when an encoded byte sequence cannot be decoded.
     type DecodeError = MiscCodecError;
+
+    /// Errors raised when a value cannot be encoded.
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 1;

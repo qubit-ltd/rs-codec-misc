@@ -182,6 +182,23 @@ impl Base64Decoder {
     /// The decoded bytes are copied only after the destination capacity is
     /// confirmed, so a capacity failure leaves the input position and padding
     /// state unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Encoded input containing the quantum to decode.
+    /// - `input_index`: Start of the quantum in `input`.
+    /// - `output`: Destination buffer for decoded bytes.
+    /// - `output_index`: Start of the writable region in `output`.
+    /// - `take`: Number of input bytes in this quantum.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next input and output indices when decoded bytes fit, or the
+    /// required output capacity when they do not.
+    ///
+    /// # Errors
+    ///
+    /// Returns the mapped Base64 decoding error when the quantum is invalid.
     fn decode_quantum(
         &mut self,
         input: &[u8],
@@ -344,6 +361,7 @@ impl Base64Decoder {
 }
 
 impl Default for Base64Decoder {
+    /// Creates an uninitialized decoder using the strict standard alphabet.
     #[inline]
     fn default() -> Self {
         Self::standard()
@@ -351,19 +369,53 @@ impl Default for Base64Decoder {
 }
 
 impl TranscodeDecoder for Base64Decoder {
+    /// Domain error type produced when Base64 input cannot be decoded.
     type DecodeError = MiscCodecError;
 }
 
 impl Transcoder for Base64Decoder {
+    /// Encoded input element type.
     type Input = u8;
+    /// Decoded output element type.
     type Output = u8;
+    /// Errors produced by invalid input or invalid stream state.
     type Error = TranscodeDecodeError<MiscCodecError>;
 
+    /// Returns a checked upper bound for decoding `input_len` encoded bytes.
+    ///
+    /// # Parameters
+    ///
+    /// - `input_len`: Number of encoded input bytes to decode.
+    ///
+    /// # Returns
+    ///
+    /// Returns the maximum number of decoded bytes required for that input
+    /// length.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CapacityError`] when the output bound overflows `usize`.
     #[inline]
     fn max_transcode_output_len(&self, input_len: usize) -> Result<usize, CapacityError> {
         base64_decode_bound(input_len)
     }
 
+    /// Starts a fresh stream and clears terminal-padding state.
+    ///
+    /// # Parameters
+    ///
+    /// - `output`: Output buffer available to the reset phase.
+    /// - `output_index`: Starting position in `output`; must not exceed its
+    ///   length.
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of output elements written during reset (zero).
+    ///
+    /// # Errors
+    ///
+    /// Returns an invalid-output-index error when `output_index` exceeds the
+    /// buffer length.
     fn reset(&mut self, output: &mut [u8], output_index: usize) -> Result<usize, Self::Error> {
         TranscodeFailure::ensure_output_index(output.len(), output_index)?;
         self.phase = Base64StreamPhase::Active;
@@ -371,6 +423,27 @@ impl Transcoder for Base64Decoder {
         Ok(0)
     }
 
+    /// Decodes the visible input without treating its end as source EOF.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Visible encoded bytes; unconsumed bytes must be supplied
+    ///   again on a later call.
+    /// - `input_index`: Starting position in `input`; must not exceed its
+    ///   length.
+    /// - `output`: Destination buffer for decoded bytes.
+    /// - `output_index`: Starting position in `output`; must not exceed its
+    ///   length.
+    ///
+    /// # Returns
+    ///
+    /// Returns progress describing consumed input, written output, and whether
+    /// more input or output capacity is needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns invalid-index or lifecycle errors, or a Base64 domain error
+    /// for invalid input. A domain error poisons the stream until reset.
     fn transcode(
         &mut self,
         input: &[u8],
@@ -381,6 +454,28 @@ impl Transcoder for Base64Decoder {
         self.decode_segment(input, input_index, output, output_index, false)
     }
 
+    /// Decodes input after the caller has confirmed source EOF.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Visible encoded bytes, including any previously unconsumed
+    ///   tail.
+    /// - `input_index`: Starting position in `input`; must not exceed its
+    ///   length.
+    /// - `output`: Destination buffer for decoded bytes.
+    /// - `output_index`: Starting position in `output`; must not exceed its
+    ///   length.
+    ///
+    /// # Returns
+    ///
+    /// Returns progress describing consumed input, written output, and whether
+    /// more output capacity is needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns invalid-index or lifecycle errors, or a Base64 domain error
+    /// for invalid or incomplete EOF input. A domain error poisons the stream
+    /// until reset.
     fn transcode_eof(
         &mut self,
         input: &[u8],
@@ -391,6 +486,22 @@ impl Transcoder for Base64Decoder {
         self.decode_segment(input, input_index, output, output_index, true)
     }
 
+    /// Marks a successfully decoded stream as finished.
+    ///
+    /// # Parameters
+    ///
+    /// - `output`: Output buffer available to the finish phase.
+    /// - `output_index`: Starting position in `output`; must not exceed its
+    ///   length.
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of output elements written during finish (zero).
+    ///
+    /// # Errors
+    ///
+    /// Returns an invalid-output-index error or a lifecycle error when the
+    /// stream is not ready to finish.
     fn finish(&mut self, output: &mut [u8], output_index: usize) -> Result<usize, Self::Error> {
         TranscodeFailure::ensure_output_index(output.len(), output_index)?;
         self.phase.ensure_finish()?;

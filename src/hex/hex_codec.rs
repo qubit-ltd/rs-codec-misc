@@ -727,7 +727,10 @@ impl Default for HexCodec {
 }
 
 impl ValueEncoder<[u8]> for HexCodec {
+    /// Error type used by the encoder contract; hexadecimal encoding itself
+    /// has no failure cases.
     type Error = MiscCodecError;
+    /// Complete hexadecimal representation of the supplied byte slice.
     type Output = String;
 
     /// Encodes the supplied bytes as lowercase or configured-case hexadecimal
@@ -748,7 +751,9 @@ impl ValueEncoder<[u8]> for HexCodec {
 }
 
 impl ValueDecoder<str> for HexCodec {
+    /// Error type returned when the input violates the configured hex syntax.
     type Error = MiscCodecError;
+    /// Decoded bytes, in the order represented by the input text.
     type Output = Vec<u8>;
 
     /// Decodes hexadecimal text according to this codec's configured prefix,

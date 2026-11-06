@@ -23,7 +23,12 @@ pub(crate) enum ParseError {
         required: NonZeroUsize,
     },
     /// The input is malformed.
-    Invalid(MiscCodecError),
+    ///
+    /// The contained error preserves the codec-specific reason for rejection.
+    Invalid(
+        /// The codec-specific error explaining why the input was rejected.
+        MiscCodecError,
+    ),
 }
 
 impl From<MiscCodecError> for ParseError {

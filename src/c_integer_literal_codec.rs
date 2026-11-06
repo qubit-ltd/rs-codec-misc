@@ -69,7 +69,10 @@ impl CIntegerLiteralCodec {
 }
 
 impl ValueDecoder<str> for CIntegerLiteralCodec {
+    /// Error returned when a C integer token is malformed or unsupported.
     type Error = MiscCodecError;
+
+    /// Unsigned integer produced by successfully decoding a C integer token.
     type Output = u64;
 
     /// Decodes a complete C integer token into a `u64`.

@@ -121,6 +121,10 @@ pub enum MiscCodecError {
 
 impl From<DecodeError> for MiscCodecError {
     /// Converts a Base64 decoding error and exposes its structured fields.
+    ///
+    /// # Parameters
+    ///
+    /// - `source`: The Base64 decoding error to convert.
     #[inline]
     fn from(source: DecodeError) -> Self {
         Self::InvalidBase64 {

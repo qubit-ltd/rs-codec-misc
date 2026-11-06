@@ -92,7 +92,13 @@ impl PercentCodec {
 }
 
 impl ValueEncoder<str> for PercentCodec {
+    /// Error type used when encoding a text value.
+    ///
+    /// Percent encoding accepts every UTF-8 input, so this implementation
+    /// does not produce an encoding error.
     type Error = MiscCodecError;
+
+    /// Owned percent-encoded text produced from the input.
     type Output = String;
 
     /// Encodes one text input using RFC 3986 percent encoding.
@@ -112,7 +118,13 @@ impl ValueEncoder<str> for PercentCodec {
 }
 
 impl ValueDecoder<str> for PercentCodec {
+    /// Error type used when decoding percent-encoded text.
+    ///
+    /// Errors report malformed escapes or decoded bytes that are not valid
+    /// UTF-8.
     type Error = MiscCodecError;
+
+    /// Owned UTF-8 text produced by a successful decode.
     type Output = String;
 
     /// Decodes one percent-encoded UTF-8 text input.
@@ -133,9 +145,16 @@ impl ValueDecoder<str> for PercentCodec {
 }
 
 impl Codec for PercentCodec {
+    /// Logical byte value represented by each decoded codec value.
     type Value = u8;
+
+    /// Byte unit used by the encoded representation.
     type Unit = u8;
+
+    /// Error reported when encoded bytes cannot be decoded as one value.
     type DecodeError = MiscCodecError;
+
+    /// Error type for encoding; this codec can encode every byte.
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 1;

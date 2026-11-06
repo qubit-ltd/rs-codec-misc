@@ -52,6 +52,19 @@ impl Base64Config {
 }
 
 /// Returns a checked upper bound for encoding `n` bytes.
+///
+/// # Parameters
+///
+/// * `n` - Number of input bytes to encode.
+///
+/// # Returns
+///
+/// The maximum encoded length, including padding when needed.
+///
+/// # Errors
+///
+/// Returns [`CapacityError::OutputLengthOverflow`] if the bound cannot be
+/// represented by `usize`.
 #[inline]
 pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 3)
@@ -61,6 +74,19 @@ pub(crate) fn base64_encode_bound(n: usize) -> Result<usize, CapacityError> {
 }
 
 /// Returns a checked upper bound for decoding `n` Base64 bytes.
+///
+/// # Parameters
+///
+/// * `n` - Number of encoded input bytes.
+///
+/// # Returns
+///
+/// The maximum decoded length for the supplied encoded length.
+///
+/// # Errors
+///
+/// Returns [`CapacityError::OutputLengthOverflow`] if the bound cannot be
+/// represented by `usize`.
 #[inline]
 pub(crate) fn base64_decode_bound(n: usize) -> Result<usize, CapacityError> {
     (n / 4)

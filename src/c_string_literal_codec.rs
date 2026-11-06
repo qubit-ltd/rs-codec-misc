@@ -128,10 +128,19 @@ impl CStringLiteralCodec {
 }
 
 impl ValueEncoder<[u8]> for CStringLiteralCodec {
+    /// Error type used when encoding fails; the current encoder is infallible.
     type Error = MiscCodecError;
+
+    /// Owned textual fragment produced by encoding the input bytes.
     type Output = String;
 
     /// Encodes bytes into a C string literal fragment.
+    ///
+    /// # Parameters
+    /// - `input`: Raw bytes to encode.
+    ///
+    /// # Returns
+    /// The encoded fragment without surrounding quotes.
     #[inline]
     fn encode(&mut self, input: &[u8]) -> Result<Self::Output, Self::Error> {
         Ok(CStringLiteralCodec::encode(self, input))
@@ -139,10 +148,22 @@ impl ValueEncoder<[u8]> for CStringLiteralCodec {
 }
 
 impl ValueDecoder<str> for CStringLiteralCodec {
+    /// Error type reported for malformed C string literal fragments.
     type Error = MiscCodecError;
+
+    /// Owned raw bytes decoded from the input fragment.
     type Output = Vec<u8>;
 
     /// Decodes a C string literal fragment into bytes.
+    ///
+    /// # Parameters
+    /// - `input`: Encoded fragment without surrounding quotes.
+    ///
+    /// # Returns
+    /// The decoded raw bytes on success.
+    ///
+    /// # Errors
+    /// Returns the codec error describing the malformed fragment.
     #[inline]
     fn decode(&mut self, input: &str) -> Result<Self::Output, Self::Error> {
         CStringLiteralCodec::decode(self, input)
@@ -150,9 +171,16 @@ impl ValueDecoder<str> for CStringLiteralCodec {
 }
 
 impl Codec for CStringLiteralCodec {
+    /// Raw byte represented by one encoded unit or escape fragment.
     type Value = u8;
+
+    /// Encoded input and output units are bytes.
     type Unit = u8;
+
+    /// Error type reported while decoding one fragment.
     type DecodeError = MiscCodecError;
+
+    /// Error type reported while encoding one byte; encoding is infallible.
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 1;
@@ -161,6 +189,12 @@ impl Codec for CStringLiteralCodec {
     const MAX_DECODE_UNITS_PER_VALUE: usize = 10;
 
     /// Returns the exact C string literal width for one byte.
+    ///
+    /// # Parameters
+    /// - `value`: Byte whose encoded width is measured.
+    ///
+    /// # Returns
+    /// Number of output units required to encode `value`.
     #[inline]
     fn encode_len(&self, value: &u8) -> usize {
         encoded_byte_len(*value)
@@ -171,6 +205,17 @@ impl Codec for CStringLiteralCodec {
     /// # Safety
     /// The caller must provide an input index with at least one readable unit
     /// and a slice satisfying the codec trait's decode preconditions.
+    ///
+    /// # Parameters
+    /// - `input`: Encoded byte units to read.
+    /// - `input_index`: Index of the next encoded fragment.
+    ///
+    /// # Returns
+    /// The decoded byte and number of consumed units.
+    ///
+    /// # Errors
+    /// Returns a decoding failure for malformed input or an incomplete
+    /// streaming escape.
     #[inline]
     unsafe fn decode(
         &mut self,
@@ -193,6 +238,16 @@ impl Codec for CStringLiteralCodec {
     /// # Safety
     /// The caller must provide an input index with at least one readable unit
     /// and a slice satisfying the codec trait's EOF decode preconditions.
+    ///
+    /// # Parameters
+    /// - `input`: Encoded byte units to read after EOF is confirmed.
+    /// - `input_index`: Index of the next encoded fragment.
+    ///
+    /// # Returns
+    /// The decoded byte and number of consumed units.
+    ///
+    /// # Errors
+    /// Returns a decoding failure when the EOF-confirmed fragment is malformed.
     #[inline]
     unsafe fn decode_eof(
         &mut self,
@@ -213,6 +268,17 @@ impl Codec for CStringLiteralCodec {
     /// # Safety
     /// The caller must provide enough writable output units for
     /// [`Self::encode_len`].
+    ///
+    /// # Parameters
+    /// - `value`: Byte to encode.
+    /// - `output`: Destination unit buffer.
+    /// - `output_index`: Start index in `output`.
+    ///
+    /// # Returns
+    /// Number of output units written.
+    ///
+    /// # Errors
+    /// This implementation does not return an error for a valid output buffer.
     #[inline]
     unsafe fn encode(
         &mut self,

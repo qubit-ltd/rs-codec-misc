@@ -119,9 +119,13 @@ impl Default for Base64QuantumCodec {
 }
 
 impl Codec for Base64QuantumCodec {
+    /// Raw value represented by one complete Base64 quantum.
     type Value = [u8; 3];
+    /// Encoded unit used by the Base64 alphabet.
     type Unit = u8;
+    /// Error reported when an encoded unit is outside the selected alphabet.
     type DecodeError = MiscCodecError;
+    /// Error type exposed by the codec's encoding operation.
     type EncodeError = MiscCodecError;
 
     const MIN_UNITS_PER_VALUE: usize = 4;

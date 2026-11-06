@@ -97,6 +97,14 @@ impl Base64Encoder {
     /// Creates an encoder for `config` in the uninitialized phase.
     ///
     /// Callers must reset the returned encoder before streaming.
+    ///
+    /// # Parameters
+    ///
+    /// - `config`: Selects the Base64 alphabet and padding policy.
+    ///
+    /// # Returns
+    ///
+    /// An encoder in the uninitialized phase, with no retained input bytes.
     #[inline]
     pub(crate) fn from_config(config: Base64Config) -> Self {
         Self {
@@ -141,6 +149,9 @@ impl Base64Encoder {
 }
 
 impl Default for Base64Encoder {
+    /// Creates the default strict standard Base64 encoder with padding.
+    ///
+    /// The encoder must be reset before streaming.
     #[inline]
     fn default() -> Self {
         Self::standard()
@@ -148,22 +159,62 @@ impl Default for Base64Encoder {
 }
 
 impl TranscodeEncoder for Base64Encoder {
+    /// The encoder cannot fail while converting an input byte.
     type EncodeError = Infallible;
 }
 
 impl Transcoder for Base64Encoder {
+    /// Base64 encoding consumes bytes.
     type Input = u8;
+    /// Base64 encoding produces bytes.
     type Output = u8;
+    /// Reports streaming state or output-capacity failures; encoding itself is
+    /// infallible.
     type Error = TranscodeEncodeError<Infallible, u8>;
 
+    /// Returns an upper bound for encoding `input_len` input bytes.
+    ///
+    /// # Parameters
+    ///
+    /// - `input_len`: Number of input bytes to encode.
+    ///
+    /// # Returns
+    ///
+    /// The maximum encoded length, or a capacity error if that length
+    /// overflows.
     fn max_transcode_output_len(&self, input_len: usize) -> Result<usize, CapacityError> {
         crate::internal::base64_encode_bound(input_len)
     }
 
+    /// Returns the maximum output needed to encode the retained final bytes.
+    ///
+    /// # Returns
+    ///
+    /// Four bytes for padded output, or three bytes for unpadded output.
+    ///
+    /// # Errors
+    ///
+    /// This method always returns `Ok`; its constant bound cannot overflow.
     fn max_finish_output_len(&self) -> Result<usize, CapacityError> {
         Ok(if self.config.padded() { 4 } else { 3 })
     }
 
+    /// Starts a new stream and validates the output position.
+    ///
+    /// Any bytes retained from an earlier stream are discarded.
+    ///
+    /// # Parameters
+    ///
+    /// - `output`: Caller-owned output storage; it is not modified.
+    /// - `output_index`: Position at which subsequent output will be written.
+    ///
+    /// # Returns
+    ///
+    /// Zero bytes written.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `output_index` is outside `output`.
     fn reset(&mut self, output: &mut [u8], output_index: usize) -> Result<usize, Self::Error> {
         TranscodeFailure::ensure_output_index(output.len(), output_index)?;
         self.tail = [0; 2];
@@ -172,6 +223,28 @@ impl Transcoder for Base64Encoder {
         Ok(0)
     }
 
+    /// Encodes complete Base64 quanta and retains up to two trailing bytes.
+    ///
+    /// Retained bytes count as consumed; resuming must use the returned input
+    /// position so those bytes are not submitted twice. On output pressure,
+    /// continue with the reported indices and sufficient output capacity.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Caller-owned input bytes.
+    /// - `input_index`: Position of the first input byte to consume.
+    /// - `output`: Caller-owned destination storage.
+    /// - `output_index`: Position of the first output byte to write.
+    ///
+    /// # Returns
+    ///
+    /// Progress containing the input consumed, output written, and whether
+    /// more output capacity is required.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid indices or when the stream has not been
+    /// reset or has already been finished.
     fn transcode(
         &mut self,
         input: &[u8],
@@ -234,6 +307,21 @@ impl Transcoder for Base64Encoder {
         Ok(TranscodeProgress::complete(i - input_index, o - output_index))
     }
 
+    /// Encodes any retained final bytes and marks the stream as finished.
+    ///
+    /// # Parameters
+    ///
+    /// - `output`: Caller-owned destination storage.
+    /// - `output_index`: Position at which final encoded bytes are written.
+    ///
+    /// # Returns
+    ///
+    /// The number of bytes written for the final partial quantum.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid output index, insufficient capacity, or
+    /// a stream that was not reset or was already finished.
     fn finish(&mut self, output: &mut [u8], output_index: usize) -> Result<usize, Self::Error> {
         TranscodeFailure::ensure_output_index(output.len(), output_index)?;
         self.phase.ensure_finish()?;

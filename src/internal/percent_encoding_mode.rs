@@ -18,6 +18,10 @@ pub(crate) enum PercentEncodingMode {
 
 impl PercentEncodingMode {
     /// Tests whether a byte may be emitted literally.
+    ///
+    /// # Parameters
+    ///
+    /// - `byte`: The byte to check against this mode's unescaped character set.
     #[must_use]
     #[inline]
     pub(crate) fn is_unescaped(self, byte: u8) -> bool {
@@ -46,6 +50,10 @@ impl PercentEncodingMode {
     }
 
     /// Tests whether a byte is encoded as a form plus sign.
+    ///
+    /// # Parameters
+    ///
+    /// - `byte`: The byte to check for form-urlencoded space handling.
     #[must_use]
     #[inline]
     pub(crate) fn is_space_plus(self, byte: u8) -> bool {
