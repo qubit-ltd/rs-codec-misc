@@ -302,26 +302,9 @@ impl Codec for CStringLiteralCodec {
 /// - `output`: Destination string.
 #[inline]
 fn push_encoded_byte(byte: u8, output: &mut String) {
-    match byte {
-        b'\'' => output.push_str("\\'"),
-        b'"' => output.push_str("\\\""),
-        b'?' => output.push_str("\\?"),
-        b'\\' => output.push_str("\\\\"),
-        0x07 => output.push_str("\\a"),
-        0x08 => output.push_str("\\b"),
-        0x0c => output.push_str("\\f"),
-        b'\n' => output.push_str("\\n"),
-        b'\r' => output.push_str("\\r"),
-        b'\t' => output.push_str("\\t"),
-        0x0b => output.push_str("\\v"),
-        b' '..=b'~' => output.push(byte as char),
-        _ => {
-            output.push('\\');
-            output.push('x');
-            output.push(uppercase_hex_digit(byte >> 4));
-            output.push(uppercase_hex_digit(byte & 0x0f));
-        }
-    }
+    let mut encoded = [0_u8; 4];
+    let written = write_encoded_byte(byte, &mut encoded, 0);
+    output.extend(encoded[..written].iter().copied().map(char::from));
 }
 
 /// Decodes one byte-oriented C string literal fragment from `input`.
